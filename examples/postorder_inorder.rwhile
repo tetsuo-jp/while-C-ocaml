@@ -1,0 +1,19 @@
+(* cf. Chen and Udding, Program inversion: More than fun!, 1990, p.7 
+ * Generating postorder and inorder traversals of a binary tree
+ *)
+read R;
+  T ^= (('dummy.'dummy).nil);  (* Set terminater of tree list *)
+  from =? POST nil  (* POST = nil, IN = nil *)
+  loop  if =? (=? R nil) nil then
+          cons L (cons D R) <= R;
+          D' ^= D;             (* Duplicate a node element *)
+          POST <= cons D POST;
+          T <= cons (cons D' L) T
+        else
+          cons (cons D R) T <= T;
+          IN <= cons D IN
+        fi =? (hd (hd T)) (hd POST)
+  until =? (tl T) R;           (* Are T and R empty? *)
+  T ^= (('dummy.'dummy).nil);  (* Clear T *)
+  OUT <= cons POST IN;
+write OUT

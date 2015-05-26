@@ -1,0 +1,238 @@
+(*
+ * A linear-time self-interpreter for R-WHILE-M (M >= 75).
+ * R-WHILE-M is r-Turing complete.
+ *)
+
+macro LOOKUP(Vl,J,X)
+  AUX(Vl,J,Y);
+  X ^= Y;
+  INV-AUX(Vl,J,Y)   (* clear T *)
+
+macro UPDATE(Vl,J,X)
+  AUX(Vl,J,Y);
+  Y ^= X;
+  INV-AUX(Vl,J,Y)   (* clear T *)
+
+macro AUX(Vl,J,X)
+  from (=? JJ nil) loop
+    cons U Vl <= Vl;
+    Vr <= cons U Vr;
+    JJ <= cons nil JJ  (* JJ := JJ + 1 *)
+  until (=? JJ J);
+  cons Y T <= Vl
+
+macro EVAL-EXP-STEP(Cd,Cd',St,H)
+cons (cons ETag EArg) Cd <= Cd;
+if =? ETag 'var then
+ LOOKUP(Vl,EArg,V); St <= cons V St
+else
+ if =? ETag 'val then
+  V ^= EArg; St <= cons V St
+ else
+  if =? ETag 'cons then
+   ETag ^= 'cons; ETag ^= 'consB; cons E1 E2 <= EArg;  Cd <= cons E1 (cons E2 (cons ('consE.nil) Cd))
+  else
+   if =? ETag 'consE then
+    ETag ^= 'consE; ETag ^= 'cons;  cons E2 (cons E1 (cons ('consB.nil) Cd')) <= Cd';  cons V2 (cons V1 St) <= St;
+    St <= cons (cons V1 V2) St; EArg <= cons E1 E2
+   else
+    if =? ETag 'hd then
+     ETag ^= 'hd; ETag ^= 'hdB; Cd <= cons EArg (cons ('hdE.nil) Cd)
+    else
+     if =? ETag 'hdE then
+      ETag ^= 'hdE; ETag ^= 'hd;  cons EArg (cons ('hdB.nil) Cd') <= Cd';  cons (cons V1 V2) St <= St;
+      St <= cons V1 St; H <= cons V2 H
+     else
+      if =? ETag 'tl then
+       ETag ^= 'tl; ETag ^= 'tlB;  Cd <= cons EArg (cons ('tlE.nil) Cd)
+      else
+       if =? ETag 'tlE then
+        ETag ^= 'tlE; ETag ^= 'tl;  cons EArg (cons ('tlB.nil) Cd') <= Cd';  cons (cons V1 V2) St <= St;
+        St <= cons V2 St; H <= cons V1 H
+       else
+        if =? ETag 'eq then
+         ETag ^= 'eq; ETag ^= 'eqB;  cons E1 E2 <= EArg;  Cd <= cons E1 (cons E2 (cons ('eqE.nil) Cd))
+        else
+         if =? ETag 'eqE then
+          ETag ^= 'eqE; ETag ^= 'eq;  cons E2 (cons E1 (cons ('eqB.nil) Cd')) <= Cd';  cons V2 (cons V1 St) <= St;
+          EArg <= cons E1 E2; V ^= =? V1 V2; St <= cons V St; H <= cons V1 (cons V2 H)
+         else
+	  'error <= '0
+         fi =? ETag 'eq
+        fi =? ETag 'eqB
+       fi =? ETag 'tl
+      fi =? ETag 'tlB
+     fi =? ETag 'hd
+    fi =? ETag 'hdB
+   fi =? ETag 'cons
+  fi =? ETag 'consB
+ fi =? ETag 'val
+fi =? ETag 'var;
+Cd' <= cons (cons ETag EArg) Cd'
+
+macro EVAL-EXP(E,V,H)
+E <= cons E nil;
+from  =? E' nil loop
+  EVAL-EXP-STEP(E,E',St,H)
+until =? E  nil;
+cons E nil <= E';
+cons V nil <= St
+
+macro EVAL-PAT(R,St)
+R <= cons R nil;
+from (=? R' nil) loop
+  EVAL-PAT-STEP(R,R',St)
+until (=? R nil);
+cons R nil <= R'
+
+macro EVAL-PAT-STEP(R,R',St)
+cons (cons RTag RArg) R <= R;
+if =? RTag 'var then
+ LOOKUP(Vl,RArg,V); UPDATE(Vl,RArg,V); St <= cons V St
+else
+ if =? RTag 'val then
+  V ^= RArg; St <= cons V St
+ else
+  if =? RTag 'cons then
+   RTag ^= 'cons; RTag ^= 'consB;
+   cons E1 E2 <= RArg; R <= cons E1 (cons E2 (cons ('consE.nil) R))
+  else
+   if =? RTag 'consE then
+    RTag ^= 'consE; RTag ^= 'cons;
+    cons E2 (cons E1 (cons (cons 'consB nil) R')) <= R'; cons V2 (cons V1 St) <= St;
+    RArg <= cons E1 E2; St <= cons (cons V1 V2) St
+   else
+    'error <= '1
+   fi =? RTag 'cons
+  fi =? RTag 'consB
+ fi =? RTag 'val
+fi =? RTag 'var;
+R' <= cons (cons RTag RArg) R'
+
+macro STEP(Cd,Cd')
+cons (cons Tag Arg) Cd <= Cd;
+(* Assignment *)
+if =? Tag 'ass then
+  cons (cons 'var K) E <= Arg;
+  EVAL-EXP(E,V,H);     (* Set the value of E to V, the garbage values to H *)
+  UPDATE(Vl,K,V);         (* Reversible update of K-th elements of Vl by V *)
+  INV-EVAL-EXP(E,V,H); (* Clear V and H *)
+  Arg <= cons (cons 'var K) E
+else
+ (* Replacement *)
+ if =? Tag 'rep then
+  cons Q R <= Arg;
+  EVAL-PAT(R,St);
+  INV-EVAL-PAT(Q,St);
+  Arg <= cons Q R
+ else
+  (* Sequence *)
+  if =? Tag 'seq then
+   Tag ^= 'seq; Tag ^= 'seqB; cons C D <= Arg;
+   Cd <= cons C (cons D (cons (cons 'seqE nil) Cd))
+  else
+   if =? Tag 'seqE then
+    Tag ^= 'seqE; Tag ^= 'seq; cons D (cons C (cons ('seqB.nil) Cd')) <= Cd';
+    Arg <= cons C D
+   else
+    (* Conditional *)
+    if =? Tag 'cond then
+     Tag ^= 'cond; Tag ^= 'condB;
+     cons E (cons C (cons D (cons F nil))) <= Arg;
+     EVAL-EXP(E,V,H);         (* Set the value of E to V, the garbage values to H *)
+     W ^= V;
+     INV-EVAL-EXP(E,V,H);     (* Clear V and H *)
+     if W then Cd1 ^= C else Cd1 ^= D fi W;
+     Arg <= cons E (cons C (cons D (cons F nil)));
+     Cd <= cons Cd1 (cons (cons 'condE W) Cd)
+    else
+     if =? Tag 'condE then
+      Tag ^= 'condE; Tag ^= 'cond; cons Cd1 (cons (cons 'condB C') Cd') <= Cd';
+      cons E (cons C (cons D (cons F nil))) <= C';
+      if Arg then Cd1 ^= C else Cd1 ^= D fi Arg; (* clear Cd1 *)
+      C' <= cons E (cons C (cons D (cons F nil)));
+      cons E (cons C (cons D (cons F nil))) <= C';
+      EVAL-EXP(F,V,H);     (* Set the value of F to V, the garbage values to H *)
+      Arg ^= V;               (* Clear Arg *)
+      INV-EVAL-EXP(F,V,H); (* Clear V and H *)
+      Arg <= cons E (cons C (cons D (cons F nil)))
+     else
+      (* Loop. In the following, let C' be (E C D F) *)
+      if =? Tag 'l1E then
+       Tag ^= 'l1E; Tag ^= 'l2B;  cons W C' <= Arg; cons (cons 'l1B nil) Cd' <= Cd';
+       cons E (cons C (cons D (cons F nil))) <= C';
+       EVAL-EXP(E,V,H);     (* Set the value of E to V, the garbage values to H *)
+       W ^= V;                 (* Clear W *)
+       INV-EVAL-EXP(E,V,H); (* Clear V and H *)
+       CC ^= C;
+       Arg <= cons E (cons C (cons D (cons F nil)));
+       Cd <= cons CC (cons (cons 'l2E W) Cd)
+      else
+       if =? Tag 'l2E then
+        Tag ^= 'l2E; Tag ^= 'l3B;  W <= Arg; cons CC (cons (cons 'l2B C') Cd') <= Cd';
+        cons E (cons C (cons D (cons F nil))) <= C';
+        CC ^= C;
+        EVAL-EXP(F,V,H);     (* Set the value of F to V, the garbage values to H *)
+        W ^= V;                 (* Clear W *)
+        INV-EVAL-EXP(F,V,H); (* Clear V and H *)
+        C' <= cons E (cons C (cons D (cons F nil)));
+        Cd <= cons (cons 'l3E (cons W C')) Cd
+       else
+        Flag ^= =? Tag 'l4E; Flag ^= =? Tag 'loop;
+        if Flag then
+         Flag ^= (nil.nil);
+         if =? Tag 'l4E then
+          Tag ^= 'l4E; Tag ^= 'l1B;  cons DD (cons ('l4B.nil) Cd') <= Cd';
+	  cons E (cons C (cons D (cons F nil))) <= Arg;
+	  DD ^= D;
+          Arg <= cons E (cons C (cons D (cons F nil)));
+	  Flag ^= nil
+	 else
+          if =? Tag 'loop then
+           Tag ^= 'loop; Tag ^= 'l1B;
+	   Flag ^= (nil.nil)
+          else
+	   'error <= '3
+	  fi =? Tag 'l1B
+         fi =? Flag nil;
+         Cd <= cons (cons 'l1E (cons Flag Arg)) Cd
+        else
+         if =? Tag 'l3E then
+          Tag ^= 'l3E;  cons Flag C' <= Arg; cons ('l3B.nil) Cd' <= Cd';
+	  if Flag then
+	   Flag ^= (nil.nil); Tag ^= 'loop; Arg <= C'
+	  else
+	   Tag ^= 'l4B;
+	   cons E (cons C (cons D (cons F nil))) <= C';
+	   DD ^= D;
+           C' <= cons E (cons C (cons D (cons F nil)));
+	   Cd <= cons DD (cons (cons 'l4E C') Cd)
+	  fi =? Tag 'loop
+         else
+	  'error <= '4
+         fi =? nil nil
+        fi =? Tag 'l1B
+       fi =? Tag 'l3B
+      fi =? Tag 'l2B
+     fi =? Tag 'cond
+    fi =? Tag 'condB
+   fi =? Tag 'seq
+  fi =? Tag 'seqB
+ fi =? Tag 'rep
+fi =? Tag 'ass;
+Cd' <= cons (cons Tag Arg) Cd'
+
+
+read V;
+  cons (cons (cons 'var I') (cons Cd (cons 'var J'))) V <= V;
+  Vl ^= (nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.nil))))))))))))))))))))))))))))))))))))))))))))))))))))))))))));
+  UPDATE(Vl,I',V); LOOKUP(Vl,I',V);
+  Cd <= cons Cd nil;
+  from  (=? Cd' nil)
+  loop  STEP(Cd,Cd')
+  until (=? Cd nil);
+  cons Cd' nil <= Cd';
+  LOOKUP(Vl,J',V); UPDATE(Vl,J',V);
+  Vl ^= (nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.(nil.nil))))))))))))))))))))))))))))))))))))))))))))))))))))))))))));
+  V <= cons (cons (cons 'var I') (cons Cd' (cons 'var J'))) V;
+write V

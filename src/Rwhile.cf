@@ -1,0 +1,101 @@
+-------------------------------------------------------------------------------
+-- A grammer of R-WHILE
+-------------------------------------------------------------------------------
+--
+-- Variables   ∋ X, Y ::= X0 | X1 | ...
+-- Expressions ∋ E, F ::= X | d | cons E F | hd E | tl E | =? E F
+-- Patterns    ∋ Q, R ::= X | d | cons Q R
+-- Commands    ∋ C, D ::= X ^= E | Q <= R | C; D
+--                      | if E then C else D fi F | from E do C loop D until F
+-- Macro       ∋ M    ::= macro X ( X, ..., X ) C
+-- Programs    ∋ P    ::= M* read X; C; write Y
+--
+-------------------------------------------------------------------------------
+
+entrypoints Program, Val;
+
+
+-------------------------------------------------------------------------------
+-- Program
+-------------------------------------------------------------------------------
+
+Prog.  Program  ::= [Macro] "read" RIdent ";" Com ";" "write" RIdent;
+terminator Macro "" ;
+
+
+-------------------------------------------------------------------------------
+-- Macro
+-------------------------------------------------------------------------------
+
+Mac.   Macro ::= "macro" RIdent "(" [RIdent] ")" Com ;
+separator RIdent "," ;
+
+
+-------------------------------------------------------------------------------
+-- Command
+-------------------------------------------------------------------------------
+
+CSeq.  Com  ::= Com ";" Com1 ;                               -- Sequence
+CMac.  Com1 ::= RIdent "(" [RIdent] ")" ;                    -- Parameterized macro
+CAss.  Com1 ::= RIdent "^=" Exp ;                            -- Reversible assignment
+CRep.  Com1 ::= Pat "<=" Pat ;                               -- Reversible replacement
+CCond. Com1 ::= "if" Exp ThenBranch ElseBranch "fi" Exp ;    -- Reversible conditional
+CLoop. Com1 ::= "from" Exp DoBranch LoopBranch "until" Exp ; -- Reversible loop
+CShow. Com1 ::= "show" Exp ;                                 -- Show command (for debugging use)
+coercions Com 1;
+
+BThen.     ThenBranch ::= "then" Com ;
+BThenNone. ThenBranch ::= ;
+
+BElse.     ElseBranch ::= "else" Com ;
+BElseNone. ElseBranch ::= ;
+
+BDo.       DoBranch ::= "do" Com ;
+BDoNone.   DoBranch ::= ;
+
+BLoop.     LoopBranch ::= "loop" Com ;
+BLoopNone. LoopBranch ::= ;
+
+
+-------------------------------------------------------------------------------
+-- Expression
+-------------------------------------------------------------------------------
+
+ECons. Exp  ::= "cons" Exp1 Exp1 ;
+EHd.   Exp  ::= "hd" Exp1 ;
+ETl.   Exp  ::= "tl" Exp1 ;
+EEq.   Exp  ::= "=?" Exp1 Exp1 ;     -- Equality check
+EVar.  Exp1 ::= Variable ;
+EVal.  Exp1 ::= Val ;
+coercions Exp 1;
+
+
+-------------------------------------------------------------------------------
+-- Pattern
+-------------------------------------------------------------------------------
+
+PCons. Pat  ::= "cons" Pat1 Pat1 ;
+PVar.  Pat1 ::= Variable ;
+PVal.  Pat1 ::= Val ;
+coercions Pat 1;
+
+
+-------------------------------------------------------------------------------
+-- Value
+-------------------------------------------------------------------------------
+
+VNil.  Val  ::= "nil" ;
+VAtom. Val  ::= Atom ;          -- ex. 'a, 'loop
+VCons. Val  ::= "(" Val "." Val ")";
+
+
+-------------------------------------------------------------------------------
+-- Misc
+-------------------------------------------------------------------------------
+
+Var.   Variable  ::= RIdent;
+
+token RIdent upper (letter | digit | '-' | '\'')*;  -- ex. X, REVERSE, INV-REVERSE
+token Atom '\'' (digit | letter)+;                  -- ex. 'val, '32, 
+
+comment "(*" "*)" ;

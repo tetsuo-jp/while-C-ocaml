@@ -1,0 +1,3 @@
+read Y;
+  cons (cons 'a X3) (cons X1 X2) <= cons (cons 'a nil) (cons nil nil);
+write Y

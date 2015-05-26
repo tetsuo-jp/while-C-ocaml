@@ -1,0 +1,3 @@
+read Y;  (* inverse of reverse *)
+  X <= Y ;
+write X

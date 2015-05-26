@@ -1,0 +1,3 @@
+read Y;
+  X ^= nil;
+write Y
