@@ -38,4 +38,4 @@ uninstall:
 	rm -f ../../web/examples/*.val
 
 test: while
-	./while ../../examples/reverse.while ../../examples/list.val 
+	./while ../../examples/reverse.while ../../examples/list123.val 
