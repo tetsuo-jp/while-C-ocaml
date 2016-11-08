@@ -1,0 +1,6 @@
+read X;
+X := true;
+X := false;
+X := cons? Y;
+X := atom? Y;
+write X

@@ -1,0 +1,79 @@
+-------------------------------------------------------------------------------
+-- A grammer of WHILE
+-- p.29 (online version p.32)
+-- http://www.diku.dk/~neil/comp2book2007/book-whole.pdf
+-------------------------------------------------------------------------------
+--
+-- Variables   ∋ X, Y
+-- Expressions ∋ E, F ::= X | d | cons E F | hd E | tl E | =? E F
+-- Commands    ∋ C, D ::= X := E; | while E do { C* }
+-- Procedures  ∋ Proc ::= [procedure Id]? read X; C; write Y
+-- Programs    ∋ P    ::= [Proc]+
+--
+-------------------------------------------------------------------------------
+
+entrypoints Program, Val;
+
+
+-------------------------------------------------------------------------------
+-- Program
+-------------------------------------------------------------------------------
+
+Prog.   Program  ::= [Proc] ;
+AProc.  Proc ::= PNameOp "read" Ident ";" [Com] "write" Ident;
+Name.   PNameOp ::= "procedure" Ident ;
+NoName. PNameOp ::= ;
+separator Proc "" ;
+
+-------------------------------------------------------------------------------
+-- Command
+-------------------------------------------------------------------------------
+
+CAsn.  Com ::= Ident ":=" Exp ";" ;              -- Assignment
+CProc. Com ::= Ident ":=" Ident Ident ";" ;      -- Inline procedure expansion p.35
+CLoop. Com ::= "while" Exp "do" "{" [Com] "}" ;  -- While loop
+CShow. Com ::= "show" Exp ";" ;                  -- Show command (for debugging use)
+terminator Com "" ;
+layout "do" ;                                    -- Indentation pp.29-30
+
+
+-------------------------------------------------------------------------------
+-- Expression
+-------------------------------------------------------------------------------
+
+ECons.     Exp  ::= "cons" Exp1 Exp1 ;
+EConsp.    Exp  ::= "cons?" Ident ;         -- pp.32-33
+EAtomp.    Exp  ::= "atom?" Ident ;         -- pp.32-33
+EHd.       Exp  ::= "hd" Exp1 ;
+ETl.       Exp  ::= "tl" Exp1 ;
+EEq.       Exp  ::= "=?" Exp1 Exp1 ;        -- Equality check
+EListRep.  Exp  ::= "(" [Exp1] TailOp ")" ; -- p.33 Definition 2.1.7
+EVar.      Exp1 ::= Ident ;
+EVal.      Exp1 ::= Val ;
+EConsStar. Exp1 ::= "cons*" [Exp1] ;        -- p.35 cons*
+EList.     Exp1 ::= "list" [Exp1] ;        -- p.35 cons*
+coercions Exp 1;
+separator nonempty Exp1 "" ;
+
+Tail.   TailOp ::= "." Atom ;
+NoTail. TailOp ::= ;
+
+
+-------------------------------------------------------------------------------
+-- Value
+-------------------------------------------------------------------------------
+
+VNil.   Val  ::= "nil" ;
+VFalse. Val  ::= "false" ;	 -- p.32 Definition 2.1.5
+VTrue.  Val  ::= "true" ;	 -- p.32 Definition 2.1.5
+VAtom.  Val  ::= Atom ;          -- ex. 'a, 'loop
+VInt.   Val  ::= Integer ;        -- p.33-34 Numbers
+internal VCons. Val ::= "(" Val "." Val ")" ;
+
+-------------------------------------------------------------------------------
+-- Misc
+-------------------------------------------------------------------------------
+
+token Atom '\'' (digit | letter)+;                  -- ex. 'val, '32, 
+
+comment "(*" "*)" ;

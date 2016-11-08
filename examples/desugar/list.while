@@ -1,0 +1,8 @@
+read X;
+X := ('a);
+X := ('a 'b);
+X := ('a 'b 'c);
+X := ('a 'b 'c.'d);
+X := list 'a 'b 'c;
+X := cons* 'a 'b 'c;
+write Y

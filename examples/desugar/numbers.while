@@ -1,0 +1,4 @@
+read X;
+X := 0;
+X := 3;
+write Y

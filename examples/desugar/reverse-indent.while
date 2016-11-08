@@ -1,0 +1,9 @@
+(* Jones, N. D. (1997). Computability and Complexity: From a Programming Perspective.  *)
+(* p.30 (online p.33) Example 2.1.4 *)
+
+read X;
+  Y := nil;
+  while X do
+    Y := cons (hd X) Y;
+    X := tl X;
+write Y
