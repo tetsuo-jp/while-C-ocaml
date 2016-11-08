@@ -1,3 +1,0 @@
-read Y;
-  cons X nil <= cons Y nil;
-write X

@@ -1,2 +1,0 @@
-((('var . (nil . (nil . nil))) . (('seq . (('rep . (('cons . (('var . (nil . nil)) . ('var . (nil . (nil . nil))))) . ('var . (nil . (nil . nil))))) . ('rep . (('var . nil) . ('cons . (('var . (nil . nil)) . ('var . nil))))))) . ('var . nil))).
- ('a.nil))

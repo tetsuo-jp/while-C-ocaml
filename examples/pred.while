@@ -1,0 +1,6 @@
+(* Jones, N. D. (1997). Computability and Complexity: From a Programming Perspective.  *)
+(* p.34  *)
+
+read X;
+  Y := tl X;
+write Y
