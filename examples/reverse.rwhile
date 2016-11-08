@@ -1,7 +1,0 @@
-(* Reverse a given list *)
-read Y;
-    from  (=? X nil) loop
-        (cons Z Y) <= Y;
-        X <= (cons Z X)
-    until (=? Y nil);
-write X

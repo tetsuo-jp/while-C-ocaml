@@ -1,3 +1,0 @@
-read Y;
-  if Y fi Y;
-write Y

@@ -1,4 +1,0 @@
-read Y;
-  (cons Z Y) <= Y;
-  X <= (cons Z X);
-write X

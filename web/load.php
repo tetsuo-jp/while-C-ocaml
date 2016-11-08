@@ -10,7 +10,7 @@ if (!$hash) {
     exit;
 }
 
-$res = file_get_contents(dirname(__FILE__) . "/programs/$hash.rwhile");
+$res = file_get_contents(dirname(__FILE__) . "/programs/$hash.while");
 
 if ($res === FALSE) {
     header("HTTP/1.1 404 Not Found");
