@@ -1,0 +1,19 @@
+(* Jones, N. D. (1997). Computability and Complexity: From a Programming Perspective.  *)
+(* p.36 Inline procedure expansion *)
+
+procedure reverse
+read X;
+  Y := nil;
+  while X do
+    Y := cons (hd X) Y;
+    X := tl X;
+write Y
+
+read X;                 (* X is (d.e) *)
+  A := hd X;            (* A is d *)
+  Y := tl X;            (* Y is e *)
+  B := reverse A;       (* B becoms d reversed *)
+  while B do
+    Y := cons (hd B) Y;
+    B := tl B;
+write Y                 (* Y is A with B appended *)

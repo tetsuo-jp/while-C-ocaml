@@ -9,7 +9,7 @@ LexWhile.hs: LexWhile.x
 ParWhile.y LexWhile.x: While.cf
 	bnfc $<
 
-DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs TransWhile.hs
+DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs TransWhile.hs InlineWhile.hs
 	ghc --make $< -o $@
 
 clean:

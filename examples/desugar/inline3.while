@@ -1,0 +1,10 @@
+procedure aaa
+read A;
+  A := B;
+  C := D;
+  X := Y;
+write B
+
+read X;
+  Y := aaa X;
+write Y

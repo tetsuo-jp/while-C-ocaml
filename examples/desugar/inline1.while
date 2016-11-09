@@ -1,0 +1,20 @@
+(* Jones, N. D. (1997). Computability and Complexity: From a Programming Perspective.  *)
+(* p.35 Inline procedure expansion *)
+
+procedure succ
+read X;
+  Y := cons nil X;
+write Y
+
+procedure pred
+read X;
+  Y := tl X;
+write Y
+
+read X;
+  X := hd XY;
+  Y := tl XY;
+  while X do
+    Y := succ Y;
+    X := pred X;
+write Y

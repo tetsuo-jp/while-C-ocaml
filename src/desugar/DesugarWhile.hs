@@ -12,6 +12,7 @@ import PrintWhile
 import AbsWhile
 import LayoutWhile
 import TransWhile
+import InlineWhile
 
 
 import ErrM
@@ -25,10 +26,10 @@ type Verbosity = Int
 putStrV :: Verbosity -> String -> IO ()
 putStrV v s = if v > 1 then putStrLn s else return ()
 
-runFile :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> FilePath -> IO ()
+-- runFile :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> FilePath -> IO ()
 runFile v p f = putStrLn f >> readFile f >>= run v p
 
-run :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> String -> IO ()
+-- run :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> String -> IO ()
 run v p s = let ts = myLLexer s in case p ts of
            Bad s    -> do putStrLn "\nParse              Failed...\n"
                           putStrV v "Tokens:"
@@ -37,10 +38,16 @@ run v p s = let ts = myLLexer s in case p ts of
                           exitFailure
            Ok  tree -> do -- putStrLn "\nParse Successful!"
                           -- showTree v tree
-                          putStrV v $ printTree (trans tree)
+                          putStrV v $ printTree (extractMain (doInline (trans tree)))
 
                           exitSuccess
 
+-- 名前無しプロシージャを取り出す
+extractMain :: Program -> Program
+extractMain (Prog procs) = Prog (filter f procs)
+  where f (AProc pNameOp _ _ _) = case pNameOp of
+          Name ident -> False
+          NoName -> True
 
 showTree :: (Show a, Print a) => Int -> a -> IO ()
 showTree v tree

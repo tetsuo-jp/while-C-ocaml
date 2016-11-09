@@ -1,0 +1,16 @@
+procedure bbb
+read E;
+  X := Y;
+write F
+
+procedure aaa
+read A;
+  B := A;
+  C := D;
+  X := bbb Y;
+write B
+
+read X;
+  Y := aaa X;
+  X := aaa Y;
+write Y
