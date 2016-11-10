@@ -5,11 +5,14 @@ import Control.Monad.State
 import Data.List(insert)
 import Data.Maybe(fromMaybe)
 
-type VarsT a = State [String] a
-type Rename a = State ([(String,String)],Penv,Int) a
+
+------------------------------------------------------------------------------
+-- Inline procedure calls
+------------------------------------------------------------------------------
 
 -- mapping from procedure names to their bodies
 type Penv = [(String,(Ident,[Com],Ident))]
+type Rename a = State ([(String,String)],Penv,Int) a
 
 mkPenv :: Program -> Penv
 mkPenv (Prog procs) = f procs
@@ -93,11 +96,17 @@ inlineVal x = case x of
     VCons val1 val2 -> liftM2 VCons (inlineVal val1) (inlineVal val2)
     VInt n -> return $ foldr VCons VNil $ replicate (fromInteger n) VNil
 
+
+------------------------------------------------------------------------------
+-- 変数をリストに集める
+------------------------------------------------------------------------------
+
+type VarsT a = State [String] a
+
 pushS :: String -> VarsT ()
 pushS str = do seen <- get
                put (insert str seen)
 
--- 変数をリストに集める
 class Vars a where
   vars :: a -> VarsT a
 
@@ -162,3 +171,35 @@ instance Vars Val where
     VAtom atom -> liftM VAtom (vars atom)
     VCons val1 val2 -> liftM2 VCons (vars val1) (vars val2)
     VInt n -> return $ foldr VCons VNil $ replicate (fromInteger n) VNil
+
+
+------------------------------------------------------------------------------
+-- Expand if, PDF pp.34-35
+------------------------------------------------------------------------------
+
+type RenameIf a = State Int a
+
+expandIfProgram (Prog procs) = Prog (map expandIfProc procs)
+
+expandIfProc x = case x of
+    AProc pnameop ident1 coms ident2 ->
+      AProc pnameop ident1 (concatMap expandIfCom coms) ident2
+
+false = EVal VNil
+true = ECons (EVal VNil) (EVal VNil)
+
+expandIfCom x = case x of
+    CAsn ident exp -> [CAsn ident exp]
+    CProc ident1 ident2 ident3 -> [CProc ident1 ident2 ident3]
+    CLoop exp coms -> [CLoop exp (concatMap expandIfCom coms)]
+    CIf exp coms celseop -> 
+      case celseop of
+        ElseNone -> 
+          [CAsn (Ident "_Z") exp,
+           CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
+        ElseOne coms' ->
+          [CAsn (Ident "_Z") exp,
+           CAsn (Ident "_W") true,
+           CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms ++ [CAsn (Ident "_W") false]),
+           CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : coms')]
+    CShow exp -> [CShow exp]
