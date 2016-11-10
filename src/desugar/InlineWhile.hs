@@ -5,11 +5,14 @@ import Control.Monad.State
 import Data.List(insert)
 import Data.Maybe(fromMaybe)
 
-type VarsT a = State [String] a
-type Rename a = State ([(String,String)],Penv,Int) a
+
+------------------------------------------------------------------------------
+-- Inline procedure calls
+------------------------------------------------------------------------------
 
 -- mapping from procedure names to their bodies
 type Penv = [(String,(Ident,[Com],Ident))]
+type Rename a = State ([(String,String)],Penv,Int) a
 
 mkPenv :: Program -> Penv
 mkPenv (Prog procs) = f procs
@@ -93,11 +96,17 @@ inlineVal x = case x of
     VCons val1 val2 -> liftM2 VCons (inlineVal val1) (inlineVal val2)
     VInt n -> return $ foldr VCons VNil $ replicate (fromInteger n) VNil
 
+
+------------------------------------------------------------------------------
+-- 変数をリストに集める
+------------------------------------------------------------------------------
+
+type VarsT a = State [String] a
+
 pushS :: String -> VarsT ()
 pushS str = do seen <- get
                put (insert str seen)
 
--- 変数をリストに集める
 class Vars a where
   vars :: a -> VarsT a
 
@@ -162,3 +171,35 @@ instance Vars Val where
     VAtom atom -> liftM VAtom (vars atom)
     VCons val1 val2 -> liftM2 VCons (vars val1) (vars val2)
     VInt n -> return $ foldr VCons VNil $ replicate (fromInteger n) VNil
+
+
+------------------------------------------------------------------------------
+-- Expand if
+------------------------------------------------------------------------------
+
+type RenameIf a = State Int a
+
+class ExpandIf a where
+  expandIf :: a -> a
+
+instance ExpandIf Program where
+  expandIf (Prog procs) = Prog (map expandIf procs)
+
+instance ExpandIf Proc where
+  expandIf x = case x of
+    AProc pnameop ident1 coms ident2 ->
+      AProc pnameop (expandIf ident1) (map expandIf coms) (expandIf ident2)
+
+instance ExpandIf PNameOp where
+  expandIf x = case x of
+    Name ident -> Name ident
+    NoName -> NoName
+
+instance ExpandIf Com where
+  expandIf x = case x of
+    CAsn ident exp -> CAsn (expandIf ident) (expandIf exp)
+    CProc ident1 ident2 ident3 -> CProc (expandIf ident1) (expandIf ident2) (expandIf ident3)
+    CLoop exp coms -> CLoop (expandIf exp) (map expandIf coms)
+    CIf exp coms celseop -> case celseop of
+                              ElseNone -> 
+    CShow exp -> CShow (expandIf exp)

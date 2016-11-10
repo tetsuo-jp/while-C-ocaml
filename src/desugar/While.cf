@@ -32,9 +32,14 @@ separator Proc "" ;
 CAsn.  Com ::= Ident ":=" Exp ";" ;              -- Assignment
 CProc. Com ::= Ident ":=" Ident Ident ";" ;      -- Inline procedure expansion p.35
 CLoop. Com ::= "while" Exp "do" "{" [Com] "}" ;  -- While loop
+CIf.   Com ::= "if" Exp "then" "{" [Com] "}" CElseOp ;  -- Conditional
 CShow. Com ::= "show" Exp ";" ;                  -- Show command (for debugging use)
 terminator Com "" ;
 layout "do" ;                                    -- Indentation pp.29-30
+layout "then", "else" ;
+
+ElseNone. CElseOp ::= ;
+ElseOne.  CElseOp ::= "else" "{" [Com] "}" ;
 
 
 -------------------------------------------------------------------------------
