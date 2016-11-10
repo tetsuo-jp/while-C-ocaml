@@ -8,6 +8,11 @@
 *.cmxs
 *.cmxa
 
+# Haskell
+*.hi
+*.x
+*.y
+
 # ocamlbuild working directory
 _build/
 

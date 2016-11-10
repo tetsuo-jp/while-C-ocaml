@@ -179,27 +179,27 @@ instance Vars Val where
 
 type RenameIf a = State Int a
 
-class ExpandIf a where
-  expandIf :: a -> a
+-- class ExpandIf a where
+--   expandIf :: a -> a
 
-instance ExpandIf Program where
-  expandIf (Prog procs) = Prog (map expandIf procs)
+-- instance ExpandIf Program where
+--   expandIf (Prog procs) = Prog (map expandIf procs)
 
-instance ExpandIf Proc where
-  expandIf x = case x of
-    AProc pnameop ident1 coms ident2 ->
-      AProc pnameop (expandIf ident1) (map expandIf coms) (expandIf ident2)
+-- instance ExpandIf Proc where
+--   expandIf x = case x of
+--     AProc pnameop ident1 coms ident2 ->
+--       AProc pnameop (expandIf ident1) (map expandIf coms) (expandIf ident2)
 
-instance ExpandIf PNameOp where
-  expandIf x = case x of
-    Name ident -> Name ident
-    NoName -> NoName
+-- instance ExpandIf PNameOp where
+--   expandIf x = case x of
+--     Name ident -> Name ident
+--     NoName -> NoName
 
-instance ExpandIf Com where
-  expandIf x = case x of
-    CAsn ident exp -> CAsn (expandIf ident) (expandIf exp)
-    CProc ident1 ident2 ident3 -> CProc (expandIf ident1) (expandIf ident2) (expandIf ident3)
-    CLoop exp coms -> CLoop (expandIf exp) (map expandIf coms)
-    CIf exp coms celseop -> case celseop of
-                              ElseNone -> 
-    CShow exp -> CShow (expandIf exp)
+-- instance ExpandIf Com where
+--   expandIf x = case x of
+--     CAsn ident exp -> CAsn (expandIf ident) (expandIf exp)
+--     CProc ident1 ident2 ident3 -> CProc (expandIf ident1) (expandIf ident2) (expandIf ident3)
+--     CLoop exp coms -> CLoop (expandIf exp) (map expandIf coms)
+--     CIf exp coms celseop -> case celseop of
+--                               ElseNone -> 
+--     CShow exp -> CShow (expandIf exp)
