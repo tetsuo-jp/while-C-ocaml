@@ -174,32 +174,32 @@ instance Vars Val where
 
 
 ------------------------------------------------------------------------------
--- Expand if
+-- Expand if, PDF pp.34-35
 ------------------------------------------------------------------------------
 
 type RenameIf a = State Int a
 
--- class ExpandIf a where
---   expandIf :: a -> a
+expandIfProgram (Prog procs) = Prog (map expandIfProc procs)
 
--- instance ExpandIf Program where
---   expandIf (Prog procs) = Prog (map expandIf procs)
+expandIfProc x = case x of
+    AProc pnameop ident1 coms ident2 ->
+      AProc pnameop ident1 (concatMap expandIfCom coms) ident2
 
--- instance ExpandIf Proc where
---   expandIf x = case x of
---     AProc pnameop ident1 coms ident2 ->
---       AProc pnameop (expandIf ident1) (map expandIf coms) (expandIf ident2)
+false = EVal VNil
+true = ECons (EVal VNil) (EVal VNil)
 
--- instance ExpandIf PNameOp where
---   expandIf x = case x of
---     Name ident -> Name ident
---     NoName -> NoName
-
--- instance ExpandIf Com where
---   expandIf x = case x of
---     CAsn ident exp -> CAsn (expandIf ident) (expandIf exp)
---     CProc ident1 ident2 ident3 -> CProc (expandIf ident1) (expandIf ident2) (expandIf ident3)
---     CLoop exp coms -> CLoop (expandIf exp) (map expandIf coms)
---     CIf exp coms celseop -> case celseop of
---                               ElseNone -> 
---     CShow exp -> CShow (expandIf exp)
+expandIfCom x = case x of
+    CAsn ident exp -> [CAsn ident exp]
+    CProc ident1 ident2 ident3 -> [CProc ident1 ident2 ident3]
+    CLoop exp coms -> [CLoop exp (concatMap expandIfCom coms)]
+    CIf exp coms celseop -> 
+      case celseop of
+        ElseNone -> 
+          [CAsn (Ident "_Z") exp,
+           CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
+        ElseOne coms' ->
+          [CAsn (Ident "_Z") exp,
+           CAsn (Ident "_W") true,
+           CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms ++ [CAsn (Ident "_W") false]),
+           CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : coms')]
+    CShow exp -> [CShow exp]
