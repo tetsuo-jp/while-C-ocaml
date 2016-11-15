@@ -1,0 +1,3 @@
+read X;
+  Y := and X true;
+write Y

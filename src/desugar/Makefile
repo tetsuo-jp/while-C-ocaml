@@ -8,8 +8,9 @@ LexWhile.hs: LexWhile.x
 
 ParWhile.y LexWhile.x: While.cf
 	bnfc $<
+	touch $@
 
-DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs TransWhile.hs InlineWhile.hs
+DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs TransNumberWhile.hs TransPCallWhile.hs Lib.hs TransCaseWhile.hs TransAndWhile.hs
 	ghc --make $< -o $@
 
 clean:
@@ -22,3 +23,4 @@ test: DesugarWhile
 	./DesugarWhile ../../examples/desugar/reverse-indent.while
 	./DesugarWhile ../../examples/desugar/bool.while
 	./DesugarWhile ../../examples/desugar/list.while
+	./DesugarWhile ../../examples/desugar/and.while

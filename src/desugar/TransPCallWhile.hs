@@ -1,9 +1,10 @@
-module InlineWhile where
+module TransPCallWhile where
 
 import AbsWhile
 import Control.Monad.State
 import Data.List(insert)
 import Data.Maybe(fromMaybe)
+import Lib(true,false)
 
 
 ------------------------------------------------------------------------------
@@ -35,66 +36,46 @@ inlineIdent (Ident str) = do
 inlineAtom x = return x
 
 inlineProc (AProc pnameop ident1 coms ident2) =
-    do coms' <- inlineComs coms
+    do coms' <- mapM inlineCom coms
        return $ AProc pnameop ident1 coms' ident2
 
-inlinePNameOp x = case x of
-    Name ident -> liftM Name (inlineIdent ident)
-    NoName -> return NoName
-
-inlineComs :: [Com] -> Rename [Com]
-inlineComs [] = return []
-inlineComs (x:xs) = do
-    ys <- case x of
-      CAsn ident exp ->
-        do ident' <- inlineIdent ident
-           exp' <- inlineExp exp
-           return [CAsn ident' exp']
-      CProc (Ident s2) (Ident pname) (Ident s1) -> 
+inlineCom :: Com -> Rename Com
+inlineCom x = case x of
+      CAsn ident exp -> return $ CAsn ident exp
+      CProc (Ident s2) (Ident pname) (Ident s1) ->
         do (env,penv,n) <- get
            let Just (Ident s1',coms,Ident s2') = lookup pname penv
            let vs = execState (vars coms) []
            let env' = (s1',s1) : (s2',s2) : zip vs (map (++"'"++show n) vs)
            put (env',penv,n+1)
-           result <- inlineComs coms
+           result <- mapM inlineCom coms
            (_,_,n') <- get
            put (env,penv,n')
-           return result
-      CLoop exp coms -> 
-        do exp' <- inlineExp exp
-           coms' <- inlineComs coms
-           return [CLoop exp' coms']
-      CShow exp -> 
-        do exp' <- inlineExp exp
-           return [CShow exp']
-    xs' <- inlineComs xs
-    return (ys ++ xs')
+           return $ CBlk result
+      CLoop exp coms ->
+        do coms' <- mapM inlineCom coms
+           return $ CLoop exp coms'
+      CIf exp coms cElseOp ->
+        do coms' <- mapM inlineCom coms
+           cElseOp' <- inlineCElseOp cElseOp
+           return $ CIf exp coms' cElseOp'
+      CCase exp patComTs ->
+        do patComTs' <- mapM inlinePatComT patComTs
+           return $ CCase exp patComTs'
+      CBlk coms ->
+        do coms' <- mapM inlineCom coms
+           return $ CBlk coms'
+      CShow exp -> return (CShow exp)
 
-inlineExp x = case x of
-    ECons exp1 exp2 -> liftM2 ECons (inlineExp exp1) (inlineExp exp2)
-    EConsp ident -> do ident' <- inlineIdent ident
-                       let x = EVar ident'
-                       return $ EEq x (ECons (EHd x) (ETl x))
-    EAtomp ident -> liftM2 EEq (inlineExp (EVal VFalse)) (inlineExp (EConsp ident))
-    EHd exp -> liftM EHd (inlineExp exp)
-    ETl exp -> liftM ETl (inlineExp exp)
-    EEq exp1 exp2 -> liftM2 EEq (inlineExp exp1) (inlineExp exp2)
-    EListRep exps tl -> case tl of 
-      NoTail -> liftM (foldr ECons (EVal VNil)) (mapM inlineExp exps)
-      Tail atom -> do a <- inlineAtom atom
-                      liftM (foldr ECons (EVal (VAtom a))) (mapM inlineExp exps)
-    EVar ident -> liftM EVar (inlineIdent ident)
-    EVal val -> liftM EVal (inlineVal val)
-    EConsStar exps -> liftM (foldr1 ECons) $ mapM inlineExp exps
-    EList exps -> liftM (foldr ECons (EVal VNil)) $ mapM inlineExp exps
+inlinePatComT (PatCom pat com) = do
+  com' <- inlineCom com
+  return $ PatCom pat com'
 
-inlineVal x = case x of
-    VNil -> return VNil
-    VFalse -> return VNil
-    VTrue -> return $ VCons VNil VNil
-    VAtom atom -> liftM VAtom (inlineAtom atom)
-    VCons val1 val2 -> liftM2 VCons (inlineVal val1) (inlineVal val2)
-    VInt n -> return $ foldr VCons VNil $ replicate (fromInteger n) VNil
+inlineCElseOp :: CElseOp -> Rename CElseOp
+inlineCElseOp x = case x of
+  ElseNone -> return ElseNone
+  ElseOne coms -> do coms' <- mapM inlineCom coms
+                     return $ ElseOne coms'
 
 
 ------------------------------------------------------------------------------
@@ -147,9 +128,8 @@ instance Vars Com where
 instance Vars Exp where
   vars x = case x of
     ECons exp1 exp2 -> liftM2 ECons (vars exp1) (vars exp2)
-    EConsp ident -> do ident' <- vars ident
-                       let x = EVar ident'
-                       return $ EEq x (ECons (EHd x) (ETl x))
+    EConsp exp -> do exp' <- vars exp
+                     return $ EEq exp' (ECons (EHd exp') (ETl exp'))
     EAtomp ident -> liftM2 EEq (vars (EVal VFalse)) (vars (EConsp ident))
     EHd exp -> liftM EHd (vars exp)
     ETl exp -> liftM ETl (vars exp)
@@ -184,9 +164,6 @@ expandIfProgram (Prog procs) = Prog (map expandIfProc procs)
 expandIfProc x = case x of
     AProc pnameop ident1 coms ident2 ->
       AProc pnameop ident1 (concatMap expandIfCom coms) ident2
-
-false = EVal VNil
-true = ECons (EVal VNil) (EVal VNil)
 
 expandIfCom x = case x of
     CAsn ident exp -> [CAsn ident exp]

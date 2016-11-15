@@ -1,0 +1,7 @@
+read X;
+  Y := nil; GO := true;
+  while GO do
+    case X of
+      nil -> GO := false;
+      (H.X) -> Y := cons H Y;
+write Y

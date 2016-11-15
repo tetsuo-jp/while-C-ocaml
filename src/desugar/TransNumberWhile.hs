@@ -1,46 +1,49 @@
-module TransWhile where
+module TransNumberWhile(transNumber) where
 
 import AbsWhile
 
 -- 数値 n を nil^n に置き換える
 
-class Trans a where
+transNumber :: TransNumber a => a -> a
+transNumber = trans
+
+class TransNumber a where
   trans :: a -> a
 
-instance Trans Ident where
+instance TransNumber Ident where
   trans x = case x of
     Ident string -> Ident string
 
-instance Trans Atom where
+instance TransNumber Atom where
   trans x = case x of
     Atom string -> Atom string
 
-instance Trans Program where
+instance TransNumber Program where
   trans x = case x of
     Prog procs -> Prog (map trans procs)
 
-instance Trans Proc where
+instance TransNumber Proc where
   trans x = case x of
     AProc pnameop ident1 coms ident2 ->
       AProc pnameop (trans ident1) (map trans coms) (trans ident2)
 
-instance Trans PNameOp where
+instance TransNumber PNameOp where
   trans x = case x of
     Name ident -> Name ident
     NoName -> NoName
 
-instance Trans Com where
+instance TransNumber Com where
   trans x = case x of
     CAsn ident exp -> CAsn (trans ident) (trans exp)
     CProc ident1 ident2 ident3 -> CProc (trans ident1) (trans ident2) (trans ident3)
     CLoop exp coms -> CLoop (trans exp) (map trans coms)
     CShow exp -> CShow (trans exp)
 
-instance Trans Exp where
+instance TransNumber Exp where
   trans x = case x of
     ECons exp1 exp2 -> ECons (trans exp1) (trans exp2)
-    EConsp ident -> let x = EVar ident in EEq x (ECons (EHd x) (ETl x))
-    EAtomp ident -> EEq (trans (EVal VFalse)) (trans (EConsp ident))
+    EConsp exp -> EEq exp (ECons (EHd exp) (ETl exp))
+    EAtomp exp -> EEq (trans (EVal VFalse)) (trans (EConsp exp))
     EHd exp -> EHd (trans exp)
     ETl exp -> ETl (trans exp)
     EEq exp1 exp2 -> EEq (trans exp1) (trans exp2)
@@ -52,7 +55,7 @@ instance Trans Exp where
     EConsStar exps -> foldr1 ECons $ map trans exps
     EList exps -> foldr ECons (EVal VNil) $ map trans exps
 
-instance Trans Val where
+instance TransNumber Val where
   trans x = case x of
     VNil -> VNil
     VFalse -> VNil

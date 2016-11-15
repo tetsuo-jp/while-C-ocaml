@@ -7,6 +7,8 @@
 -- Variables   ∋ X, Y
 -- Expressions ∋ E, F ::= X | d | cons E F | hd E | tl E | =? E F
 -- Commands    ∋ C, D ::= X := E; | while E do { C* }
+--                       | if E then { C* } [else { C* }]?
+--                       | case E of { [P -> C]* }
 -- Procedures  ∋ Proc ::= [procedure Id]? read X; C; write Y
 -- Programs    ∋ P    ::= [Proc]+
 --
@@ -33,13 +35,22 @@ CAsn.  Com ::= Ident ":=" Exp ";" ;              -- Assignment
 CProc. Com ::= Ident ":=" Ident Ident ";" ;      -- Inline procedure expansion p.35
 CLoop. Com ::= "while" Exp "do" "{" [Com] "}" ;  -- While loop
 CIf.   Com ::= "if" Exp "then" "{" [Com] "}" CElseOp ;  -- Conditional
+CCase. Com ::= "case" Exp "of" "{" [PatComT] "}" ; -- Case command
+CBlk.  Com ::= "begin" "{" [Com] "}" "end" ;
 CShow. Com ::= "show" Exp ";" ;                  -- Show command (for debugging use)
 terminator Com "" ;
 layout "do" ;                                    -- Indentation pp.29-30
-layout "then", "else" ;
+layout "then", "else", "begin", "of" ;
 
 ElseNone. CElseOp ::= ;
 ElseOne.  CElseOp ::= "else" "{" [Com] "}" ;
+
+PatCom.  PatComT ::= Pat "->" Com ;
+terminator PatComT "" ;
+
+PVal.  Pat ::= Val ;
+PVar.  Pat ::= Ident ;
+PCons. Pat ::= "(" Pat "." Pat ")" ;
 
 
 -------------------------------------------------------------------------------
@@ -47,16 +58,17 @@ ElseOne.  CElseOp ::= "else" "{" [Com] "}" ;
 -------------------------------------------------------------------------------
 
 ECons.     Exp  ::= "cons" Exp1 Exp1 ;
-EConsp.    Exp  ::= "cons?" Ident ;         -- pp.32-33
-EAtomp.    Exp  ::= "atom?" Ident ;         -- pp.32-33
+EConsp.    Exp  ::= "cons?" Exp1 ;          -- pp.32-33
+EAtomp.    Exp  ::= "atom?" Exp1 ;          -- pp.32-33
 EHd.       Exp  ::= "hd" Exp1 ;
 ETl.       Exp  ::= "tl" Exp1 ;
 EEq.       Exp  ::= "=?" Exp1 Exp1 ;        -- Equality check
 EListRep.  Exp  ::= "(" [Exp1] TailOp ")" ; -- p.33 Definition 2.1.7
+EAnd.      Exp  ::= "and" Exp1 Exp1 ;       -- p.42
 EVar.      Exp1 ::= Ident ;
 EVal.      Exp1 ::= Val ;
 EConsStar. Exp1 ::= "cons*" [Exp1] ;        -- p.35 cons*
-EList.     Exp1 ::= "list" [Exp1] ;        -- p.35 cons*
+EList.     Exp1 ::= "list" [Exp1] ;         -- p.35 cons*
 coercions Exp 1;
 separator nonempty Exp1 "" ;
 
@@ -79,6 +91,6 @@ internal VCons. Val ::= "(" Val "." Val ")" ;
 -- Misc
 -------------------------------------------------------------------------------
 
-token Atom '\'' (digit | letter)+;                  -- ex. 'val, '32, 
+token Atom '\'' (digit | letter)+;                  -- ex. 'val, '32
 
 comment "(*" "*)" ;

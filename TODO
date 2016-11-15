@@ -1,4 +1,6 @@
-. if command p.32,p.36
 . case commands pp.39-
 . and A B ≡ =? (=? A nil) (=? (=? A nil) (=? B nil))
 . mapping WHILE programs to their concrete syntax p.49
+
+done
+. if command p.32,p.36
