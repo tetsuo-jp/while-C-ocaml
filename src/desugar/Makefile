@@ -14,7 +14,7 @@ DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs TransNumberWhile.hs TransP
 	ghc --make $< -o $@
 
 clean:
-	-rm -f *.log *.aux *.hi *.o *.dvi
+	-rm -f *.log *.aux *.hi *.o *.dvi DesugarWhile
 
 distclean: clean
 	-rm -f DocWhile.* LexWhile.* ParWhile.* LayoutWhile.* SkelWhile.* PrintWhile.* TestWhile.* AbsWhile.* TestWhile ErrM.* SharedString.* ComposOp.* While.dtd XMLWhile.* DesugarWhile

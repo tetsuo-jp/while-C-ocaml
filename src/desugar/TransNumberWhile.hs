@@ -47,7 +47,7 @@ instance TransNumber Exp where
     EHd exp -> EHd (trans exp)
     ETl exp -> ETl (trans exp)
     EEq exp1 exp2 -> EEq (trans exp1) (trans exp2)
-    EListRep exps tl -> case tl of 
+    EListRep exps tl -> case tl of
       NoTail -> foldr ECons (EVal VNil) (map trans exps)
       Tail atom -> foldr ECons (EVal (VAtom (trans atom))) (map trans exps)
     EVar ident -> EVar (trans ident)

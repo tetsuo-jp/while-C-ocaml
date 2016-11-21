@@ -120,7 +120,7 @@ instance Vars PNameOp where
 instance Vars Com where
   vars x = case x of
     CAsn ident exp -> liftM2 CAsn (vars ident) (vars exp)
-    CProc ident1 ident2 ident3 -> 
+    CProc ident1 ident2 ident3 ->
       liftM3 CProc (vars ident1) (return ident2) (vars ident3)
     CLoop exp coms -> liftM2 CLoop (vars exp) (mapM vars coms)
     CShow exp -> liftM CShow (vars exp)
@@ -134,7 +134,7 @@ instance Vars Exp where
     EHd exp -> liftM EHd (vars exp)
     ETl exp -> liftM ETl (vars exp)
     EEq exp1 exp2 -> liftM2 EEq (vars exp1) (vars exp2)
-    EListRep exps tl -> case tl of 
+    EListRep exps tl -> case tl of
       NoTail -> liftM (foldr ECons (EVal VNil)) (mapM vars exps)
       Tail atom -> do a <- vars atom
                       liftM (foldr ECons (EVal (VAtom a))) (mapM vars exps)
@@ -169,9 +169,9 @@ expandIfCom x = case x of
     CAsn ident exp -> [CAsn ident exp]
     CProc ident1 ident2 ident3 -> [CProc ident1 ident2 ident3]
     CLoop exp coms -> [CLoop exp (concatMap expandIfCom coms)]
-    CIf exp coms celseop -> 
+    CIf exp coms celseop ->
       case celseop of
-        ElseNone -> 
+        ElseNone ->
           [CAsn (Ident "_Z") exp,
            CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
         ElseOne coms' ->
