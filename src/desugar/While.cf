@@ -35,7 +35,7 @@ CAsn.  Com ::= Ident ":=" Exp ";" ;              -- Assignment
 CProc. Com ::= Ident ":=" Ident Ident ";" ;      -- Inline procedure expansion p.35
 CLoop. Com ::= "while" Exp "do" "{" [Com] "}" ;  -- While loop
 CIf.   Com ::= "if" Exp "then" "{" [Com] "}" CElseOp ;  -- Conditional
-CCase. Com ::= "case" Exp "of" "{" [PatComT] "}" ; -- Case command
+CCase. Com ::= "case" [Exp2] "of" "{" [PatComT] "}" ; -- Case command pp.39-43
 CBlk.  Com ::= "begin" "{" [Com] "}" "end" ;
 CShow. Com ::= "show" Exp ";" ;                  -- Show command (for debugging use)
 terminator Com "" ;
@@ -45,8 +45,9 @@ layout "then", "else", "begin", "of" ;
 ElseNone. CElseOp ::= ;
 ElseOne.  CElseOp ::= "else" "{" [Com] "}" ;
 
-PatCom.  PatComT ::= Pat "->" Com ;
+PatCom.  PatComT ::= [Pat] "->" Com ;
 terminator PatComT "" ;
+separator nonempty Pat "," ;
 
 PVal.  Pat ::= Val ;
 PVar.  Pat ::= Ident ;
@@ -69,8 +70,9 @@ EVar.      Exp1 ::= Ident ;
 EVal.      Exp1 ::= Val ;
 EConsStar. Exp1 ::= "cons*" [Exp1] ;        -- p.35 cons*
 EList.     Exp1 ::= "list" [Exp1] ;         -- p.35 cons*
-coercions Exp 1;
+coercions Exp 2;
 separator nonempty Exp1 "" ;
+separator nonempty Exp2 "," ;
 
 Tail.   TailOp ::= "." Atom ;
 NoTail. TailOp ::= ;

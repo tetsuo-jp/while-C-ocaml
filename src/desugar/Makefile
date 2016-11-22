@@ -32,3 +32,8 @@ test: DesugarWhile
 	./DesugarWhile ../../examples/desugar/list.while
 	./DesugarWhile ../../examples/desugar/and.while
 	./DesugarWhile ../../examples/desugar/numbers.while
+	./DesugarWhile ../../examples/desugar/if.while
+	./DesugarWhile ../../examples/desugar/inline1.while
+	./DesugarWhile ../../examples/desugar/inline2.while
+	./DesugarWhile ../../examples/desugar/inline3.while
+	./DesugarWhile ../../examples/desugar/inline4.while

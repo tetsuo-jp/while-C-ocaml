@@ -15,6 +15,7 @@ import TransNumberWhile
 import TransPCallWhile
 import TransAndWhile(transAnd)
 import TransCaseWhile(transCase)
+import TransList(transList)
 
 import ErrM
 
@@ -28,7 +29,7 @@ putStrV :: Verbosity -> String -> IO ()
 putStrV v s = if v > 1 then putStrLn s else return ()
 
 -- runFile :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> FilePath -> IO ()
-runFile v p f = -- putStrLn f >> 
+runFile v p f = -- putStrLn f >>
   readFile f >>= run v p
 
 -- run :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> String -> IO ()
@@ -41,7 +42,7 @@ run v p s = let ts = myLLexer s in case p ts of
            Ok  tree -> do -- putStrLn "\nParse Successful!"
                           -- showTree v tree
                           putStrV v $ printTree $
-                            transNumber $ expandIfProgram $ extractMain $ doInline $ transAnd $ transCase tree
+                            transNumber $ transList $ expandIf $ extractMain $ doInline $ transAnd $ transCase tree
 
                           exitSuccess
 

@@ -1,0 +1,4 @@
+read X;
+if nil then { X := nil; }
+if nil then { X := nil; } else { X := nil; }
+write X

@@ -2,9 +2,13 @@ module TransPCallWhile where
 
 import AbsWhile
 import Control.Monad.State
-import Data.List(insert)
+import Data.List(insert,nub)
 import Data.Maybe(fromMaybe)
 import Lib(true,false)
+import Data.Data                -- Data
+import Data.Generics.Schemes    -- everywhere
+import Data.Generics.Aliases    -- mkT
+-- import qualified Data.Map.Strict as Map
 
 
 ------------------------------------------------------------------------------
@@ -12,6 +16,7 @@ import Lib(true,false)
 ------------------------------------------------------------------------------
 
 -- mapping from procedure names to their bodies
+-- type Penv = Map.Map String (Ident,[Com],Ident)
 type Penv = [(String,(Ident,[Com],Ident))]
 type Rename a = State ([(String,String)],Penv,Int) a
 
@@ -42,7 +47,7 @@ instance RenameC Com where
       CProc (Ident s2) (Ident pname) (Ident s1) ->
         do (env,penv,n) <- get
            let Just (Ident s1',coms,Ident s2') = lookup pname penv
-           let vs = execState (vars coms) []
+           let vs = varsComs coms
            let env' = (s1',s1) : (s2',s2) : zip vs (map (++"'"++show n) vs)
            put (env',penv,n+1)
            result <- mapM inline coms
@@ -80,75 +85,32 @@ instance RenameC CElseOp where
 -- 変数をリストに集める
 ------------------------------------------------------------------------------
 
-type VarsT a = State [String] a
+-- vars :: Data a => a -> [String]
+-- vars = everything (++) (mkQ [] varsCom)
 
-pushS :: String -> VarsT ()
-pushS str = do seen <- get
-               put (insert str seen)
+varsComs :: [Com] -> [String]
+varsComs coms = nub $ concatMap varsCom coms
 
-class Vars a where
-  vars :: a -> VarsT a
+varsCom :: Com -> [String]
+varsCom x = case x of
+  CAsn (Ident str) exp -> str : varsExp exp
+  CProc (Ident str1) ident2 (Ident str2) -> [str1,str2]
+  CLoop exp coms -> varsExp exp ++ concatMap varsCom coms
+  CShow exp -> varsExp exp
 
-instance Vars a => Vars [a] where
-  vars xs = mapM vars xs
-
-instance Vars Ident where
-  vars x@(Ident str) =
-    do pushS str
-       return x
-
-instance Vars Atom where
-  vars x = return x
-
-instance Vars Program where
-  vars (Prog procs) =
-    do ps <- mapM vars procs
-       return $ Prog ps
-
-instance Vars Proc where
-  vars (AProc pnameop ident1 coms ident2) =
-    do coms' <- mapM vars coms
-       return $ AProc pnameop ident1 coms' ident2
-
-instance Vars PNameOp where
-  vars x = case x of
-    Name ident -> liftM Name (vars ident)
-    NoName -> return NoName
-
-instance Vars Com where
-  vars x = case x of
-    CAsn ident exp -> liftM2 CAsn (vars ident) (vars exp)
-    CProc ident1 ident2 ident3 ->
-      liftM3 CProc (vars ident1) (return ident2) (vars ident3)
-    CLoop exp coms -> liftM2 CLoop (vars exp) (mapM vars coms)
-    CShow exp -> liftM CShow (vars exp)
-
-instance Vars Exp where
-  vars x = case x of
-    ECons exp1 exp2 -> liftM2 ECons (vars exp1) (vars exp2)
-    EConsp exp -> do exp' <- vars exp
-                     return $ EEq exp' (ECons (EHd exp') (ETl exp'))
-    EAtomp ident -> liftM2 EEq (vars (EVal VFalse)) (vars (EConsp ident))
-    EHd exp -> liftM EHd (vars exp)
-    ETl exp -> liftM ETl (vars exp)
-    EEq exp1 exp2 -> liftM2 EEq (vars exp1) (vars exp2)
-    EListRep exps tl -> case tl of
-      NoTail -> liftM (foldr ECons (EVal VNil)) (mapM vars exps)
-      Tail atom -> do a <- vars atom
-                      liftM (foldr ECons (EVal (VAtom a))) (mapM vars exps)
-    EVar ident -> liftM EVar (vars ident)
-    EVal val -> liftM EVal (vars val)
-    EConsStar exps -> liftM (foldr1 ECons) $ mapM vars exps
-    EList exps -> liftM (foldr ECons (EVal VNil)) $ mapM vars exps
-
-instance Vars Val where
-  vars x = case x of
-    VNil -> return VNil
-    VFalse -> return VNil
-    VTrue -> return $ VCons VNil VNil
-    VAtom atom -> liftM VAtom (vars atom)
-    VCons val1 val2 -> liftM2 VCons (vars val1) (vars val2)
-    VInt n -> return $ foldr VCons VNil $ replicate (fromInteger n) VNil
+varsExp :: Exp -> [String]
+varsExp x = case x of
+    ECons exp1 exp2 -> varsExp exp1 ++ varsExp exp2
+    EConsp exp -> varsExp exp
+    EAtomp ident -> []
+    EHd exp -> varsExp exp
+    ETl exp -> varsExp exp
+    EEq exp1 exp2 -> varsExp exp1 ++ varsExp exp2
+    EListRep exps tl -> concatMap varsExp exps
+    EVar (Ident str) -> [str]
+    EVal val -> []
+    EConsStar exps -> concatMap varsExp exps
+    EList exps -> concatMap varsExp exps
 
 
 ------------------------------------------------------------------------------
@@ -157,25 +119,21 @@ instance Vars Val where
 
 type RenameIf a = State Int a
 
-expandIfProgram (Prog procs) = Prog (map expandIfProc procs)
+expandIf :: Data a => a -> a
+expandIf = everywhere (mkT tIf)
 
-expandIfProc x = case x of
-    AProc pnameop ident1 coms ident2 ->
-      AProc pnameop ident1 (map expandIfCom coms) ident2
-
-expandIfCom :: Com -> Com
-expandIfCom x = case x of
-    CAsn ident exp -> CAsn ident exp
-    CProc ident1 ident2 ident3 -> CProc ident1 ident2 ident3
-    CLoop exp coms -> CLoop exp (map expandIfCom coms)
+tIf :: Com -> Com
+tIf x = case x of
+    CLoop exp coms -> CLoop exp (map tIf coms)
     CIf exp coms celseop ->
+      let comsNoIf = map tIf coms in
       case celseop of
         ElseNone ->
           CBlk [CAsn (Ident "_Z") exp,
-                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
+                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : comsNoIf)]
         ElseOne coms' ->
           CBlk [CAsn (Ident "_Z") exp,
                 CAsn (Ident "_W") true,
-                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms ++ [CAsn (Ident "_W") false]),
-                CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : coms')]
-    CShow exp -> CShow exp
+                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : comsNoIf ++ [CAsn (Ident "_W") false]),
+                CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : map tIf coms')]
+    _ -> x
