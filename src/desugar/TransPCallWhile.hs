@@ -23,24 +23,21 @@ mkPenv (Prog procs) = f procs
        f [] = error "No procedure has a procedure name."
 
 doInline :: Program -> Program
-doInline prog = evalState (inlineProgram prog) ([],mkPenv prog,0)
+doInline prog = evalState (inline prog) ([],mkPenv prog,0)
 
-inlineProgram :: Program -> Rename Program
-inlineProgram (Prog procs) = liftM Prog (mapM inlineProc procs)
+class RenameC a where
+  inline :: a -> Rename a
 
-inlineIdent :: Ident -> Rename Ident
-inlineIdent (Ident str) = do
-  (env,penv,n) <- get
-  return $ Ident $ fromMaybe str (lookup str env)
+instance RenameC Program where
+  inline (Prog procs) = liftM Prog (mapM inline procs)
 
-inlineAtom x = return x
-
-inlineProc (AProc pnameop ident1 coms ident2) =
-    do coms' <- mapM inlineCom coms
+instance RenameC Proc where
+  inline (AProc pnameop ident1 coms ident2) =
+    do coms' <- mapM inline coms
        return $ AProc pnameop ident1 coms' ident2
 
-inlineCom :: Com -> Rename Com
-inlineCom x = case x of
+instance RenameC Com where
+  inline x = case x of
       CAsn ident exp -> return $ CAsn ident exp
       CProc (Ident s2) (Ident pname) (Ident s1) ->
         do (env,penv,n) <- get
@@ -48,34 +45,35 @@ inlineCom x = case x of
            let vs = execState (vars coms) []
            let env' = (s1',s1) : (s2',s2) : zip vs (map (++"'"++show n) vs)
            put (env',penv,n+1)
-           result <- mapM inlineCom coms
+           result <- mapM inline coms
            (_,_,n') <- get
            put (env,penv,n')
            return $ CBlk result
       CLoop exp coms ->
-        do coms' <- mapM inlineCom coms
+        do coms' <- mapM inline coms
            return $ CLoop exp coms'
       CIf exp coms cElseOp ->
-        do coms' <- mapM inlineCom coms
-           cElseOp' <- inlineCElseOp cElseOp
+        do coms' <- mapM inline coms
+           cElseOp' <- inline cElseOp
            return $ CIf exp coms' cElseOp'
       CCase exp patComTs ->
-        do patComTs' <- mapM inlinePatComT patComTs
+        do patComTs' <- mapM inline patComTs
            return $ CCase exp patComTs'
       CBlk coms ->
-        do coms' <- mapM inlineCom coms
+        do coms' <- mapM inline coms
            return $ CBlk coms'
       CShow exp -> return (CShow exp)
 
-inlinePatComT (PatCom pat com) = do
-  com' <- inlineCom com
-  return $ PatCom pat com'
+instance RenameC PatComT where
+  inline (PatCom pat com) = do
+    com' <- inline com
+    return $ PatCom pat com'
 
-inlineCElseOp :: CElseOp -> Rename CElseOp
-inlineCElseOp x = case x of
-  ElseNone -> return ElseNone
-  ElseOne coms -> do coms' <- mapM inlineCom coms
-                     return $ ElseOne coms'
+instance RenameC CElseOp where
+  inline x = case x of
+    ElseNone -> return ElseNone
+    ElseOne coms -> do coms' <- mapM inline coms
+                       return $ ElseOne coms'
 
 
 ------------------------------------------------------------------------------
@@ -163,20 +161,21 @@ expandIfProgram (Prog procs) = Prog (map expandIfProc procs)
 
 expandIfProc x = case x of
     AProc pnameop ident1 coms ident2 ->
-      AProc pnameop ident1 (concatMap expandIfCom coms) ident2
+      AProc pnameop ident1 (map expandIfCom coms) ident2
 
+expandIfCom :: Com -> Com
 expandIfCom x = case x of
-    CAsn ident exp -> [CAsn ident exp]
-    CProc ident1 ident2 ident3 -> [CProc ident1 ident2 ident3]
-    CLoop exp coms -> [CLoop exp (concatMap expandIfCom coms)]
+    CAsn ident exp -> CAsn ident exp
+    CProc ident1 ident2 ident3 -> CProc ident1 ident2 ident3
+    CLoop exp coms -> CLoop exp (map expandIfCom coms)
     CIf exp coms celseop ->
       case celseop of
         ElseNone ->
-          [CAsn (Ident "_Z") exp,
-           CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
+          CBlk [CAsn (Ident "_Z") exp,
+                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
         ElseOne coms' ->
-          [CAsn (Ident "_Z") exp,
-           CAsn (Ident "_W") true,
-           CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms ++ [CAsn (Ident "_W") false]),
-           CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : coms')]
-    CShow exp -> [CShow exp]
+          CBlk [CAsn (Ident "_Z") exp,
+                CAsn (Ident "_W") true,
+                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms ++ [CAsn (Ident "_W") false]),
+                CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : coms')]
+    CShow exp -> CShow exp
