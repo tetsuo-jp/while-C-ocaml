@@ -131,6 +131,44 @@ let test_evalProc =
         (evalProc (parse_proc "read X; Y := cons X X; write Y") atom_a));
   ]
 
+(* ---- timeExp / timeCom / timeProc (実行時間, ch.16-19 のコストモデル) ---- *)
+
+let test_time =
+  "timeExp/timeCom/timeProc" >::: [
+    "変数と値は 1 ステップ" >:: (fun _ ->
+      assert_equal 1 (timeExp (EVar x));
+      assert_equal 1 (timeExp (EVal atom_a)));
+    "cons/hd/tl は 1 + 部分式" >:: (fun _ ->
+      assert_equal 5 (timeExp (ECons (EHd (EVar x), ETl (EVar y)))));
+    "=? は 1 + 両辺" >:: (fun _ ->
+      assert_equal 3 (timeExp (EEq (EVar x, EVal VNil))));
+    "空の本体は 0 ステップ" >:: (fun _ ->
+      let (v, t) = timeProc (parse_proc "read X; write X") atom_a in
+      assert_val atom_a v;
+      assert_equal 0 t);
+    "代入は T[E] + 1" >:: (fun _ ->
+      let (_, t) = timeProc (parse_proc "read X; Y := X; write Y") atom_a in
+      assert_equal 2 t);
+    "ガードが nil の while は T[E] + 1" >:: (fun _ ->
+      let (_, t) = timeProc (parse_proc "read X; while Z do { Z := X; } write X") atom_a in
+      assert_equal 2 t);
+    "ループは反復ごとに T[E] + 1 + 本体" >:: (fun _ ->
+      (* 本体 3, 反復あたり 1+1+3 = 5 が 2 回, 最後の nil 判定 2 → 12 *)
+      let (_, t) = timeProc (parse_proc "read X; while X do { X := tl X; } write X")
+                     list_ab in
+      assert_equal 12 t);
+    "reverse の総時間 (手計算: 反復 10×3 + 末尾 2 + 初期化 2 = 34)" >:: (fun _ ->
+      let p = parse_proc
+        "read X; Y := nil; while X do { Y := cons (hd X) Y; X := tl X; } write Y" in
+      let (v, t) = timeProc p (parse_val "('1 . ('2 . ('3 . nil)))") in
+      assert_val (parse_val "('3 . ('2 . ('1 . nil)))") v;
+      assert_equal 34 t);
+    "timeProc の結果は evalProc と一致する" >:: (fun _ ->
+      let p = parse_proc "read X; Y := cons X X; write Y" in
+      let (v, _) = timeProc p atom_b in
+      assert_val (evalProc p atom_b) v);
+  ]
+
 (* ---- パーサ/プリンタの往復 ---- *)
 
 let test_parse_print =
@@ -150,5 +188,6 @@ let () =
         test_evalExp;
         test_evalCom;
         test_evalProc;
+        test_time;
         test_parse_print;
       ])

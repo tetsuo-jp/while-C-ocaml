@@ -97,6 +97,8 @@ cd src/core
 make                      # builds ./while
 ./while ../../examples/reverse.while ../../examples/list123.val
 # => ('3 . ('2 . ('1 . nil)))
+./while --time ../../examples/reverse.while ../../examples/list123.val
+# => 34     (time_p(d): execution steps per the book's unit-cost model, ch. 16-19)
 
 # desugarer
 cd src/desugar
