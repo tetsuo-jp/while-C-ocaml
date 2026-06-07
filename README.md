@@ -1,13 +1,127 @@
 # A WHILE interpreter in OCaml
 
-The programming language WHILE is defined in [1].
+An interpreter for the **WHILE** language from Neil D. Jones,
+*Computability and Complexity: From a Programming Perspective*, The MIT Press, 1997
+([online version](http://www.diku.dk/~neil/comp2book2007/book-whole.pdf)).
+Page references in source comments (e.g. `p.38 Definition 2.2.3`) point to this book.
 
-[1] Jones, N. D. (1997). Computability and Complexity: From a Programming Perspective, The MIT Press.
+WHILE is a minimal imperative language over binary trees (`nil`, atoms, and
+`cons` pairs). Its core has only assignment and `while` loops, yet it is
+Turing-complete — which makes it a convenient vehicle for studying
+computability and complexity.
+
+## Repository layout
+
+```
+src/core/          OCaml interpreter for the *core* WHILE language
+src/desugar/       Haskell desugarer: extended WHILE → core WHILE
+examples/          core WHILE programs (.while) and input values (.val)
+examples/desugar/  extended WHILE example programs
+web/               PHP front end that runs the interpreter
+```
+
+The toolchain is a two-stage pipeline:
+
+```
+extended WHILE --[DesugarWhile (Haskell)]--> core WHILE --[while (OCaml)]--> value
+```
+
+## The language
+
+### Core WHILE (`src/core/While.cf`)
+
+```
+E ::= X | d | cons E E | hd E | tl E | =? E E
+C ::= X := E;  |  while E do { C* }
+P ::= read X; C* write Y
+```
+
+Values are binary trees: `nil`, atoms (`'a`, `'foo`, `'32`), and pairs
+`(v . w)`. Anything non-`nil` counts as true.
+
+Example (`examples/reverse.while`, list reversal):
+
+```
+read X;
+  Y := nil;
+  while X do {
+    Y := cons (hd X) Y;
+    X := tl X;
+  }
+write Y
+```
+
+### Extended WHILE (`src/desugar/While.cf`)
+
+The desugarer additionally accepts, and compiles away:
+
+| Construct | Example | Desugared by |
+|---|---|---|
+| conditionals | `if E then { C } else { C }` | `expandIf` |
+| pattern matching | `case E1, E2 of { (H . T), Z -> C ... }` | `transCase` |
+| named procedures (inlined) | `procedure p read X; ... write Y` / `Y := p X;` | `doInline` |
+| logical and | `and E F` | `transAnd` |
+| tree predicates | `cons? E`, `atom? E` | `transConsp` |
+| blocks | `begin { C* } end` | `transBlk` |
+| list notation | `('a 'b . 'c)`, `list E F`, `cons* E F G` | `transList` |
+| numbers, booleans | `3`, `true`, `false` | `transNumber` |
+
+The pipeline (`src/desugar/Desugar.hs`) applies, in order:
+`transCase → transAnd → transConsp → doInline → extractMain → expandIf → transBlk → transList → transNumber`.
 
 ## Requirements
-* The BNF Converter (bnfc)
-http://bnfc.digitalgrammars.com/
-* OCaml: extlib, ocamlfind
+
+Core interpreter (OCaml):
+
+* OCaml (ocamlc, ocamllex, ocamlyacc)
+* [The BNF Converter](http://bnfc.digitalgrammars.com/) (bnfc)
+* OUnit2 for the unit tests: `opam install ounit2 ocamlfind`
+
+Desugarer (Haskell):
+
+* GHC, happy, alex, bnfc
+* libraries: `syb`, `mtl`, `array` (and `hspec` for the unit tests), e.g.
+
 ```
-opam install extlib ocamlfind
+cd src/desugar
+cabal install --lib syb mtl array hspec --package-env .
 ```
+
+## Build and run
+
+```
+# core interpreter
+cd src/core
+make                      # builds ./while
+./while ../../examples/reverse.while ../../examples/list123.val
+# => ('3 . ('2 . ('1 . nil)))
+
+# desugarer
+cd src/desugar
+make                      # builds ./DesugarWhile
+./DesugarWhile ../../examples/desugar/reverse-case.while   # prints core WHILE
+```
+
+Running an extended program end to end:
+
+```
+src/desugar/DesugarWhile examples/desugar/reverse-case.while > /tmp/prog.while
+src/core/while /tmp/prog.while examples/list123.val
+```
+
+## Tests
+
+```
+# example-based smoke tests
+make -C src/core test
+make -C src/desugar test
+
+# unit tests
+make -C src/core unittest        # OUnit2,  32 tests over EvalWhile
+make -C src/desugar unittest     # hspec,   43 tests over the desugar passes
+make -C src/desugar coverage     # + HPC statement-coverage report (100%)
+```
+
+## License
+
+GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).

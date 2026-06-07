@@ -1,5 +1,5 @@
-OCAMLC=ocamlfind ocamlc -g -package extlib -linkpkg
-# OCAMLC=ocamlfind ocamlopt -warn-error A -package extlib -linkpkg
+OCAMLC=ocamlc -g
+# OCAMLC=ocamlfind ocamlopt -warn-error A
 
 all: while
 
@@ -16,7 +16,7 @@ ParWhile.mli: ParWhile.mly
 	ocamlyacc ParWhile.mly
 
 BNFC_Util.ml: While.cf
-	bnfc -ocaml $^
+	bnfc --ocaml --force $^
 	touch BNFC_Util.ml
 
 clean:
@@ -38,4 +38,9 @@ uninstall:
 	rm -f ../../web/examples/*.val
 
 test: while
-	./while ../../examples/reverse.while ../../examples/list123.val 
+	./while ../../examples/reverse.while ../../examples/list123.val
+
+# ユニットテスト (OUnit2)。要: opam install ounit2
+unittest: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml EvalWhile.ml EvalWhileTest.ml
+	ocamlfind ocamlc -package ounit2 -linkpkg -o EvalWhileTest $^
+	./EvalWhileTest

@@ -56,3 +56,6 @@ src/desugar/DesugarSpec
 .hpc/
 .hpcbuild/
 coverage-html/
+
+# OCaml unit tests
+src/core/EvalWhileTest
