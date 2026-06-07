@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain (GHC, BNFC, OCaml)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ghc bnfc happy alex libghc-syb-dev libghc-hspec-dev \
+            ocaml ocaml-findlib libounit-ocaml-dev
+
+      # ---- Haskell desugarer ----
+      - name: Build desugarer
+        run: make -C src/desugar
+
+      - name: Desugarer example tests
+        run: make -C src/desugar test
+
+      - name: Desugarer unit tests + C0 coverage (hspec + HPC)
+        run: make -C src/desugar coverage
+
+      # ---- OCaml core interpreter ----
+      - name: Build core interpreter
+        run: make -C src/core
+
+      - name: Core smoke test
+        run: make -C src/core test
+
+      - name: Core unit tests (OUnit2)
+        run: make -C src/core unittest
+
+      # ---- End-to-end: desugar → run on the core interpreter ----
+      - name: E2E reverse-case
+        run: |
+          src/desugar/DesugarWhile examples/desugar/reverse-case.while > /tmp/p.while
+          out=$(src/core/while /tmp/p.while examples/list123.val)
+          echo "$out"
+          test "$out" = "('3 . ('2 . ('1 . nil)))"
+
+      - name: E2E universal program (self-interpreter)
+        run: |
+          src/desugar/DesugarWhile examples/desugar/universal.while > /tmp/u.while
+          src/desugar/DesugarWhile --data examples/desugar/reverse-indent.while > /tmp/rev.val
+          printf '(%s . %s)' "$(cat /tmp/rev.val)" "$(cat examples/list123.val)" > /tmp/pd.val
+          out=$(src/core/while /tmp/u.while /tmp/pd.val)
+          echo "$out"
+          test "$out" = "('3 . ('2 . ('1 . nil)))"

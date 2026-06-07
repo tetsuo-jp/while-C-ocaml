@@ -1,5 +1,7 @@
 # A WHILE interpreter in OCaml
 
+[![CI](https://github.com/tetsuo-jp/while-C-ocaml/actions/workflows/ci.yml/badge.svg)](https://github.com/tetsuo-jp/while-C-ocaml/actions/workflows/ci.yml)
+
 An interpreter for the **WHILE** language from Neil D. Jones,
 *Computability and Complexity: From a Programming Perspective*, The MIT Press, 1997
 ([online version](http://www.diku.dk/~neil/comp2book2007/book-whole.pdf)).
