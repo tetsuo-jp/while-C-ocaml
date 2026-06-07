@@ -12,6 +12,7 @@ import PrintWhile
 import AbsWhile
 import LayoutWhile
 import Desugar(desugar)
+import ProgToData(progToData)
 
 import ErrM
 
@@ -24,12 +25,10 @@ type Verbosity = Int
 putStrV :: Verbosity -> String -> IO ()
 putStrV v s = if v > 1 then putStrLn s else return ()
 
--- runFile :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> FilePath -> IO ()
-runFile v p f = -- putStrLn f >>
-  readFile f >>= run v p
+runFile disp v p f = -- putStrLn f >>
+  readFile f >>= run disp v p
 
--- run :: (Print a, Show a, Trans a) => Verbosity -> ParseFun a -> String -> IO ()
-run v p s = let ts = myLLexer s in case p ts of
+run disp v p s = let ts = myLLexer s in case p ts of
            Bad s    -> do putStrLn "\nParse              Failed...\n"
                           putStrV v "Tokens:"
                           putStrV v $ show ts
@@ -37,9 +36,17 @@ run v p s = let ts = myLLexer s in case p ts of
                           exitFailure
            Ok  tree -> do -- putStrLn "\nParse Successful!"
                           -- showTree v tree
-                          putStrV v $ printTree $ desugar tree
+                          putStrV v $ disp tree
 
                           exitSuccess
+
+-- 脱糖してコア WHILE を印字する (既定)
+dispCore :: Program -> String
+dispCore = printTree . desugar
+
+-- 脱糖して programs-as-data 表現 ⌜p⌝ を印字する (p.49)
+dispData :: Program -> String
+dispData = printTree . progToData . desugar
 
 showTree :: (Show a, Print a) => Int -> a -> IO ()
 showTree v tree
@@ -55,6 +62,7 @@ usage = do
     , "  (no arguments)  Parse stdin verbosely."
     , "  (files)         Parse content of files verbosely."
     , "  -s (files)      Silent mode. Parse content of files silently."
+    , "  --data (files)  Print the programs-as-data representation (p.49)."
     ]
   exitFailure
 
@@ -63,6 +71,7 @@ main = do
   args <- getArgs
   case args of
     ["--help"] -> usage
-    [] -> hGetContents stdin >>= run 2 pProgram
-    "-s":fs -> mapM_ (runFile 0 pProgram) fs
-    fs -> mapM_ (runFile 2 pProgram) fs
+    [] -> hGetContents stdin >>= run dispCore 2 pProgram
+    "-s":fs -> mapM_ (runFile dispCore 0 pProgram) fs
+    "--data":fs -> mapM_ (runFile dispData 2 pProgram) fs
+    fs -> mapM_ (runFile dispCore 2 pProgram) fs

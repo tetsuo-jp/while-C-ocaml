@@ -11,12 +11,13 @@ import Data.List (isInfixOf)
 
 import AbsWhile
 import ParWhile (pProgram, myLexer)
-import PrintWhile (printTree)
+import PrintWhile (Print, printTree)
 import LayoutWhile (resolveLayout)
 import ErrM
 
 import Lib (true, false, skip)
 import Desugar (desugar, extractMain)
+import ProgToData (progToData)
 import TransAndWhile (transAnd)
 import TransCaseWhile (transCase)
 import TransConspWhile (transConsp)
@@ -51,7 +52,7 @@ unchangedBy :: (Program -> Program) -> String -> Expectation
 unchangedBy pass src = pass ===> (src, src)
 
 -- パス適用が指定メッセージの error を投げる
-throwsMsg :: (Program -> Program) -> String -> String -> Expectation
+throwsMsg :: Print a => (Program -> a) -> String -> String -> Expectation
 throwsMsg pass src msg =
   evaluate (length (printTree (pass (parseProg src)))) `shouldThrow` errorCall msg
 
@@ -232,6 +233,74 @@ main = hspec $ do
       extractMain ===> ("procedure p read A; B := A; write B \
                         \ read X; Y := X; write Y",
                         "read X; Y := X; write Y")
+
+  describe "ProgToData (programs-as-data 表現 p.49)" $ do
+    -- 期待値構築用ヘルパ (テスト側で教科書の図から独立に書き下す)
+    let vList = foldr VCons VNil
+        vNum n = vList (replicate n VNil)
+        vAtom s = VAtom (Atom ('\'' : s))
+        vVar i = vList [vAtom "var", vNum i]
+        enc src = progToData (parseProg src)
+
+    it "代入と変数: read 変数が 1、write 変数が最後の番号になる" $
+      enc "read X; Y := X; write Y" `shouldBe`
+        vList [vVar 1, vList [vAtom "asgn", vVar 2, vVar 1], vVar 2]
+
+    it "教科書 p.49 の reverse の例と一致する" $
+      enc "read X; Y := nil; while X do { Y := cons (hd X) Y; X := tl X; } write Y"
+        `shouldBe`
+        vList
+          [ vVar 1
+          , vList [ vAtom "semi"
+                  , vList [vAtom "asgn", vVar 2, vList [vAtom "quote", VNil]]
+                  , vList [ vAtom "while", vVar 1
+                          , vList [ vAtom "semi"
+                                  , vList [ vAtom "asgn", vVar 2
+                                          , vList [ vAtom "cons"
+                                                  , vList [vAtom "hd", vVar 1]
+                                                  , vVar 2]]
+                                  , vList [ vAtom "asgn", vVar 1
+                                          , vList [vAtom "tl", vVar 1]]]]]
+          , vVar 2 ]
+
+    it "=? とアトムの quote を符号化する" $
+      enc "read X; Y := =? X 'a; write Y" `shouldBe`
+        vList [ vVar 1
+              , vList [vAtom "asgn", vVar 2,
+                       vList [vAtom "eq", vVar 1, vList [vAtom "quote", vAtom "a"]]]
+              , vVar 2 ]
+
+    it "出力変数は途中に現れても最大番号になる" $
+      case enc "read X; Y := X; Z := Y; write Y" of
+        VCons _ (VCons _ (VCons outVar VNil)) -> outVar `shouldBe` vVar 3
+        v -> expectationFailure ("unexpected shape: " ++ show v)
+
+    it "desugar 経由で数値も (quote nil^n) になる" $
+      progToData (desugar (parseProg "read X; Y := 2; write Y")) `shouldBe`
+        vList [ vVar 1
+              , vList [vAtom "asgn", vVar 2,
+                       vList [vAtom "quote", VCons VNil (VCons VNil VNil)]]
+              , vVar 2 ]
+
+    it "空の本体は error になる" $
+      throwsMsg progToData "read X; write X" "progToData: empty command sequence"
+
+    it "コア以外のコマンドは error になる" $
+      throwsMsg progToData "read X; show X; write X"
+        ("progToData: not a core command: " ++ printTree (CShow (EVar (Ident "X"))))
+
+    it "コア以外の式は error になる" $
+      throwsMsg progToData "read X; Y := cons? X; write Y"
+        ("progToData: not a core expression: " ++ printTree (EConsp (EVar (Ident "X"))))
+
+    it "コア以外の値は error になる" $
+      throwsMsg progToData "read X; Y := 3; write Y"
+        ("progToData: not a core value: " ++ printTree (VInt 3))
+
+    it "プロシージャが残っていれば error になる" $
+      throwsMsg progToData
+        "procedure p read A; B := A; write B read X; Y := X; write Y"
+        "progToData: expected a single unnamed procedure (run desugar first)"
 
   describe "Desugar.desugar (パイプライン全体)" $ do
     it "プロシージャ呼び出しを含むプログラムをコア WHILE にする" $

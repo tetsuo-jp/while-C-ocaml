@@ -109,6 +109,22 @@ src/desugar/DesugarWhile examples/desugar/reverse-case.while > /tmp/prog.while
 src/core/while /tmp/prog.while examples/list123.val
 ```
 
+### Programs as data (p.49)
+
+`--data` prints the *programs-as-data* representation ⌜p⌝ — the program
+encoded as a WHILE value, so that programs can be fed as input to other
+programs (the prerequisite for universal programs / self-interpreters,
+book ch. 3):
+
+```
+src/desugar/DesugarWhile --data examples/desugar/reverse-indent.while
+# => (('var . ((nil . nil) . nil)) . (('semi . ...
+```
+
+Variables become `(var i)` (read variable first, output variable last),
+numbers are `nil^i`, and the book's atoms `:=`, `;`, `=?` are spelled
+`'asgn`, `'semi`, `'eq` (atoms are lexically alphanumeric).
+
 ## Tests
 
 ```
