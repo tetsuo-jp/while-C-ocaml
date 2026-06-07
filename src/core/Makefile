@@ -9,6 +9,10 @@ TestWhile: BNFC_Util.ml AbsWhile.ml SkelWhile.ml ShowWhile.ml PrintWhile.ml ParW
 while: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml EvalWhile.ml Main.ml
 	$(OCAMLC) -o $@ $^
 
+# ネイティブコンパイル版 (自己解釈などの重い実行向け)
+while.opt: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml EvalWhile.ml Main.ml
+	ocamlopt -O2 -o $@ $^
+
 LexWhile.ml: LexWhile.mll
 	ocamllex $^
 

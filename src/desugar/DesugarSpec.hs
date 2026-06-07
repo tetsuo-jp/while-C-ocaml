@@ -282,8 +282,9 @@ main = hspec $ do
                        vList [vAtom "quote", VCons VNil (VCons VNil VNil)]]
               , vVar 2 ]
 
-    it "空の本体は error になる" $
-      throwsMsg progToData "read X; write X" "progToData: empty command sequence"
+    it "空のコマンド列は no-op 代入 V1 := V1 に符号化される" $
+      enc "read X; write X" `shouldBe`
+        vList [vVar 1, vList [vAtom "asgn", vVar 1, vVar 1], vVar 1]
 
     it "コア以外のコマンドは error になる" $
       throwsMsg progToData "read X; show X; write X"

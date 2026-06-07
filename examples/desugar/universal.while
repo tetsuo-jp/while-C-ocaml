@@ -1,0 +1,118 @@
+(* Universal program (self-interpreter) u for WHILE.                  *)
+(* Jones, Computability and Complexity, Section 4.1 (pp.50-).         *)
+(*                                                                    *)
+(* 入力: (⌜p⌝ . d)   ⌜p⌝ は DesugarWhile --data の出力 (p.49 の表現)  *)
+(* 出力: ⟦p⟧(d)                                                       *)
+(*                                                                    *)
+(* Cd: code stack,  St: value stack,  Vl: store (変数番号で引く列)    *)
+(* STEP (Figure: The STEP Macro) は case Cd, St of ... で書く。       *)
+(* 教科書のアトム :=, ;, =? は 'asgn, 'semi, 'eq (--data と同じ)。    *)
+
+read PD;
+  Pgm := hd PD;                      (* ⌜p⌝ = ((var i) c (var j)) *)
+  D := tl PD;                        (* 入力データ d              *)
+  I := hd (tl (hd Pgm));             (* 入力変数番号 i            *)
+  J := hd (tl (hd (tl (tl Pgm))));   (* 出力変数番号 j            *)
+  C := hd (tl Pgm);                  (* プログラム本体 c          *)
+
+  (* Vl := update I D nil : 変数 i だけ d、他は nil *)
+  Vl := nil;
+  T := nil;
+  K := I;
+  while K do {
+    T := cons (hd Vl) T;
+    Vl := tl Vl;
+    K := tl K;
+  }
+  Vl := cons D (tl Vl);
+  while T do {
+    Vl := cons (hd T) Vl;
+    T := tl T;
+  }
+
+  Cd := cons C nil;
+  St := nil;
+
+  while Cd do {
+    case Cd, St of {
+
+      (* --- 式の評価 --- *)
+
+      (('quote . (DD . nil)) . Cr), SS ->
+        begin { Cd := Cr; St := cons DD SS; } end
+
+      (('var . (KK . nil)) . Cr), SS ->
+        begin {                          (* St := cons (lookup KK Vl) St *)
+          Cd := Cr;
+          T := Vl;
+          K := KK;
+          while K do { T := tl T; K := tl K; }
+          St := cons (hd T) SS;
+        } end
+
+      (('hd . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dohd Cr); St := SS; } end
+      ('dohd . Cr), (T1 . Sr) ->
+        begin { Cd := Cr; St := cons (hd T1) Sr; } end
+
+      (('tl . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dotl Cr); St := SS; } end
+      ('dotl . Cr), (T1 . Sr) ->
+        begin { Cd := Cr; St := cons (tl T1) Sr; } end
+
+      (('cons . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'docons Cr)); St := SS; } end
+      ('docons . Cr), (U . (T1 . Sr)) ->
+        begin { Cd := Cr; St := cons (cons T1 U) Sr; } end
+
+      (('eq . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'doeq Cr)); St := SS; } end
+      ('doeq . Cr), (U . (T1 . Sr)) ->
+        begin { Cd := Cr; St := cons (=? T1 U) Sr; } end
+
+      (* --- コマンドの実行 --- *)
+
+      (('semi . (C1 . (C2 . nil))) . Cr), SS ->
+        begin { Cd := cons C1 (cons C2 Cr); St := SS; } end
+
+      (('asgn . (('var . (KK . nil)) . (E . nil))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doasgn (cons KK Cr)); St := SS; } end
+      ('doasgn . (KK . Cr)), (T1 . Sr) ->
+        begin {                          (* Vl := update KK T1 Vl *)
+          Cd := Cr;
+          St := Sr;
+          T := nil;
+          K := KK;
+          while K do {
+            T := cons (hd Vl) T;
+            Vl := tl Vl;
+            K := tl K;
+          }
+          Vl := cons T1 (tl Vl);
+          while T do {
+            Vl := cons (hd T) Vl;
+            T := tl T;
+          }
+        } end
+
+      (('while . (E . (C1 . nil))) . Cr), SS ->
+        begin {
+          Cd := cons E (cons 'dowh (cons (cons 'while (cons E (cons C1 nil))) Cr));
+          St := SS;
+        } end
+      ('dowh . (WH . Cr)), (nil . Sr) ->
+        begin { Cd := Cr; St := Sr; } end
+      ('dowh . (('while . (E . (C1 . nil))) . Cr)), (DD . Sr) ->
+        begin {
+          Cd := cons C1 (cons (cons 'while (cons E (cons C1 nil))) Cr);
+          St := Sr;
+        } end
+    }
+  }
+
+  (* Out := lookup J Vl *)
+  T := Vl;
+  K := J;
+  while K do { T := tl T; K := tl K; }
+  Out := hd T;
+write Out

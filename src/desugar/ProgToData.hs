@@ -26,8 +26,13 @@ progToData (Prog [AProc NoName x@(Ident xs) coms (Ident ys)]) =
   let env = delete ys (nub (xs : varsComs coms)) ++ [ys]
       var (Ident s) = list [atom "var", num (fromJust (elemIndex s env) + 1)]
 
+      -- 空のコマンド列 (skip 等) は no-op 代入 V1 := V1 に符号化する
+      -- (教科書のコマンドは常に非空のため表現がない)
+      noop = list [atom "asgn", var1, var1]
+        where var1 = list [atom "var", num 1]
+
       encComs cs = case cs of
-        []        -> error "progToData: empty command sequence"
+        []        -> noop
         [c]       -> encCom c
         (c : cs') -> list [atom "semi", encCom c, encComs cs']
 

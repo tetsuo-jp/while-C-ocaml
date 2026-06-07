@@ -123,7 +123,30 @@ src/desugar/DesugarWhile --data examples/desugar/reverse-indent.while
 
 Variables become `(var i)` (read variable first, output variable last),
 numbers are `nil^i`, and the book's atoms `:=`, `;`, `=?` are spelled
-`'asgn`, `'semi`, `'eq` (atoms are lexically alphanumeric).
+`'asgn`, `'semi`, `'eq` (atoms are lexically alphanumeric). Empty command
+sequences (e.g. desugared `skip`) are encoded as the no-op `V1 := V1`.
+
+### Universal program / self-interpreter (pp. 50–)
+
+`examples/desugar/universal.while` is the book's universal program `u`
+written in extended WHILE — its `STEP` macro is a direct transcription of
+the book's `rewrite [Cd, St]` rules into a multi-scrutinee `case`. It
+satisfies ⟦u⟧(⌜p⌝.d) = ⟦p⟧(d):
+
+```
+src/desugar/DesugarWhile examples/desugar/universal.while > /tmp/u.while
+src/desugar/DesugarWhile --data examples/desugar/reverse-indent.while > /tmp/rev.val
+printf '(%s . %s)' "$(cat /tmp/rev.val)" "$(cat examples/list123.val)" > /tmp/pd.val
+src/core/while /tmp/u.while /tmp/pd.val
+# => ('3 . ('2 . ('1 . nil)))   — same as running reverse directly
+```
+
+For heavier runs build the native-code interpreter with
+`make -C src/core while.opt`. The self-application
+⟦u⟧(⌜u⌝.(⌜p⌝.d)) works — `u` interpreting `u` interpreting the identity
+program returns the right answer in ~2 minutes — and each interpretation
+layer costs a factor of ~10⁴–10⁵, a hands-on motivation for the book's
+*timed universal program* (ch. 19, Hierarchy Theorem).
 
 ## Tests
 

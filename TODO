@@ -1,6 +1,7 @@
-. universal program (self-interpreter) for WHILE pp.50-
+. an efficient timed universal program (for the Hierarchy Theorem) ch.19
 
 done
+. universal program (self-interpreter) for WHILE pp.50- (examples/desugar/universal.while)
 . mapping WHILE programs to their concrete syntax p.49 (DesugarWhile --data)
 . if command p.32,p.36
 . and A B ≡ =? (cons (=? A nil) (=? B nil)) (cons nil nil)

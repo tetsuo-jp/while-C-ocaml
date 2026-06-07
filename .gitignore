@@ -61,3 +61,4 @@ coverage-html/
 src/core/EvalWhileTest
 oUnit-*.log
 oUnit-*.cache
+src/core/while.opt
