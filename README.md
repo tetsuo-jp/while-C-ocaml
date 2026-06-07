@@ -160,9 +160,16 @@ operation. On input `((⌜p⌝.d) . nil^n)` it returns `(⟦p⟧(d) . nil)` when
 `time_p(d) ≤ n` and `nil` (time-limit exceeded) otherwise. The decrement
 points correspond exactly to the `+1`s of the `--time` cost model, so the
 boundary is sharp at `n = time_p(d)` — verified against the `--time`
-oracle by `examples/desugar/test-timed-universal.sh`. See
-[docs/TIMED-UNIVERSAL-PLAN.md](docs/TIMED-UNIVERSAL-PLAN.md) for the
-full plan (efficiency measurement and the linear-time hierarchy).
+oracle by `examples/desugar/test-timed-universal.sh`.
+
+`examples/desugar/bench-efficiency.sh` then measures the interpretation
+overhead `time_tt/time_p`: it converges to a constant (~2350) for
+one-variable programs — *efficient* in the book's sense — but grows with
+the number of variables, the `O(#vars)` access cost that confines the
+efficiency theorem to the one-variable I language. Full write-up in
+[docs/EFFICIENCY.md](docs/EFFICIENCY.md); the overall plan and the
+linear-time hierarchy are in
+[docs/TIMED-UNIVERSAL-PLAN.md](docs/TIMED-UNIVERSAL-PLAN.md).
 
 ## Tests
 

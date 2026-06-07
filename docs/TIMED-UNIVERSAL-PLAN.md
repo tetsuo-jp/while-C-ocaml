@@ -68,14 +68,14 @@ WHILE), then address efficiency on the one-variable path the theorem needs.
   `examples/desugar/test-timed-universal.sh`, wired into `make test` and CI.
 - Result: a correct (not-yet-efficient) timed `tu` for full WHILE.
 
-### Phase 2 — Demonstrate efficiency on one-variable programs
-- For one-variable `p`, our `u`'s var access touches only `(var 1)`, so the
-  per-step overhead is constant. Measure `time_tu((p.d).nil^n)` (Phase-0
-  counter applied to the desugared `tu`) vs `min(n, time_p(d))` across a
-  family of one-variable programs/inputs; fit the ratio and report the
-  constant `k`. A script `examples/desugar/bench/` + a short note.
-- Deliverable: empirical `k`, plots/table; evidence for Lemma
-  `thm-timed-univ-pgm`.
+### Phase 2 — Demonstrate efficiency on one-variable programs  ✅ DONE
+- `examples/desugar/bench-efficiency.sh` measures `time_tt/time_p` with the
+  `--time` oracle. (A) one-variable family → ratio converges to k ≈ 2350
+  (efficient: `time_tt = k·time_p + c`). (B) k-variable family → ratio grows
+  monotonically with #vars (the `O(#vars)` access cost).
+- Results written up in `docs/EFFICIENCY.md`; this is the empirical evidence
+  for Lemma `thm-timed-univ-pgm` and shows why efficiency is an I-language
+  (one-variable) property.
 
 ### Phase 3 — The diagonal program & hierarchy separation  (stretch)
 - `examples/desugar/diag.while` per Fig. `fig-diagonal-program`:
