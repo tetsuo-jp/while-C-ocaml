@@ -49,3 +49,10 @@ src/core/while
 
 # ghc package environment
 .ghc.environment.*
+
+# test & coverage artifacts
+src/desugar/DesugarSpec
+*.tix
+.hpc/
+.hpcbuild/
+coverage-html/

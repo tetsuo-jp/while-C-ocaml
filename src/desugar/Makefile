@@ -17,11 +17,34 @@ ParWhile.y LexWhile.x: While.cf
 
 	touch $@
 
-DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs TransNumberWhile.hs TransPCallWhile.hs Lib.hs TransCaseWhile.hs TransAndWhile.hs TransConspWhile.hs TransBlkWhile.hs TransList.hs
+TRANS = Desugar.hs TransNumberWhile.hs TransPCallWhile.hs Lib.hs TransCaseWhile.hs TransAndWhile.hs TransConspWhile.hs TransBlkWhile.hs TransList.hs
+
+DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs $(TRANS)
 	ghc --make $< -o $@
 
+# ユニットテスト (hspec)。HPC 用に -fhpc でビルドし別ディレクトリに出力する
+DesugarSpec: DesugarSpec.hs ParWhile.hs LexWhile.hs $(TRANS)
+	ghc --make -fhpc $< -odir .hpcbuild -hidir .hpcbuild -o $@
+
+unittest: DesugarSpec
+	rm -f DesugarSpec.tix
+	./DesugarSpec
+
+# C0 (文) カバレッジ: 変換モジュールのみを対象に報告する
+HPC_MODULES = --include=Lib --include=Desugar --include=TransAndWhile \
+              --include=TransBlkWhile --include=TransCaseWhile \
+              --include=TransConspWhile --include=TransList \
+              --include=TransNumberWhile --include=TransPCallWhile
+
+coverage: unittest
+	hpc report DesugarSpec.tix $(HPC_MODULES)
+
+coverage-html: unittest
+	hpc markup DesugarSpec.tix $(HPC_MODULES) --destdir=coverage-html
+
 clean:
-	-rm -f *.log *.aux *.hi *.o *.dvi DesugarWhile
+	-rm -f *.log *.aux *.hi *.o *.dvi DesugarWhile DesugarSpec DesugarSpec.tix
+	-rm -rf .hpcbuild .hpc coverage-html
 
 distclean: clean
 	-rm -f DocWhile.* LexWhile.* ParWhile.* LayoutWhile.* SkelWhile.* PrintWhile.* TestWhile.* AbsWhile.* TestWhile ErrM.* SharedString.* ComposOp.* While.dtd XMLWhile.* DesugarWhile
