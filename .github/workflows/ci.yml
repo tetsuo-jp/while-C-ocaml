@@ -18,6 +18,11 @@ jobs:
             ghc bnfc happy alex libghc-syb-dev libghc-hspec-dev \
             ocaml ocaml-findlib libounit-ocaml-dev
 
+      # The runner image ships a ghcup GHC that cannot see apt's Haskell
+      # libraries; put /usr/bin first so the apt toolchain wins.
+      - name: Prefer apt toolchain over preinstalled ghcup
+        run: echo "/usr/bin" >> "$GITHUB_PATH"
+
       # ---- Haskell desugarer ----
       - name: Build desugarer
         run: make -C src/desugar
