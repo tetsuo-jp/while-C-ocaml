@@ -59,3 +59,5 @@ coverage-html/
 
 # OCaml unit tests
 src/core/EvalWhileTest
+oUnit-*.log
+oUnit-*.cache
