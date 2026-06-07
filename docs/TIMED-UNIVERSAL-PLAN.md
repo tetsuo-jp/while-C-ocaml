@@ -58,17 +58,15 @@ WHILE), then address efficiency on the one-variable path the theorem needs.
   per-iteration cost, reverse's total = closed form in list length.
 - Deliverable: `time_p(d)` measurable; ~40 OUnit cases.
 
-### Phase 1 — Timed universal program `tt` for full WHILE
+### Phase 1 — Timed universal program `tt` for full WHILE  ✅ DONE
 - `examples/desugar/timed-universal.while`: `universal.while` + a third input
-  `nil^n` read into `Cntr`, the clocking wrapper around the `case` (decrement
-  `Cntr` on `{'quote,'var,'dohd,'dotl,'docons,'doeq,'doasgn,'dowh}`; on
-  zero, empty `Cd` and yield `nil`), and the success wrapper producing
-  `(result . nil)`.
-- Verify against Phase-0 oracle: for sampled (p,d), pick n around
-  `time_p(d)` and check both branches of the definition exactly
-  (`n = time-1`, `n = time`, `n = time+5`).
-- E2E + a hspec/desugar test; add to `make test` and CI.
-- Deliverable: a correct (not-yet-efficient) `tu` for full WHILE.
+  `nil^n` read into `Cntr`, with each of the 8 completion arms guarded by
+  `if Cntr then { Cntr := tl Cntr; <op> } else { stop; Timeout }`; the loop
+  exits to `(result . nil)` on success or `nil` on timeout.
+- Verified against the Phase-0 oracle at the exact boundary
+  (`n = time-1` → `nil`, `n = time` → `(result.nil)`) by
+  `examples/desugar/test-timed-universal.sh`, wired into `make test` and CI.
+- Result: a correct (not-yet-efficient) timed `tu` for full WHILE.
 
 ### Phase 2 — Demonstrate efficiency on one-variable programs
 - For one-variable `p`, our `u`'s var access touches only `(var 1)`, so the

@@ -1,0 +1,160 @@
+(* Timed universal program tt for WHILE.                                *)
+(* Jones, Computability and Complexity, Section 19.x, Figure "tt".       *)
+(*                                                                       *)
+(* universal.while に時間制限 nil^n (Cntr) と計時コードを加えたもの。     *)
+(* 入力: ((⌜p⌝ . d) . nil^n)   ⌜p⌝ は DesugarWhile --data の出力。       *)
+(* 出力:                                                                 *)
+(*   time_p(d) <= n  なら  (⟦p⟧(d) . nil)                                *)
+(*   time_p(d) >  n  なら  nil            (時間切れ)                      *)
+(*                                                                       *)
+(* Cntr は「ひとつのソース演算が完了するたび」減算する。完了オペコードは  *)
+(*   'quote 'var 'dohd 'dotl 'docons 'doeq 'doasgn 'dowh                 *)
+(* で、これは src/core の timeProc の +1 と 1 対 1 に対応する             *)
+(* (T[X]=T[d]=1, hd/tl/cons/=? の +1, 代入の +1, while のガード判定 +1)。 *)
+
+read X;
+  PD := hd X;                        (* (⌜p⌝ . d) *)
+  Cntr := tl X;                      (* nil^n  時間制限 *)
+  Pgm := hd PD;                      (* ⌜p⌝ = ((var i) c (var j)) *)
+  D := tl PD;                        (* 入力データ d *)
+  I := hd (tl (hd Pgm));             (* 入力変数番号 i *)
+  J := hd (tl (hd (tl (tl Pgm))));   (* 出力変数番号 j *)
+  C := hd (tl Pgm);                  (* プログラム本体 c *)
+
+  (* Vl := update I D nil *)
+  Vl := nil;
+  T := nil;
+  K := I;
+  while K do {
+    T := cons (hd Vl) T;
+    Vl := tl Vl;
+    K := tl K;
+  }
+  Vl := cons D (tl Vl);
+  while T do {
+    Vl := cons (hd T) Vl;
+    T := tl T;
+  }
+
+  Cd := cons C nil;
+  St := nil;
+  Timeout := nil;
+
+  while Cd do {
+    case Cd, St of {
+
+      (* --- 式の評価 (葉は完了オペコード: Cntr を消費) --- *)
+
+      (('quote . (DD . nil)) . Cr), SS ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons DD SS; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (('var . (KK . nil)) . Cr), SS ->
+        begin {
+          if Cntr then {
+            Cntr := tl Cntr;
+            Cd := Cr;
+            T := Vl;
+            K := KK;
+            while K do { T := tl T; K := tl K; }
+            St := cons (hd T) SS;
+          } else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (* hd: 準備オペコード (無料) → 完了オペコード 'dohd (消費) *)
+      (('hd . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dohd Cr); St := SS; } end
+      ('dohd . Cr), (T1 . Sr) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (hd T1) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (('tl . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dotl Cr); St := SS; } end
+      ('dotl . Cr), (T1 . Sr) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (tl T1) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (('cons . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'docons Cr)); St := SS; } end
+      ('docons . Cr), (U . (T1 . Sr)) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (cons T1 U) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (('eq . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'doeq Cr)); St := SS; } end
+      ('doeq . Cr), (U . (T1 . Sr)) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (=? T1 U) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (* --- コマンドの実行 --- *)
+
+      (* ; は準備オペコード (無料) *)
+      (('semi . (C1 . (C2 . nil))) . Cr), SS ->
+        begin { Cd := cons C1 (cons C2 Cr); St := SS; } end
+
+      (* 代入: 準備オペコード (無料) → 完了オペコード 'doasgn (消費) *)
+      (('asgn . (('var . (KK . nil)) . (E . nil))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doasgn (cons KK Cr)); St := SS; } end
+      ('doasgn . (KK . Cr)), (T1 . Sr) ->
+        begin {
+          if Cntr then {
+            Cntr := tl Cntr;
+            Cd := Cr;
+            St := Sr;
+            T := nil;
+            K := KK;
+            while K do {
+              T := cons (hd Vl) T;
+              Vl := tl Vl;
+              K := tl K;
+            }
+            Vl := cons T1 (tl Vl);
+            while T do {
+              Vl := cons (hd T) Vl;
+              T := tl T;
+            }
+          } else { Cd := nil; Timeout := cons nil nil; }
+        } end
+
+      (* while: 準備オペコード (無料) → ガード判定 'dowh (消費) *)
+      (('while . (E . (C1 . nil))) . Cr), SS ->
+        begin {
+          Cd := cons E (cons 'dowh (cons (cons 'while (cons E (cons C1 nil))) Cr));
+          St := SS;
+        } end
+      ('dowh . (WH . Cr)), (nil . Sr) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      ('dowh . (('while . (E . (C1 . nil))) . Cr)), (DD . Sr) ->
+        begin {
+          if Cntr then {
+            Cntr := tl Cntr;
+            Cd := cons C1 (cons (cons 'while (cons E (cons C1 nil))) Cr);
+            St := Sr;
+          } else { Cd := nil; Timeout := cons nil nil; }
+        } end
+    }
+  }
+
+  if Timeout then {
+    Out := nil;                      (* 時間切れ *)
+  } else {
+    (* Out := cons (lookup J Vl) nil *)
+    T := Vl;
+    K := J;
+    while K do { T := tl T; K := tl K; }
+    Out := cons (hd T) nil;
+  }
+write Out

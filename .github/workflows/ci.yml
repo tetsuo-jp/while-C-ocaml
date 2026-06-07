@@ -59,3 +59,6 @@ jobs:
           out=$(src/core/while /tmp/u.while /tmp/pd.val)
           echo "$out"
           test "$out" = "('3 . ('2 . ('1 . nil)))"
+
+      - name: E2E timed universal program (boundary vs --time oracle)
+        run: sh examples/desugar/test-timed-universal.sh

@@ -152,6 +152,18 @@ program returns the right answer in ~2 minutes — and each interpretation
 layer costs a factor of ~10⁴–10⁵, a hands-on motivation for the book's
 *timed universal program* (ch. 19, Hierarchy Theorem).
 
+### Timed universal program (ch. 19)
+
+`examples/desugar/timed-universal.while` is the book's `tt`: `u` plus a
+time limit `nil^n` and clocking code that decrements it once per source
+operation. On input `((⌜p⌝.d) . nil^n)` it returns `(⟦p⟧(d) . nil)` when
+`time_p(d) ≤ n` and `nil` (time-limit exceeded) otherwise. The decrement
+points correspond exactly to the `+1`s of the `--time` cost model, so the
+boundary is sharp at `n = time_p(d)` — verified against the `--time`
+oracle by `examples/desugar/test-timed-universal.sh`. See
+[docs/TIMED-UNIVERSAL-PLAN.md](docs/TIMED-UNIVERSAL-PLAN.md) for the
+full plan (efficiency measurement and the linear-time hierarchy).
+
 ## Tests
 
 ```
