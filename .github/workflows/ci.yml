@@ -62,3 +62,6 @@ jobs:
 
       - name: E2E timed universal program (boundary vs --time oracle)
         run: sh examples/desugar/test-timed-universal.sh
+
+      - name: E2E diagonalization program (hierarchy theorem)
+        run: sh examples/desugar/test-diag.sh

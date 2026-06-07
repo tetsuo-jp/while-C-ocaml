@@ -65,4 +65,5 @@ test: DesugarWhile
 	./DesugarWhile ../../examples/desugar/reverse-case.while
 	./DesugarWhile ../../examples/desugar/universal.while
 	./DesugarWhile ../../examples/desugar/timed-universal.while
+	./DesugarWhile ../../examples/desugar/diag.while
 	./DesugarWhile --data ../../examples/desugar/reverse-indent.while

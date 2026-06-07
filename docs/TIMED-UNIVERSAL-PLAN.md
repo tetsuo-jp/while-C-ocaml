@@ -77,19 +77,20 @@ WHILE), then address efficiency on the one-variable path the theorem needs.
   for Lemma `thm-timed-univ-pgm` and shows why efficiency is an I-language
   (one-variable) property.
 
-### Phase 3 — The diagonal program & hierarchy separation  (stretch)
-- `examples/desugar/diag.while` per Fig. `fig-diagonal-program`:
-  `Timebound := nil^{a·|X|}` (needs a length/`|·|` helper in extended WHILE),
-  `Arg := cons (cons X X) Timebound`, `X := tu Arg`, flip on `hd X`.
-- Demonstrate the separation concretely: exhibit small programs that
-  `diag` (running in `a·b·n`) classifies but no `a·n` program can, i.e.
-  reproduce the diagonal contradiction on finite cases (illustration, not a
-  machine-checked proof).
-- True faithfulness needs the **one-variable I translation**
-  (Prop. `many-one-var`, the "WHILE → one-variable" construction): a larger
-  sub-project. Decide then whether to (a) implement that translation, or
-  (b) keep the demonstration at the multi-variable level and state the gap.
-- Deliverable: runnable `diag`, a written walkthrough of the separation.
+### Phase 3 — The diagonal program & hierarchy separation  ✅ DONE (illustration)
+- `examples/desugar/diag.while` per Fig. `fig-diagonal-program`: computes
+  `Timebound := nil^{a·|X|}` with a stack-based node count (a=3 here),
+  `Arg := cons (cons X X) Timebound`, calls the timed universal program as
+  an inlined `procedure tu`, and flips on `hd R`.
+- `examples/desugar/test-diag.sh` (in `make test` + CI) verifies the flip on
+  three cases: identity (`⟦p⟧(⌜p⌝)` true → `diag` false), const-nil
+  (false → true), and an infinite loop (timeout → true).
+- This is a runnable *illustration* of the diagonal negation, not a
+  machine-checked proof, and it uses the multi-variable (non-efficient) `tt`.
+- **Remaining for full faithfulness**: the one-variable I translation
+  (Prop. `many-one-var`) so that `diag` runs in `a·b·|p|`. Tracked as the
+  open TODO `an efficient timed universal program ... ch.19` → now narrowed
+  to "WHILE → one-variable translation". A good student project.
 
 ## Risks / open questions
 - **Efficiency rigor**: a runnable artifact illustrates but does not *prove*

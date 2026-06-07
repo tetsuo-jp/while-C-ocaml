@@ -1,0 +1,159 @@
+(* Diagonalization program diag for the linear-time hierarchy theorem.   *)
+(* Jones, Computability and Complexity, ch.19, Fig. "diag".              *)
+(*                                                                       *)
+(*   read X;                                                             *)
+(*     Timebound := nil^{a*|X|};                                         *)
+(*     Arg := cons (cons X X) Timebound;                                 *)
+(*     R := tu Arg;          -- run X on X for up to a*|X| steps         *)
+(*     if hd R then ANS := false else ANS := true;                      *)
+(*   write ANS                                                           *)
+(*                                                                       *)
+(* Input X is a programs-as-data value ⌜p⌝ (from DesugarWhile --data).   *)
+(* diag(⌜p⌝) = true  iff  running p on ⌜p⌝ times out OR yields false;    *)
+(*            = false iff  it yields true within a*|X| steps.            *)
+(* So diag computes the negation of the (time-bounded) diagonal          *)
+(* ⟦p⟧(⌜p⌝), the contradiction at the heart of the hierarchy theorem.   *)
+(*                                                                       *)
+(* NOTE: this uses the multi-variable timed universal program `tt`,      *)
+(* which is a correct timed universal program but is NOT efficient for   *)
+(* arbitrary arity (see docs/EFFICIENCY.md). A fully faithful diag for   *)
+(* the theorem needs the one-variable I translation (Prop. many-one-var, *)
+(* a separate TODO). Here `a` is taken large enough that the chosen demo *)
+(* programs complete; this is a runnable illustration, not a proof.      *)
+
+procedure tu
+read X;
+  PD := hd X;
+  Cntr := tl X;
+  Pgm := hd PD;
+  D := tl PD;
+  I := hd (tl (hd Pgm));
+  J := hd (tl (hd (tl (tl Pgm))));
+  C := hd (tl Pgm);
+
+  Vl := nil;
+  T := nil;
+  K := I;
+  while K do {
+    T := cons (hd Vl) T;
+    Vl := tl Vl;
+    K := tl K;
+  }
+  Vl := cons D (tl Vl);
+  while T do {
+    Vl := cons (hd T) Vl;
+    T := tl T;
+  }
+
+  Cd := cons C nil;
+  St := nil;
+  Timeout := nil;
+
+  while Cd do {
+    case Cd, St of {
+      (('quote . (DD . nil)) . Cr), SS ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons DD SS; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('var . (KK . nil)) . Cr), SS ->
+        begin {
+          if Cntr then {
+            Cntr := tl Cntr; Cd := Cr; T := Vl; K := KK;
+            while K do { T := tl T; K := tl K; }
+            St := cons (hd T) SS;
+          } else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('hd . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dohd Cr); St := SS; } end
+      ('dohd . Cr), (T1 . Sr) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (hd T1) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('tl . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dotl Cr); St := SS; } end
+      ('dotl . Cr), (T1 . Sr) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (tl T1) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('cons . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'docons Cr)); St := SS; } end
+      ('docons . Cr), (U . (T1 . Sr)) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (cons T1 U) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('eq . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'doeq Cr)); St := SS; } end
+      ('doeq . Cr), (U . (T1 . Sr)) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := cons (=? T1 U) Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('semi . (C1 . (C2 . nil))) . Cr), SS ->
+        begin { Cd := cons C1 (cons C2 Cr); St := SS; } end
+      (('asgn . (('var . (KK . nil)) . (E . nil))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doasgn (cons KK Cr)); St := SS; } end
+      ('doasgn . (KK . Cr)), (T1 . Sr) ->
+        begin {
+          if Cntr then {
+            Cntr := tl Cntr; Cd := Cr; St := Sr; T := nil; K := KK;
+            while K do { T := cons (hd Vl) T; Vl := tl Vl; K := tl K; }
+            Vl := cons T1 (tl Vl);
+            while T do { Vl := cons (hd T) Vl; T := tl T; }
+          } else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      (('while . (E . (C1 . nil))) . Cr), SS ->
+        begin {
+          Cd := cons E (cons 'dowh (cons (cons 'while (cons E (cons C1 nil))) Cr));
+          St := SS;
+        } end
+      ('dowh . (WH . Cr)), (nil . Sr) ->
+        begin {
+          if Cntr then { Cntr := tl Cntr; Cd := Cr; St := Sr; }
+                  else { Cd := nil; Timeout := cons nil nil; }
+        } end
+      ('dowh . (('while . (E . (C1 . nil))) . Cr)), (DD . Sr) ->
+        begin {
+          if Cntr then {
+            Cntr := tl Cntr;
+            Cd := cons C1 (cons (cons 'while (cons E (cons C1 nil))) Cr);
+            St := Sr;
+          } else { Cd := nil; Timeout := cons nil nil; }
+        } end
+    }
+  }
+
+  if Timeout then {
+    Out := nil;
+  } else {
+    T := Vl; K := J;
+    while K do { T := tl T; K := tl K; }
+    Out := cons (hd T) nil;
+  }
+write Out
+
+read X;
+  (* Timebound := nil^{a*|X|}.  ノード数を a 回数え上げる (a は下の A の長さ) *)
+  A := 3;                             (* 定数 a (この実演では 3) *)
+  Timebound := nil;
+  while A do {
+    Stk := cons X nil;
+    while Stk do {
+      Node := hd Stk;
+      Stk := tl Stk;
+      Timebound := cons nil Timebound;
+      case Node of {
+        (L . R) -> begin { Stk := cons L (cons R Stk); } end
+        Z -> begin { } end
+      }
+    }
+    A := tl A;
+  }
+
+  Arg := cons (cons X X) Timebound;
+  R := tu Arg;                        (* ⟦X⟧(X) を a*|X| ステップまで模倣 *)
+  if hd R then { ANS := false; } else { ANS := true; }
+write ANS

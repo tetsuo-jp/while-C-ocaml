@@ -167,8 +167,16 @@ overhead `time_tt/time_p`: it converges to a constant (~2350) for
 one-variable programs — *efficient* in the book's sense — but grows with
 the number of variables, the `O(#vars)` access cost that confines the
 efficiency theorem to the one-variable I language. Full write-up in
-[docs/EFFICIENCY.md](docs/EFFICIENCY.md); the overall plan and the
-linear-time hierarchy are in
+[docs/EFFICIENCY.md](docs/EFFICIENCY.md).
+
+`examples/desugar/diag.while` is the diagonalization program of the
+linear-time hierarchy theorem ("constant time factors *do* matter"): it
+calls the timed universal program (as an inlined `procedure tu`) on
+`(⌜p⌝.⌜p⌝)` with a time budget and **negates** the result. So
+`diag(⌜p⌝) = false` when `⟦p⟧(⌜p⌝)` returns true within budget, and
+`true` when it returns false or times out — the contradiction that
+separates `TIME(a·b·n)` from `TIME(a·n)`. Demonstrated by
+`examples/desugar/test-diag.sh`. The overall plan is in
 [docs/TIMED-UNIVERSAL-PLAN.md](docs/TIMED-UNIVERSAL-PLAN.md).
 
 ## Tests
