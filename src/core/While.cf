@@ -18,14 +18,14 @@ entrypoints Proc, Val;
 -- Program
 -------------------------------------------------------------------------------
 
-AProc. Proc ::= "read" Ident ";" [Com] "write" Ident;
+AProc. Proc ::= "read" Id ";" [Com] "write" Id;
 
 
 -------------------------------------------------------------------------------
 -- Command
 -------------------------------------------------------------------------------
 
-CAsn.  Com ::= Ident ":=" Exp ";" ;              -- Assignment
+CAsn.  Com ::= Id ":=" Exp ";" ;              -- Assignment
 CLoop. Com ::= "while" Exp "do" "{" [Com] "}" ;  -- While loop
 terminator Com "" ;
 layout "do" ;
@@ -39,7 +39,7 @@ ECons. Exp  ::= "cons" Exp1 Exp1 ;
 EHd.   Exp  ::= "hd" Exp1 ;
 ETl.   Exp  ::= "tl" Exp1 ;
 EEq.   Exp  ::= "=?" Exp1 Exp1 ;     -- Equality check
-EVar.  Exp1 ::= Ident ;
+EVar.  Exp1 ::= Id ;
 EVal.  Exp1 ::= Val ;
 coercions Exp 1;
 
@@ -57,5 +57,6 @@ VCons. Val  ::= "(" Val "." Val ")" ;
 -- Misc
 -------------------------------------------------------------------------------
 
-token Atom '\'' (digit | letter)+;                  -- ex. 'val, '32, 
+token Atom '\'' (digit | letter)+;                  -- ex. 'val, '32,
+token Id (letter | '_') (letter | digit | '_' | '\'')* ;  -- allows generated names (_X, X'0)
 comment "(*" "*)" ;

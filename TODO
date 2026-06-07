@@ -2,5 +2,5 @@
 
 done
 . if command p.32,p.36
-. and A B ≡ =? (=? A nil) (=? (=? A nil) (=? B nil))
+. and A B ≡ =? (cons (=? A nil) (=? B nil)) (cons nil nil)
 . case commands pp.39-

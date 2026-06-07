@@ -29,3 +29,23 @@ old
 todo.txt
 *~
 *.bak*
+
+# BNFC generated sources
+AbsWhile.*
+BNFC_Util.ml
+ErrM.hs
+LayoutWhile.hs
+LexWhile.*
+ParWhile.*
+PrintWhile.*
+ShowWhile.ml
+SkelWhile.*
+TestWhile.*
+DocWhile.txt
+
+# built binaries
+src/desugar/DesugarWhile
+src/core/while
+
+# ghc package environment
+.ghc.environment.*

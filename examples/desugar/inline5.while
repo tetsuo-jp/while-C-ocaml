@@ -1,0 +1,18 @@
+(* if / case を本体に含むプロシージャのインライン展開 *)
+
+procedure notP
+read X;
+  if X then { Y := nil; } else { Y := cons nil nil; }
+write Y
+
+procedure swap
+read P;
+  case P of
+    nil -> Q := nil;
+    (A.B) -> Q := cons B A;
+write Q
+
+read X;
+  Y := notP X;
+  Z := swap X;
+write Z

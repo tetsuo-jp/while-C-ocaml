@@ -15,6 +15,8 @@ import TransNumberWhile
 import TransPCallWhile
 import TransAndWhile(transAnd)
 import TransCaseWhile(transCase)
+import TransConspWhile(transConsp)
+import TransBlkWhile(transBlk)
 import TransList(transList)
 
 import ErrM
@@ -42,7 +44,7 @@ run v p s = let ts = myLLexer s in case p ts of
            Ok  tree -> do -- putStrLn "\nParse Successful!"
                           -- showTree v tree
                           putStrV v $ printTree $
-                            transNumber $ transList $ expandIf $ extractMain $ doInline $ transAnd $ transCase tree
+                            transNumber $ transList $ transBlk $ expandIf $ extractMain $ doInline $ transConsp $ transAnd $ transCase tree
 
                           exitSuccess
 

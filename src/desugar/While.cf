@@ -66,8 +66,8 @@ ETl.       Exp  ::= "tl" Exp1 ;
 EEq.       Exp  ::= "=?" Exp1 Exp1 ;        -- Equality check
 EListRep.  Exp  ::= "(" [Exp1] TailOp ")" ; -- p.33 Definition 2.1.7
 EAnd.      Exp  ::= "and" Exp1 Exp1 ;       -- p.42
-EVar.      Exp1 ::= Ident ;
-EVal.      Exp1 ::= Val ;
+EVar.      Exp2 ::= Ident ;
+EVal.      Exp2 ::= Val ;
 EConsStar. Exp1 ::= "cons*" [Exp1] ;        -- p.35 cons*
 EList.     Exp1 ::= "list" [Exp1] ;         -- p.35 cons*
 coercions Exp 2;

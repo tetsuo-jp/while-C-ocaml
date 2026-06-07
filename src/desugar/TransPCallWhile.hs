@@ -1,34 +1,43 @@
 module TransPCallWhile where
 
 import AbsWhile
+import Control.Monad
 import Control.Monad.State
-import Data.List(insert,nub)
+import Data.List(nub)
 import Data.Maybe(fromMaybe)
 import Lib(true,false)
 import Data.Data                -- Data
-import Data.Generics.Schemes    -- everywhere
-import Data.Generics.Aliases    -- mkT
--- import qualified Data.Map.Strict as Map
+import Data.Generics.Schemes    -- everywhere, everywhereM, everything
+import Data.Generics.Aliases    -- mkT, mkM, mkQ
 
 
 ------------------------------------------------------------------------------
 -- Inline procedure calls
 ------------------------------------------------------------------------------
 
--- mapping from procedure names to their bodies
--- type Penv = Map.Map String (Ident,[Com],Ident)
-type Penv = [(String,(Ident,[Com],Ident))]
+-- mapping from procedure names to their bodies (with their variables)
+type Penv = [(String,(Ident,[Com],Ident,[String]))]
 type Rename a = State ([(String,String)],Penv,Int) a
 
 mkPenv :: Program -> Penv
 mkPenv (Prog procs) = f procs
  where f (AProc pNameOp ident1 coms ident2 : procs) = case pNameOp of
           NoName -> f procs
-          Name (Ident name) -> (name,(ident1,coms,ident2)) : f procs
+          Name (Ident name) -> (name,(ident1,coms,ident2,varsComs coms)) : f procs
        f [] = error "No procedure has a procedure name."
 
 doInline :: Program -> Program
 doInline prog = evalState (inline prog) ([],mkPenv prog,0)
+
+-- 現在のリネーム環境を識別子に適用する
+renameIdent :: Ident -> Rename Ident
+renameIdent (Ident s) = do
+  (env,_,_) <- get
+  return $ Ident (fromMaybe s (lookup s env))
+
+-- 式・パターン中のすべての識別子にリネーム環境を適用する
+rename :: Data a => a -> Rename a
+rename = everywhereM (mkM renameIdent)
 
 class RenameC a where
   inline :: a -> Rename a
@@ -43,11 +52,12 @@ instance RenameC Proc where
 
 instance RenameC Com where
   inline x = case x of
-      CAsn ident exp -> return $ CAsn ident exp
-      CProc (Ident s2) (Ident pname) (Ident s1) ->
-        do (env,penv,n) <- get
-           let Just (Ident s1',coms,Ident s2') = lookup pname penv
-           let vs = varsComs coms
+      CAsn ident exp -> liftM2 CAsn (renameIdent ident) (rename exp)
+      CProc ident2 (Ident pname) ident1 ->
+        do Ident s2 <- renameIdent ident2
+           Ident s1 <- renameIdent ident1
+           (env,penv,n) <- get
+           let Just (Ident s1',coms,Ident s2',vs) = lookup pname penv
            let env' = (s1',s1) : (s2',s2) : zip vs (map (++"'"++show n) vs)
            put (env',penv,n+1)
            result <- mapM inline coms
@@ -55,24 +65,28 @@ instance RenameC Com where
            put (env,penv,n')
            return $ CBlk result
       CLoop exp coms ->
-        do coms' <- mapM inline coms
-           return $ CLoop exp coms'
+        do exp' <- rename exp
+           coms' <- mapM inline coms
+           return $ CLoop exp' coms'
       CIf exp coms cElseOp ->
-        do coms' <- mapM inline coms
+        do exp' <- rename exp
+           coms' <- mapM inline coms
            cElseOp' <- inline cElseOp
-           return $ CIf exp coms' cElseOp'
-      CCase exp patComTs ->
-        do patComTs' <- mapM inline patComTs
-           return $ CCase exp patComTs'
+           return $ CIf exp' coms' cElseOp'
+      CCase exps patComTs ->
+        do exps' <- rename exps
+           patComTs' <- mapM inline patComTs
+           return $ CCase exps' patComTs'
       CBlk coms ->
         do coms' <- mapM inline coms
            return $ CBlk coms'
-      CShow exp -> return (CShow exp)
+      CShow exp -> liftM CShow (rename exp)
 
 instance RenameC PatComT where
-  inline (PatCom pat com) = do
+  inline (PatCom pats com) = do
+    pats' <- rename pats
     com' <- inline com
-    return $ PatCom pat com'
+    return $ PatCom pats' com'
 
 instance RenameC CElseOp where
   inline x = case x of
@@ -85,55 +99,28 @@ instance RenameC CElseOp where
 -- 変数をリストに集める
 ------------------------------------------------------------------------------
 
--- vars :: Data a => a -> [String]
--- vars = everything (++) (mkQ [] varsCom)
-
 varsComs :: [Com] -> [String]
-varsComs coms = nub $ concatMap varsCom coms
-
-varsCom :: Com -> [String]
-varsCom x = case x of
-  CAsn (Ident str) exp -> str : varsExp exp
-  CProc (Ident str1) ident2 (Ident str2) -> [str1,str2]
-  CLoop exp coms -> varsExp exp ++ concatMap varsCom coms
-  CShow exp -> varsExp exp
-
-varsExp :: Exp -> [String]
-varsExp x = case x of
-    ECons exp1 exp2 -> varsExp exp1 ++ varsExp exp2
-    EConsp exp -> varsExp exp
-    EAtomp ident -> []
-    EHd exp -> varsExp exp
-    ETl exp -> varsExp exp
-    EEq exp1 exp2 -> varsExp exp1 ++ varsExp exp2
-    EListRep exps tl -> concatMap varsExp exps
-    EVar (Ident str) -> [str]
-    EVal val -> []
-    EConsStar exps -> concatMap varsExp exps
-    EList exps -> concatMap varsExp exps
+varsComs = nub . everything (++) (mkQ [] (\(Ident s) -> [s]))
 
 
 ------------------------------------------------------------------------------
 -- Expand if, PDF pp.34-35
 ------------------------------------------------------------------------------
 
-type RenameIf a = State Int a
-
 expandIf :: Data a => a -> a
 expandIf = everywhere (mkT tIf)
 
+-- everywhere がボトムアップに子を変換済みなので、tIf 自身は再帰しない
 tIf :: Com -> Com
 tIf x = case x of
-    CLoop exp coms -> CLoop exp (map tIf coms)
     CIf exp coms celseop ->
-      let comsNoIf = map tIf coms in
       case celseop of
         ElseNone ->
           CBlk [CAsn (Ident "_Z") exp,
-                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : comsNoIf)]
+                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms)]
         ElseOne coms' ->
           CBlk [CAsn (Ident "_Z") exp,
                 CAsn (Ident "_W") true,
-                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : comsNoIf ++ [CAsn (Ident "_W") false]),
-                CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : map tIf coms')]
+                CLoop (EVar (Ident "_Z")) (CAsn (Ident "_Z") false : coms ++ [CAsn (Ident "_W") false]),
+                CLoop (EVar (Ident "_W")) (CAsn (Ident "_W") false : coms')]
     _ -> x

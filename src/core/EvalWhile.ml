@@ -2,16 +2,16 @@ open AbsWhile
 open PrintWhile
 open List
 
-type store = (ident * valT) list
+type store = (id * valT) list
 
 (* Update stores *)
 let rec update (x, vx) = function
-  | [] -> failwith ("Variable " ^ printTree prtIdent x ^ " is not found")
+  | [] -> failwith ("Variable " ^ printTree prtId x ^ " is not found")
   | (y, vy) :: ys -> if x = y
 		     then (y, vx) :: ys
 		     else (y, vy) :: update (x, vx) ys
 
-let rec varExp : exp -> ident list = function
+let rec varExp : exp -> id list = function
   | ECons (e1, e2) -> varExp e1 @ varExp e2
   | EHd e -> varExp e
   | ETl e -> varExp e
@@ -19,14 +19,14 @@ let rec varExp : exp -> ident list = function
   | EVar x -> [x]
   | EVal v -> []
 
-let rec varCom : com -> ident list = function
+let rec varCom : com -> id list = function
   | CAsn (x,e) -> x :: varExp e
   | CLoop (e, cs) ->
      varExp e @ concat (map varCom cs)
 
 (* プロシージャ中に使用されている変数名を列挙する。重複は取り除く。 *)
-let rec varProc (AProc (x,cs,y) : proc) : ident list =
-  sort_uniq compare (x :: y :: concat (map varCom cs))
+let rec varProc (AProc (x,cs,y) : proc) : id list =
+  sort_uniq Stdlib.compare (x :: y :: concat (map varCom cs))
 
 (* Evaluation of expressions *)
 (* p.37 Definition 2.2.2 *)
