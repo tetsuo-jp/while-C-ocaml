@@ -17,6 +17,7 @@ if ($res === FALSE) {
     exit;
 } else {
     header("Content-Type: text/plain");
+    header("X-Content-Type-Options: nosniff");
     echo $res;
 }
 

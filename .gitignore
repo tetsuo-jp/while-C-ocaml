@@ -63,3 +63,9 @@ oUnit-*.log
 oUnit-*.cache
 src/core/while.opt
 docs/RECRUIT.md
+
+# web deployment artifacts (make install)
+web/while
+web/examples/
+web/programs/*.while
+web/data/*.while
