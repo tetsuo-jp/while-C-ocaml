@@ -65,3 +65,6 @@ jobs:
 
       - name: E2E diagonalization program (hierarchy theorem)
         run: sh examples/desugar/test-diag.sh
+
+      - name: E2E one-variable (I) translation
+        run: sh examples/desugar/test-onevar.sh

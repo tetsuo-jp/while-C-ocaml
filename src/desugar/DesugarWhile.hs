@@ -13,6 +13,7 @@ import AbsWhile
 import LayoutWhile
 import Desugar(desugar)
 import ProgToData(progToData)
+import TransOneVar(transOneVar)
 
 import ErrM
 
@@ -48,6 +49,10 @@ dispCore = printTree . desugar
 dispData :: Program -> String
 dispData = printTree . progToData . desugar
 
+-- 脱糖して 1 変数 (I 言語) プログラムに変換して印字する (Prop. many-one-var)
+dispOneVar :: Program -> String
+dispOneVar = printTree . transOneVar . desugar
+
 showTree :: (Show a, Print a) => Int -> a -> IO ()
 showTree v tree
  = do
@@ -63,6 +68,7 @@ usage = do
     , "  (files)         Parse content of files verbosely."
     , "  -s (files)      Silent mode. Parse content of files silently."
     , "  --data (files)  Print the programs-as-data representation (p.49)."
+    , "  --onevar (files) Translate to a one-variable (I) program (many-one-var)."
     ]
   exitFailure
 
@@ -74,4 +80,5 @@ main = do
     [] -> hGetContents stdin >>= run dispCore 2 pProgram
     "-s":fs -> mapM_ (runFile dispCore 0 pProgram) fs
     "--data":fs -> mapM_ (runFile dispData 2 pProgram) fs
+    "--onevar":fs -> mapM_ (runFile dispOneVar 2 pProgram) fs
     fs -> mapM_ (runFile dispCore 2 pProgram) fs

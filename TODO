@@ -1,6 +1,7 @@
-. WHILE -> one-variable (I) translation, for a faithfully efficient diag (Prop. many-one-var, ch.19)
+. translate u1var/tt to one variable for a self-contained efficient I universal program (compose --onevar with tt)
 
 done
+. WHILE -> one-variable (I) translation (Prop. many-one-var, ch.19): DesugarWhile --onevar (TransOneVar.hs)
 . timed universal program + efficiency measurement + diag illustration ch.19 (examples/desugar/{timed-universal,diag}.while, docs/EFFICIENCY.md)
 . universal program (self-interpreter) for WHILE pp.50- (examples/desugar/universal.while)
 . mapping WHILE programs to their concrete syntax p.49 (DesugarWhile --data)

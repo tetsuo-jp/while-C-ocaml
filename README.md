@@ -179,6 +179,25 @@ separates `TIME(a·b·n)` from `TIME(a·n)`. Demonstrated by
 `examples/desugar/test-diag.sh`. The overall plan is in
 [docs/TIMED-UNIVERSAL-PLAN.md](docs/TIMED-UNIVERSAL-PLAN.md).
 
+### WHILE → one variable (the I language)
+
+`DesugarWhile --onevar` translates a (desugared) program to an equivalent
+**one-variable** program (the I language) by packing all variables into a
+single list `A` and accessing `Xi` as `hd (tl^{i-1} A)` (Prop. many-one-var):
+
+```
+src/desugar/DesugarWhile --onevar examples/desugar/reverse-indent.while
+# read A; A := cons A nil; A := cons (hd A) (cons nil nil); while hd A do { ... } ...
+```
+
+`examples/desugar/test-onevar.sh` checks that the one-variable version
+computes the same function and uses exactly one variable. This is the
+construction the book uses to turn the (multi-variable) interpreter into a
+genuinely efficient universal program for I: a one-variable program is
+interpreted by the universal program with a *uniform* constant overhead
+(its variable access is O(1)), unlike the multi-variable case in
+[docs/EFFICIENCY.md](docs/EFFICIENCY.md).
+
 ## Tests
 
 ```

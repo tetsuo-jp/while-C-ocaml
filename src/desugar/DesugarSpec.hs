@@ -7,7 +7,7 @@ module Main where
 
 import Test.Hspec
 import Control.Exception (evaluate)
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, nub)
 
 import AbsWhile
 import ParWhile (pProgram, myLexer)
@@ -18,6 +18,9 @@ import ErrM
 import Lib (true, false, skip)
 import Desugar (desugar, extractMain)
 import ProgToData (progToData)
+import TransOneVar (transOneVar)
+import Data.Generics.Schemes (everything)
+import Data.Generics.Aliases (mkQ)
 import TransAndWhile (transAnd)
 import TransCaseWhile (transCase)
 import TransConspWhile (transConsp)
@@ -302,6 +305,54 @@ main = hspec $ do
       throwsMsg progToData
         "procedure p read A; B := A; write B read X; Y := X; write Y"
         "progToData: expected a single unnamed procedure (run desugar first)"
+
+  describe "TransOneVar (WHILE -> 1 変数 I, many-one-var)" $ do
+    let oneVar = transOneVar . desugar . parseProg
+        varsOf prog = nub (everything (++) (mkQ [] (\i -> [i :: Ident])) prog)
+
+    it "結果はちょうど 1 変数を使う (reverse)" $
+      varsOf (oneVar
+        "read X; Y := nil; while X do { Y := cons (hd X) Y; X := tl X; } write Y")
+        `shouldBe` [Ident "A"]
+    it "結果はちょうど 1 変数を使う (3 変数プログラム)" $
+      varsOf (oneVar
+        "read XY; X := hd XY; Y := tl XY; while X do { Y := cons (hd X) Y; X := tl X; } write Y")
+        `shouldBe` [Ident "A"]
+    it "入力変数と出力変数が同じでも 1 変数になる" $
+      varsOf (oneVar "read X; X := tl X; write X") `shouldBe` [Ident "A"]
+    it "既存の変数名 A と衝突しない (fresh な名前を選ぶ)" $
+      varsOf (oneVar "read A; B := tl A; write B")
+        `shouldSatisfy` (\vs -> length vs == 1)
+    it "=? も 1 変数アクセスに変換する" $
+      norm (printTree (oneVar "read X; Y := =? X X; write Y"))
+        `shouldBe` norm
+          "read A; A := cons A nil; \
+          \ A := cons (hd A) (cons (=? (hd A) (hd A)) nil); \
+          \ A := hd (tl A); write A"
+    it "教科書の構成 (reverse, X=1 Y=2) と一致する" $
+      norm (printTree (oneVar
+        "read X; Y := nil; while X do { Y := cons (hd X) Y; X := tl X; } write Y"))
+        `shouldBe` norm
+          "read A; \
+          \ A := cons A nil; \
+          \ A := cons (hd A) (cons nil nil); \
+          \ while hd A do { \
+          \   A := cons (hd A) (cons (cons (hd (hd A)) (hd (tl A))) nil); \
+          \   A := cons (tl (hd A)) (cons (hd (tl A)) nil); \
+          \ } \
+          \ A := hd (tl A); \
+          \ write A"
+    -- transOneVar はコア WHILE のみ受け付ける (desugar 前は error)
+    it "コア以外の式は error になる" $
+      throwsMsg transOneVar "read X; Y := cons? X; write Y"
+        ("transOneVar: non-core expression: " ++ printTree (EConsp (EVar (Ident "X"))))
+    it "コア以外のコマンドは error になる" $
+      throwsMsg transOneVar "read X; show X; write X"
+        ("transOneVar: non-core command: " ++ printTree (CShow (EVar (Ident "X"))))
+    it "プロシージャが複数あれば error になる" $
+      throwsMsg transOneVar
+        "procedure p read A; B := A; write B read X; Y := X; write Y"
+        "transOneVar: expected a single procedure (run desugar first)"
 
   describe "Desugar.desugar (パイプライン全体)" $ do
     it "プロシージャ呼び出しを含むプログラムをコア WHILE にする" $

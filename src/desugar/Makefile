@@ -17,7 +17,7 @@ ParWhile.y LexWhile.x: While.cf
 
 	touch $@
 
-TRANS = Desugar.hs ProgToData.hs TransNumberWhile.hs TransPCallWhile.hs Lib.hs TransCaseWhile.hs TransAndWhile.hs TransConspWhile.hs TransBlkWhile.hs TransList.hs
+TRANS = Desugar.hs ProgToData.hs TransOneVar.hs TransNumberWhile.hs TransPCallWhile.hs Lib.hs TransCaseWhile.hs TransAndWhile.hs TransConspWhile.hs TransBlkWhile.hs TransList.hs
 
 DesugarWhile: DesugarWhile.hs ParWhile.hs LexWhile.hs $(TRANS)
 	ghc --make $< -o $@
@@ -32,7 +32,7 @@ unittest: DesugarSpec
 
 # C0 (文) カバレッジ: 変換モジュールのみを対象に報告する
 HPC_MODULES = --include=Lib --include=Desugar --include=ProgToData \
-              --include=TransAndWhile \
+              --include=TransOneVar --include=TransAndWhile \
               --include=TransBlkWhile --include=TransCaseWhile \
               --include=TransConspWhile --include=TransList \
               --include=TransNumberWhile --include=TransPCallWhile
@@ -67,3 +67,4 @@ test: DesugarWhile
 	./DesugarWhile ../../examples/desugar/timed-universal.while
 	./DesugarWhile ../../examples/desugar/diag.while
 	./DesugarWhile --data ../../examples/desugar/reverse-indent.while
+	./DesugarWhile --onevar ../../examples/desugar/reverse-indent.while
