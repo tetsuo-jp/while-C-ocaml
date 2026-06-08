@@ -198,6 +198,13 @@ interpreted by the universal program with a *uniform* constant overhead
 (its variable access is O(1)), unlike the multi-variable case in
 [docs/EFFICIENCY.md](docs/EFFICIENCY.md).
 
+Composing the two — `DesugarWhile --onevar examples/desugar/timed-universal.while`
+— packs the timed universal program's 31 variables into one, yielding a
+**one-variable (I) timed universal program** (the book's
+Construction "translate `tt` to one-variable I code"). It still meets the
+timed boundary; `examples/desugar/test-efficient-tu.sh` verifies both the
+one-variable property and `⟦tu_I⟧((⌜p⌝.d).nil^n)` at `n = time_p(d) ∓ 1`.
+
 ## Tests
 
 ```

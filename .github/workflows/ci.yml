@@ -68,3 +68,6 @@ jobs:
 
       - name: E2E one-variable (I) translation
         run: sh examples/desugar/test-onevar.sh
+
+      - name: E2E one-variable timed universal program (--onevar . tt)
+        run: sh examples/desugar/test-efficient-tu.sh
