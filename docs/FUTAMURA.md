@@ -223,19 +223,30 @@ not the residual-running path).
    confirming `[cogen]('S.⌜int_min⌝) == comp2` (hence
    `[[cogen]('S.⌜int_min⌝)]('S.'swap) == B`) is a multi-hour `rundata` run
    (in progress).
-3. **Shrinking the residuals (optimality, not correctness)** — two layers:
-   - **`src/core/simp`** (`make -C src/core simp`) — a semantics-preserving
-     residual simplifier (drops the no-op self-assignments `(var k) := (var k)`
-     that the emit model produces, flattens `'semi`). Verified to preserve
-     `[comp2](('S.op))` (swap/id). Measured: `comp2` 22.6 → **9.2 MB** (−59%),
-     `cogen` 29.6 → **16.3 MB** (−45%). This removes the *no-op* bloat but not
-     the interpreting-compiler structure.
-   - **PAT-READ-ITER**: make the read of a partial-static input consult the
-     static half's origin binding time (`MixPatRead`), so `comp2`/`comp3` stop
-     being *interpreting* compilers; plus **store sizing** (`lookup`/`update`
-     are `O(#vars)`). rwhile needed both (`specsize`). True Jones-optimality
-     would need offlinizing the AV algebra (a "static-existence-but-symbolic"
-     category), which rwhile flags as large research.
+3. **Shrinking the residuals (optimality, not correctness)** — in layers:
+   - **No-op elimination at generation — DONE** (`mix.while`). `'doasgn` no
+     longer emits `(var k):=(var k)` (RHS lifting to `(var k)`), and the assemble
+     skips a self-referential output `(var j):=(var j)`. fp1 comp **726 → 592 B**
+     (the level `simp` reached post-hoc; `simp(comp)==comp` now — no residual
+     no-ops left), correctness preserved, all tests green. This is the bulk of
+     the bloat (`simp` had measured −59% comp2 / −45% cogen) removed at the
+     source, plus the wasteful per-no-op `O(n)` store update avoided.
+   - **`src/core/simp`** remains as a post-pass/oracle for any residual.
+   - **Store sizing** is, *here*, a **speed**-only lever (faster generation): our
+     `dynall` already skips `('S.nil)` and self slots, so an oversized store adds
+     ~no comp bloat (unlike rwhile's reversible store-clear, the source of its
+     1055-node garbage). So it is *not* the lever for comp size in this repo.
+   - **PAT-READ-ITER — the fundamental, remaining ~5×→~2× (research-scale)**.
+     The leftover bloat is `mix`'s own interpreter loop residualized under
+     self-application, because the over-static read makes a source guard
+     `('S.dyn)` (`MixPatRead`) route through `mix`'s *static* control (assigning
+     `Cd`), which the outer `mix` then dynamicizes. The proper fix is to make the
+     read of a partial-static input residualize when its static half is dynamic
+     one level up — but at `mix`'s own (online) level that value *is* static, so
+     `aveq` cannot tell. This is the **online-vs-offline divide**: it needs a
+     two-level / binding-time-annotated AV (a "static-but-symbolic" category) or
+     a separate BTA pass — exactly what rwhile flags as large research and what
+     `MixPatRead`/`RevSpecGarbage` characterize. Not closeable as a local patch.
 
 ### Machine-checked design specs (Agda)
 
