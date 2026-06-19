@@ -161,8 +161,13 @@ read P;
       S3rev := cons (cons 'D VarK) S3rev;
       L1 := avlift A1;
       L2 := avlift A2;
-      Fix1 := cons (cons 'asgn (cons VarK (cons L1 nil))) Fix1;
-      Fix2 := cons (cons 'asgn (cons VarK (cons L2 nil))) Fix2;
+      (* skip a no-op fix-up (var k) := (var k) when a branch left the slot self *)
+      if =? L1 VarK then { Dummy := nil; } else {
+        Fix1 := cons (cons 'asgn (cons VarK (cons L1 nil))) Fix1;
+      }
+      if =? L2 VarK then { Dummy := nil; } else {
+        Fix2 := cons (cons 'asgn (cons VarK (cons L2 nil))) Fix2;
+      }
     }
     K := cons nil K;
     Go := nil;
