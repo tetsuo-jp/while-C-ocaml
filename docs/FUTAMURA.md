@@ -278,7 +278,12 @@ constraint classical (irreversible) PE does not face (it discards freely).
 `test-noninj.sh`): a program that ignores its static input makes `mix` discard
 `s`, so `[mix]((ignore_static.('S.'a)))` and `('S.'b)` are the **same** 288-byte
 residual — verified byte-equal. So `mix` is non-injective ⇒ by Theorem A a
-reversible `mix` would need garbage to recover `s`.
+reversible `mix` would need garbage to recover `s`. **Sharp instantiation**: in
+fact *every* static value (`'a 'b 'c (x.y) nil (1.2.3) …`) collapses to that one
+residual — verified — so the fibre = the **whole** static-input set. Theorem A's
+lower bound (`garbage ≥ |fibre|`) and rwhile's upper bound (`input-preserving`,
+`garbage ≤ |input|`) therefore **coincide** here: a reversible `mix` for this
+program must retain the entire `s` — the bound is tight.
 
 This predicts the observed trade-off: the **trivial** `mix_triv` is injective
 (it bakes `(p,s)` recoverably) ⇒ clean reversible, no garbage (why rwhile's

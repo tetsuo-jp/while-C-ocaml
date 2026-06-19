@@ -33,6 +33,22 @@ else
   echo "FAIL no collision (mix distinguished 'a and 'b)"; fail=1
 fi
 
+# SHARP fibre: MANY distinct static values all collapse to the SAME residual,
+# so the fibre over comp = {all static inputs} (unbounded).  A reversible mix
+# would have to retain the whole s as garbage: the lower bound (|fibre|) and
+# rwhile's input-preserving upper bound (|input|) coincide here (tight).
+allsame=yes
+for s in "'c" "('x . 'y)" "nil" "('1 . ('2 . '3))"; do
+  printf "(%s . ('S . %s))" "$IGN" "$s" > "$tmp/sv.val"
+  $WHILE "$tmp/mix.core" "$tmp/sv.val" > "$tmp/cv.data"
+  cmp -s "$tmp/cv.data" "$tmp/ca.data" || allsame=no
+done
+if [ "$allsame" = yes ]; then
+  echo "ok   fibre is unbounded: 'a 'b 'c (x.y) nil (1.2.3) all -> the SAME residual"
+else
+  echo "FAIL some static value gave a different residual"; fail=1
+fi
+
 # both residuals correctly compute [ignore_static]((s.d)) = d
 for d in "('p . 'q)" "('x . ('y . nil))"; do
   got=$($RUN "$tmp/ca.data" "$(printf '%s' "$d" > "$tmp/d.val"; echo "$tmp/d.val")")
