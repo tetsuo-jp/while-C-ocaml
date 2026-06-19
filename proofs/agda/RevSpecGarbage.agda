@@ -95,3 +95,25 @@ clean→no-merge : {X Y : Set} (f : X → Y)
   → clean-reversible f
   → ∀ {x₁ x₂} → ¬ (x₁ ≡ x₂) → ¬ (f x₁ ≡ f x₂)
 clean→no-merge f cln distinct merged = distinct (cln merged)
+
+------------------------------------------------------------------------
+-- Unification with rwhile-C-ocaml's RWhileRevProjGen.
+--
+-- (1) `direct-needs-injective` below is exactly rwhile's `proj1-needs-trivial`
+--     (`Inj i → (∀x → srcMap x ≡ i x) → Inj srcMap`): the DECODE = id ("direct",
+--     garbage-free) special case of Theorem A.  So Theorem A *generalizes* it by
+--     allowing a decode `d` (i.e. allowing garbage); the general case is the
+--     Realization module above (separates / same-residual / fibre-map).
+-- (2) Bracket: the LOWER bound here (garbage ≥ |fibre|, `fibre-map` injective)
+--     and rwhile's UPPER bound `input-preserving-inj` (keeping the whole input
+--     as garbage is always a valid reversible realization, so garbage ≤ |input|)
+--     together bracket the garbage of a reversible spec: |fibre| ≤ garbage ≤ |X|.
+
+-- A reversible DIRECT realization (decode = id: g computes f pointwise, g
+-- injective) forces f to be injective.  ≡ rwhile's proj1-needs-trivial.
+direct-needs-injective : {X Y : Set} (f g : X → Y)
+  → (∀ x → g x ≡ f x)
+  → (∀ {x x'} → g x ≡ g x' → x ≡ x')
+  → ∀ {x x'} → f x ≡ f x' → x ≡ x'
+direct-needs-injective f g realizes g-inj {x} {x'} fx≡fx' =
+  g-inj (trans (realizes x) (trans fx≡fx' (sym (realizes x'))))
