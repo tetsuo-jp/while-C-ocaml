@@ -35,6 +35,11 @@ module RevSpecGarbage where
 
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans)
 open import Relation.Nullary using (¬_)
+open import Data.Product using (Σ; _,_; proj₁)
+
+-- The fibre of a function h over a point o: the inputs that h maps to o.
+Fibre : {A B : Set} → (A → B) → B → Set
+Fibre {A} h o = Σ A (λ a → h a ≡ o)
 
 -- A reversible realization of a specializer f : X -> Y.
 module Realization
@@ -57,6 +62,19 @@ module Realization
     -- so g x₁ and g x₂ differ only in garbage (the part `d` discards).
     same-residual : d (g x₁) ≡ d (g x₂)
     same-residual = trans (recovers x₁) (trans merged (sym (recovers x₂)))
+
+  -- QUANTITATIVE bound (Bennett-Landauer count).  Over each residual `o`, the
+  -- reversible state space (d's fibre) contains an INJECTIVE image of EVERY
+  -- input the specializer maps to `o` (f's fibre): `fibre-map` lands in d's
+  -- fibre and is injective.  So the garbage carried at `o` has at least as many
+  -- states as there are inputs producing `o` -- the realization must store ≥
+  -- log |fibre(f,o)| bits beyond the residual.
+  fibre-map : (o : Y) → Fibre f o → Fibre d o
+  fibre-map o (x , fx≡o) = g x , trans (recovers x) fx≡o
+
+  fibre-map-inj : (o : Y) {p q : Fibre f o}
+    → proj₁ (fibre-map o p) ≡ proj₁ (fibre-map o q) → proj₁ p ≡ proj₁ q
+  fibre-map-inj o eq = g-inj eq
 
 -- A CLEAN reversible realization (no garbage: G = Y, d = id, g = f) is exactly
 -- `f` being injective.

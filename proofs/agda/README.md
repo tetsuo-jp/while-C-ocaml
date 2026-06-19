@@ -95,7 +95,10 @@ with a decode `d`, `d (g x) = f x`. For any pair `f` MERGES (`f x₁ = f x₂`,
 `x₁ ≠ x₂`): `separates` (`g x₁ ≠ g x₂`) and `same-residual` (`d(g x₁)=d(g x₂)`),
 so the reversible spec is forced to carry **garbage** distinguishing them;
 `no-clean-if-merges` / `clean→no-merge` give the dichotomy: a clean reversible
-spec is exactly an injective (non-merging) one. Predicts the observed trade-off:
+spec is exactly an injective (non-merging) one. Quantitatively, `fibre-map` is
+an injection of `f`'s fibre over each residual `o` into `d`'s fibre, so the
+garbage at `o` has ≥ as many states as inputs producing `o` (the Bennett–Landauer
+count: ≥ log |fibre| bits). Predicts the observed trade-off:
 
 - `mix_triv` (trivial) is **injective** (residual encodes `(p,s)`) ⇒ a clean
   reversible realization exists ⇒ no garbage — why rwhile's specializer is
