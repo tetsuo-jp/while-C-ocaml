@@ -294,7 +294,10 @@ read PD;
             Other -> begin {
                 Le := avlift A1;
                 VarKK := cons 'var (cons KK nil);
-                RC := cons (cons 'asgn (cons VarKK (cons Le nil))) RC;
+                (* don't emit a no-op self-assignment (var k) := (var k) *)
+                if =? Le VarKK then { Dummy := nil; } else {
+                  RC := cons (cons 'asgn (cons VarKK (cons Le nil))) RC;
+                }
                 SelfAV := cons 'D VarKK;
                 Tmp := cons Vl (cons KK SelfAV);
                 Vl := update Tmp;
@@ -427,8 +430,13 @@ read PD;
   OutAV := lookup Tmp;
   OutE := avlift OutAV;
   VarJ := cons 'var (cons J nil);
-  OutAsgn := cons 'asgn (cons VarJ (cons OutE nil));
-  RCfull := cons OutAsgn RC;
+  (* skip a no-op (var j) := (var j) when the output slot is self-referential *)
+  if =? OutE VarJ then {
+    RCfull := RC;
+  } else {
+    OutAsgn := cons 'asgn (cons VarJ (cons OutE nil));
+    RCfull := cons OutAsgn RC;
+  }
   BodyAll := makeseq RCfull;
   VarI2 := cons 'var (cons I nil);
   Comp := cons VarI2 (cons BodyAll (cons VarJ nil));
