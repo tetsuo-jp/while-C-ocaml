@@ -224,13 +224,15 @@ not the residual-running path).
    `[[cogen]('S.⌜int_min⌝)]('S.'swap) == B`) is a multi-hour `rundata` run
    (in progress).
 3. **Shrinking the residuals (optimality, not correctness)** — in layers:
-   - **No-op elimination at generation — DONE** (`mix.while`). `'doasgn` no
-     longer emits `(var k):=(var k)` (RHS lifting to `(var k)`), and the assemble
-     skips a self-referential output `(var j):=(var j)`. fp1 comp **726 → 592 B**
-     (the level `simp` reached post-hoc; `simp(comp)==comp` now — no residual
-     no-ops left), correctness preserved, all tests green. This is the bulk of
-     the bloat (`simp` had measured −59% comp2 / −45% cogen) removed at the
-     source, plus the wasteful per-no-op `O(n)` store update avoided.
+   - **No-op elimination at generation — DONE & verified** (`mix.while`). Two
+     sources of `(var k):=(var k)`: (i) `'doasgn`/assemble (fp1's case) and
+     (ii) the **dynamic-if merge fix-ups** when a branch leaves a slot self
+     (the fp2/fp3 bulk source). Both now skipped at generation. Measured:
+     fp1 comp **726 → 592 B**; **comp2 22.6 → 9.36 MB (−59%)**, verified correct
+     (`[comp2](('S.op))` equals the current-mix fp1 residual for swap/id,
+     end-to-end, op-sensitive). Matches `simp`'s post-hoc reduction but at the
+     source, and avoids the wasteful per-no-op `O(n)` store update (less of the
+     46 GB churn). `simp(comp)==comp` now (no residual no-ops left).
    - **`src/core/simp`** remains as a post-pass/oracle for any residual; it also
      has a sound **global dead-store elimination** pass. Tellingly, DCE removes
      **nothing** from `comp2` (9.2 MB → 9.2 MB, byte-correct): after no-op
