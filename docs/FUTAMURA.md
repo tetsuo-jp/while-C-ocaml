@@ -192,9 +192,16 @@ Verified by `examples/desugar/test-fp-triv.sh` (~0.1 s total): `[cogen]('S.⌜in
 byte-equals `comp2`, `[[cogen]('S.⌜int_min⌝)]('S.op)]` computes the correct
 int_min target for `op ∈ {swap,id}` and is op-sensitive. This shows the Futamura
 hierarchy is **instantiable and non-vacuous** with a fast self-applicable
-specializer; `mix.while` is the genuinely *optimizing* counterpart (whose
-residuals are larger because it residualizes structurally rather than packaging
-a closure).
+specializer; `mix.while` is the genuinely *optimizing* counterpart.
+
+The size **signature** matches rwhile's trivial specializer (see
+[NOTE-fp3-speed-from-rwhile.md](NOTE-fp3-speed-from-rwhile.md)): `⌜mix_triv⌝`
+≈ 4.4 KB, `comp2` ≈ 1× (5.5 KB, it freezes the spec with the program baked),
+`cogen` ≈ 2× (8.9 KB) — exactly the "embed-only, no self-optimization" signature
+(rwhile's `comp2`≈1×|spec|, `comp3`≈2×|spec|). The optimizing `mix`'s `cogen` is
+instead ~12×|mix| because it genuinely expands/specializes under self-application
+(the harder task; per that note, the speed gap is the *amount of specialization*,
+not the residual-running path).
 
 ### Remaining work (shrinking the optimizing residuals)
 
