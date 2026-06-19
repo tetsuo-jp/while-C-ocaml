@@ -20,42 +20,47 @@ let showValT (t : valT) : string =
 let hd = function VCons (a, _) -> a | _ -> VNil
 let tl = function VCons (_, b) -> b | _ -> VNil
 
-(* store: association list keyed by the variable index value (nil^k) *)
-let rec lookup k = function
-  | [] -> VNil
-  | (k', v) :: r -> if k' = k then v else lookup k r
-let rec update k v = function
-  | [] -> [ (k, v) ]
-  | (k', v') :: r -> if k' = k then (k, v) :: r else (k', v') :: update k v r
+(* store: a MUTABLE int-keyed hashtable, keyed by the variable index DEPTH k of
+ * nil^k -- O(1) access, no per-step allocation.  (Running a residual ⌜p⌝ is
+ * ordinary imperative execution: mix's specialization-time snapshots/merges are
+ * already baked into the residual as plain asgn/semi/while/if, so an in-place
+ * store is correct here.)  Earlier: assoc list keyed by structural nil^k
+ * equality = O(#vars * index_len) per access; then a persistent Map = O(log n)
+ * with allocation.  This is the fastest of the three. *)
+let rec depth = function VCons (_, r) -> 1 + depth r | _ -> 0
+let lookup st kidx =
+  match Hashtbl.find_opt st (depth kidx) with Some v -> v | None -> VNil
+let update st kidx v = Hashtbl.replace st (depth kidx) v
 
-let a name = VAtom (Atom name)
-
-let rec evalE store e =
+(* Dispatch on the node's head atom once (string match), instead of re-building
+ * a VAtom and structurally comparing per node -- the per-node hot path. *)
+let rec evalE st e =
   match e with
-  | VCons (h, VCons (k, VNil)) when h = a "'var"   -> lookup k store
-  | VCons (h, VCons (d, VNil)) when h = a "'quote" -> d
-  | VCons (h, VCons (e1, VNil)) when h = a "'hd"   -> hd (evalE store e1)
-  | VCons (h, VCons (e1, VNil)) when h = a "'tl"   -> tl (evalE store e1)
-  | VCons (h, VCons (e1, VCons (e2, VNil))) when h = a "'cons" ->
-      VCons (evalE store e1, evalE store e2)
-  | VCons (h, VCons (e1, VCons (e2, VNil))) when h = a "'eq" ->
-      if evalE store e1 = evalE store e2 then VCons (VNil, VNil) else VNil
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'var", VCons (k, VNil) -> lookup st k
+       | "'quote", VCons (d, VNil) -> d
+       | "'hd", VCons (e1, VNil) -> hd (evalE st e1)
+       | "'tl", VCons (e1, VNil) -> tl (evalE st e1)
+       | "'cons", VCons (e1, VCons (e2, VNil)) ->
+           VCons (evalE st e1, evalE st e2)
+       | "'eq", VCons (e1, VCons (e2, VNil)) ->
+           if evalE st e1 = evalE st e2 then VCons (VNil, VNil) else VNil
+       | _ -> failwith ("rundata: bad expression: " ^ showValT e))
   | _ -> failwith ("rundata: bad expression: " ^ showValT e)
 
-let rec evalC store c =
+let rec evalC st c =
   match c with
-  | VCons (h, VCons (VCons (hv, VCons (k, VNil)), VCons (e, VNil)))
-    when h = a "'asgn" && hv = a "'var" ->
-      update k (evalE store e) store
-  | VCons (h, VCons (c1, VCons (c2, VNil))) when h = a "'semi" ->
-      evalC (evalC store c1) c2
-  | VCons (h, VCons (e, VCons (c1, VNil))) when h = a "'while" ->
-      let rec loop store =
-        if evalE store e = VNil then store else loop (evalC store c1)
-      in
-      loop store
-  | VCons (h, VCons (e, VCons (c1, VCons (c2, VNil)))) when h = a "'if" ->
-      if evalE store e = VNil then evalC store c2 else evalC store c1
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'asgn", VCons (VCons (VAtom (Atom "'var"), VCons (k, VNil)), VCons (e, VNil)) ->
+           update st k (evalE st e)
+       | "'semi", VCons (c1, VCons (c2, VNil)) -> evalC st c1; evalC st c2
+       | "'while", VCons (e, VCons (c1, VNil)) ->
+           while evalE st e <> VNil do evalC st c1 done
+       | "'if", VCons (e, VCons (c1, VCons (c2, VNil))) ->
+           if evalE st e <> VNil then evalC st c1 else evalC st c2
+       | _ -> failwith ("rundata: bad command: " ^ showValT c))
   | _ -> failwith ("rundata: bad command: " ^ showValT c)
 
 let run prog input =
@@ -64,9 +69,10 @@ let run prog input =
   let varJ = hd (tl (tl prog)) in
   let i = hd (tl varI) in
   let j = hd (tl varJ) in
-  let store = update i input [] in
-  let store = evalC store c in
-  lookup j store
+  let st : (int, valT) Hashtbl.t = Hashtbl.create 1024 in
+  update st i input;
+  evalC st c;
+  lookup st j
 
 let () =
   let prog =

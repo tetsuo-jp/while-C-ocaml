@@ -13,7 +13,9 @@ residualization** that makes self-application terminate. **fp3 (cogen)**
 an interpreter, so it is a multi-hour check (in progress). `comp2`/`cogen` are
 large (correct *interpreting* compilers, like rwhile's 3.3/6.6 MB ones);
 shrinking them to Jones-optimal compilers is the PAT-READ-ITER / store-sizing
-work (an **optimality**, not a correctness, gap).
+work (an **optimality**, not a correctness, gap). A **trivial specializer**
+`mix_triv.while` (no optimization) makes all three projections tiny and instant
+(fp3 cogen 8.9 KB, ~0.01 s) — see below.
 Ported from the *reversible* specializer
 `rwhile-C-ocaml/examples/spec_av.rwhile` to the standard (non-reversible) Jones
 WHILE of this repository. The reversibility machinery (XOR self-clear /
@@ -171,7 +173,30 @@ the `rundata` interpreter), so it is a multi-hour check rather than a quick test
 the termination itself is the third-projection milestone (cogen exists and is
 finite). Same large-interpreting-compiler caveat as fp2.
 
-### Remaining work (fp3, and shrinking the residuals)
+## Trivial specializer — all three projections, fast
+
+`examples/desugar/mix_triv.while` is **Jones's trivial specializer** (the `papp`
+closure of rwhile's `RWhileFutamura2Inst`, residualized structurally for WHILE):
+same contract as `mix` (`[mix_triv]((P.(BT.S))) = comp`, `[comp](d)=[P]((s.d))`),
+but it does **no** optimization — for `BT='S` it bakes `s` as a constant and
+prepends `(var i) := cons (quote s) (var i)` to `P`'s body, so the residual just
+reconstructs `(s.d)` and runs `P`. Work is `O(|P|+|s|)`, so the whole hierarchy
+is tiny and instant, including self-application:
+
+| | optimizing `mix` | **trivial `mix_triv`** |
+|---|---|---|
+| fp2 `comp2` | 22.6 MB, ~42 min | **5.5 KB, ~0 s** |
+| fp3 `cogen`  | 29.6 MB, ~2 h   | **8.9 KB, ~0.01 s** |
+
+Verified by `examples/desugar/test-fp-triv.sh` (~0.1 s total): `[cogen]('S.⌜int_min⌝)`
+byte-equals `comp2`, `[[cogen]('S.⌜int_min⌝)]('S.op)]` computes the correct
+int_min target for `op ∈ {swap,id}` and is op-sensitive. This shows the Futamura
+hierarchy is **instantiable and non-vacuous** with a fast self-applicable
+specializer; `mix.while` is the genuinely *optimizing* counterpart (whose
+residuals are larger because it residualizes structurally rather than packaging
+a closure).
+
+### Remaining work (shrinking the optimizing residuals)
 
 1. **Dynamic-`while`/loop residualization** — **DONE** (proof-backed). `'doasgn`
    was rewritten to the **emit-on-dynamic-assignment** model

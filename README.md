@@ -232,8 +232,12 @@ The **second Futamura projection** (compiler generation,
 `examples/desugar/test-fp2.sh`, ~40 min). `comp2` is large (a correct
 *interpreting* compiler); `src/core/rundata` runs such large `⌜p⌝` residuals
 natively (the verification oracle, since `universal.while` is too slow on them).
-The third projection (cogen) and shrinking the residuals to Jones-optimal size
-are the remaining work — see [docs/FUTAMURA.md](docs/FUTAMURA.md).
+The third projection (cogen) terminates too (29.6 MB, ~2 h). A **trivial
+specializer** `examples/desugar/mix_triv.while` (no optimization, Jones's `papp`
+closure) makes all three projections tiny and instant — fp3 cogen is 8.9 KB,
+~0.01 s (`examples/desugar/test-fp-triv.sh`). Shrinking the *optimizing* mix's
+residuals to Jones-optimal size is the remaining work — see
+[docs/FUTAMURA.md](docs/FUTAMURA.md).
 
 ## Tests
 

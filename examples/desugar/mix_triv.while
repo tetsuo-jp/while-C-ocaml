@@ -1,0 +1,39 @@
+(* mix_triv.while - Jones's TRIVIAL specializer (the "papp closure" of          *)
+(* rwhile's RWhileFutamura2Inst, structurally residualized for WHILE).           *)
+(*                                                                               *)
+(* Same contract/signature as mix.while:                                         *)
+(*   [mix_triv]((P . (BT . S)))  =  comp     and     [comp](d) = [P]((s . d))    *)
+(* but it does NO real specialization.  For BT='S it bakes the static value s    *)
+(* as a constant and PREPENDS  (var i) := cons (quote s) (var i)  to P's body,   *)
+(* so the residual reconstructs (s . d) at run time and runs P unchanged:        *)
+(*   [comp](d) = [P]((s . d)).                                                   *)
+(* (BT='D: leave P unchanged, [comp](d) = [P](d).)                               *)
+(*                                                                               *)
+(* Because the work is O(|P| + |s|) (no store walking, no folding), the three    *)
+(* Futamura projections all terminate quickly, including self-application:       *)
+(*   fp1  comp  = [mix_triv]((int_min . ('S.op)))                                *)
+(*   fp2  comp2 = [mix_triv]((mix_triv . ('S.int_min)))   (a compiler)           *)
+(*   fp3  cogen = [mix_triv]((mix_triv . ('S.mix_triv)))  (a cogen)              *)
+(* This is the "specialise = build a partial-application closure" realisation:   *)
+(* the projection equations hold and are non-vacuous, with no optimization.      *)
+(* mix.while is the genuinely optimizing counterpart.                            *)
+read PD;
+  Pgm := hd PD;                      (* ⌜p⌝ = ((var i) c (var j)) *)
+  Rest := tl PD;                     (* (BT . S) *)
+  BT := hd Rest;
+  Sval := tl Rest;
+  I := hd (tl (hd Pgm));             (* read variable index  nil^i *)
+  J := hd (tl (hd (tl (tl Pgm))));   (* output variable index nil^j *)
+  C := hd (tl Pgm);                  (* program body c *)
+  VarI := cons 'var (cons I nil);
+  VarJ := cons 'var (cons J nil);
+  if =? BT 'S then {
+    (* prepend  (var i) := cons (quote s) (var i)  before the original body *)
+    QS := cons 'quote (cons Sval nil);
+    Prep := cons 'asgn (cons VarI (cons (cons 'cons (cons QS (cons VarI nil))) nil));
+    Body := cons 'semi (cons Prep (cons C nil));
+  } else {
+    Body := C;
+  }
+  Comp := cons VarI (cons Body (cons VarJ nil));
+write Comp
