@@ -231,7 +231,13 @@ not the residual-running path).
      no-ops left), correctness preserved, all tests green. This is the bulk of
      the bloat (`simp` had measured −59% comp2 / −45% cogen) removed at the
      source, plus the wasteful per-no-op `O(n)` store update avoided.
-   - **`src/core/simp`** remains as a post-pass/oracle for any residual.
+   - **`src/core/simp`** remains as a post-pass/oracle for any residual; it also
+     has a sound **global dead-store elimination** pass. Tellingly, DCE removes
+     **nothing** from `comp2` (9.2 MB → 9.2 MB, byte-correct): after no-op
+     removal the residual is **all live** — there is no slack for local/global
+     simplification to recover. This *confirms* the leftover is the genuine
+     interpreting-compiler structure, removable only by PAT-READ-ITER (below),
+     not by any peephole/DCE cleanup.
    - **Store sizing** is, *here*, a **speed**-only lever (faster generation): our
      `dynall` already skips `('S.nil)` and self slots, so an oversized store adds
      ~no comp bloat (unlike rwhile's reversible store-clear, the source of its
