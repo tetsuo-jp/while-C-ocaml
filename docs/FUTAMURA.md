@@ -256,6 +256,29 @@ not the residual-running path).
      a separate BTA pass — exactly what rwhile flags as large research and what
      `MixPatRead`/`RevSpecGarbage` characterize. Not closeable as a local patch.
 
+### Toward an offline specializer — BTA done (`src/core/bta`)
+
+The first half of an *offline* PE is built: `src/core/Bta.ml` is a monovariant
+**binding-time analysis** with a partially-static domain (`S`, `D`, `C(b1,b2)`),
+needed because the input `In=(s.d)` is part static / part dynamic. From a
+binding-time *division* of the input it annotates every variable and conditional
+without looking at values. It shows exactly the distinction the online `mix`
+cannot make at self-application (`test-bta.sh`):
+
+```
+bta int_min SD   ->  var Op:S, var X:D, if #0 : S-if   (op static  = fp1: unroll, bake op)
+bta int_min D    ->  if #0 : D-if                      (op dynamic = fp2 ctx: residualize)
+bta int_loop SD  ->  while #0 : D-while                (drains the dynamic tail)
+```
+
+So the *annotation* (`D-if` when op is dynamic) pre-decides "residualize this
+conditional" with no runtime-value dependence — the property that would keep
+`comp2`/`cogen` small. The remaining work is the **annotation-driven offline
+specializer** (reduce `S`, residualize `D`) plus the **program-point
+specialization / memoization** that makes it self-applicable and Jones-optimal —
+the Jones–Sestoft–Søndergaard (1985) landmark, realized for this WHILE; a
+multi-session build for which the BTA above is the foundation.
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in

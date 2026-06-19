@@ -57,3 +57,7 @@ unittest: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWh
 # 残余プログラム ⌜p⌝ の簡約 (no-op 自己代入除去・semi 平坦化)
 simp: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Simp.ml
 	ocamlopt -O2 -o $@ $^
+
+# 束縛時刻解析 (offline PE の第一構成要素)
+bta: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Bta.ml
+	ocamlopt -O2 -o $@ $^
