@@ -1,0 +1,8 @@
+(* ignore_static.while - reads In = (s . d) and outputs only the DYNAMIC tail d,
+ * ignoring the static head s.  [ignore_static]((s . d)) = d.
+ * Specializing it discards s entirely, so [mix]((ignore_static . ('S.s))) is the
+ * SAME residual for every s -- a concrete non-injectivity witness for mix
+ * (Theorem A / RevSpecGarbage): distinct static inputs collapse to one residual. *)
+read In;
+  Out := tl In;
+write Out

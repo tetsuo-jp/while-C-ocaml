@@ -261,6 +261,31 @@ The two decisive design points are pinned down by `--safe` Agda models in
 All three typecheck with no postulates/holes (`agda --safe`).
 See `proofs/agda/README.md`.
 
+## Theorem A — reversible-PE information lower bound (research contribution)
+
+The classical Futamura/Jones results (specializing an interpreter, self-applying
+the specializer) are exactly that — classical. The novel angle here is what
+happens when the specializer must be **reversible**.
+`proofs/agda/RevSpecGarbage.agda` (`--safe`) proves: a reversible realization of
+a specializer `f` (an *injective* `g` with decode `d`, `d(g x)=f x`) must, for
+every pair `f` MERGES (`f x₁=f x₂`, `x₁≠x₂`), keep them distinct (`separates`)
+yet decode them identically (`same-residual`) — i.e. carry **garbage**; a clean
+(garbage-free) reversible spec is exactly an injective one (`no-clean-if-merges`,
+`clean→no-merge`). This is the Bennett–Landauer bound for partial evaluation — a
+constraint classical (irreversible) PE does not face (it discards freely).
+
+**Concrete non-injectivity witness** (`examples/desugar/ignore_static.while`,
+`test-noninj.sh`): a program that ignores its static input makes `mix` discard
+`s`, so `[mix]((ignore_static.('S.'a)))` and `('S.'b)` are the **same** 288-byte
+residual — verified byte-equal. So `mix` is non-injective ⇒ by Theorem A a
+reversible `mix` would need garbage to recover `s`.
+
+This predicts the observed trade-off: the **trivial** `mix_triv` is injective
+(it bakes `(p,s)` recoverably) ⇒ clean reversible, no garbage (why rwhile's
+specializer is trivial-leaning); the **optimizing** `mix` is non-injective ⇒ a
+reversible version must accumulate garbage (rwhile's `spec_av_rev` dead-path
+embedding). "Optimizing + reversible + clean" is impossible.
+
 ## Reference
 
 - rwhile: `FINDINGS_reversible_projections.md` (AV, MKAV, store-sizing, the
