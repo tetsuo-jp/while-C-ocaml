@@ -191,14 +191,19 @@ finite). Same large-interpreting-compiler caveat as fp2.
    confirming `[cogen]('S.⌜int_min⌝) == comp2` (hence
    `[[cogen]('S.⌜int_min⌝)]('S.'swap) == B`) is a multi-hour `rundata` run
    (in progress).
-3. **Shrinking the residuals (optimality, not correctness)** —
-   **PAT-READ-ITER**: make the read of a partial-static input consult the static
-   half's origin binding time (`MixPatRead`), so `comp2`/`comp3` stop being
-   *interpreting* compilers; and **store sizing** (`lookup`/`update` are
-   `O(#vars)`, `mix` has many variables → slow & large). rwhile needed both
-   (`specsize`). True Jones-optimality would need offlinizing the AV algebra (a
-   "static-existence-but-symbolic" category), which rwhile flags as large
-   research.
+3. **Shrinking the residuals (optimality, not correctness)** — two layers:
+   - **`src/core/simp`** (`make -C src/core simp`) — a semantics-preserving
+     residual simplifier (drops the no-op self-assignments `(var k) := (var k)`
+     that the emit model produces, flattens `'semi`). Verified to preserve
+     `[comp2](('S.op))` (swap/id). Measured: `comp2` 22.6 → **9.2 MB** (−59%),
+     `cogen` 29.6 → **16.3 MB** (−45%). This removes the *no-op* bloat but not
+     the interpreting-compiler structure.
+   - **PAT-READ-ITER**: make the read of a partial-static input consult the
+     static half's origin binding time (`MixPatRead`), so `comp2`/`comp3` stop
+     being *interpreting* compilers; plus **store sizing** (`lookup`/`update`
+     are `O(#vars)`). rwhile needed both (`specsize`). True Jones-optimality
+     would need offlinizing the AV algebra (a "static-existence-but-symbolic"
+     category), which rwhile flags as large research.
 
 ### Machine-checked design specs (Agda)
 

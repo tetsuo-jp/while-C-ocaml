@@ -53,3 +53,7 @@ test: while
 unittest: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml EvalWhile.ml EvalWhileTest.ml
 	ocamlfind ocamlc -package ounit2 -linkpkg -o EvalWhileTest $^
 	./EvalWhileTest
+
+# 残余プログラム ⌜p⌝ の簡約 (no-op 自己代入除去・semi 平坦化)
+simp: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Simp.ml
+	ocamlopt -O2 -o $@ $^

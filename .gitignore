@@ -74,3 +74,4 @@ web/data/*.while
 # Agda proof build artifacts
 proofs/agda/_build/
 *.agdai
+src/core/simp

@@ -77,4 +77,15 @@ loopchk "('a . ('b . ('c . nil)))"
 loopchk "nil"
 loopchk "('x . nil)"
 
+if [ -x src/core/simp ]; then
+  echo "-- residual simplifier (simp) preserves semantics & shrinks --"
+  printf "(%s . ('S . 'swap))" "$INT" > "$tmp/sw.val"
+  $WHILE "$tmp/mix.core" "$tmp/sw.val" > "$tmp/comp.data"
+  src/core/simp "$tmp/comp.data" > "$tmp/comp.simp"
+  got=$(run "$(cat "$tmp/comp.simp")" "('a . 'b)"); orc=$(oracle "'swap" "('a . 'b)")
+  b0=$(wc -c < "$tmp/comp.data"); b1=$(wc -c < "$tmp/comp.simp")
+  if [ "$got" = "$orc" ]; then echo "ok   simp(comp_swap) runs correctly ($b0 -> $b1 bytes)"
+  else echo "FAIL simp changed semantics: $got vs $orc"; fail=1; fi
+fi
+
 [ $fail -eq 0 ] && echo "PASS" || { echo "FAILURES"; exit 1; }
