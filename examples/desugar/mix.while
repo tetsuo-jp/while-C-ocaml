@@ -1,0 +1,435 @@
+(* mix.while - an AV (annotated-value) partial evaluator (specializer) for      *)
+(* WHILE programs given as data, ported from rwhile examples/spec_av.rwhile      *)
+(* without the reversibility machinery.                                          *)
+(*                                                                               *)
+(* Contract (MKAV binding-time form, cf. rwhile's spec_av):                      *)
+(*   [mix]((P . (BT . S)))  =  comp     and     [comp](d) = [P]((s . d))         *)
+(* where P = ⌜p⌝, p reads ONE variable holding (s . d).  BT is the binding time  *)
+(* of the static head s:                                                         *)
+(*   BT = 'S : s is genuinely static -> input AV ('C.(('S.s).('D.(var i))))      *)
+(*   BT = 'D : treat the input as fully dynamic   -> ('D.(var i))                *)
+(* The BT tag (rather than an unconditional 'S commitment) is what lets the      *)
+(* second/third projections residualize correctly under self-application         *)
+(* (rwhile's MKAV finding).                                                      *)
+(*                                                                               *)
+(* Annotated value (AV):                                                         *)
+(*   ('S . v)            static value v                                          *)
+(*   ('D . e)            dynamic; e is residual EXPRESSION code (⌜ ⌝ form)       *)
+(*   ('C . (a1 . a2))    partially-static cons of two AVs                        *)
+(*                                                                               *)
+(* The interpreted program uses a FIRST-CLASS conditional ('if . (E.(C1.(C2.     *)
+(* nil)))) -- NOT the desugared `if`->`while`.  A static guard picks a branch    *)
+(* (unrolling); a dynamic guard residualizes the conditional: both branches are  *)
+(* specialized from a snapshot store and the resulting stores are MERGED         *)
+(* (equal slots kept static, differing slots dynamicized with per-branch         *)
+(* fix-up assignments), so the specializer's own control stays static -- the     *)
+(* analogue of spec_av's 'cond handler.                                          *)
+
+(* ===================== AV algebra ===================== *)
+
+procedure avhd
+read A;
+  case A of {
+    ('S . V) -> R := cons 'S (hd V);
+    ('C . (A1 . A2)) -> R := A1;
+    ('D . Ecode) -> R := cons 'D (cons 'hd (cons Ecode nil));
+  }
+write R
+
+procedure avtl
+read A;
+  case A of {
+    ('S . V) -> R := cons 'S (tl V);
+    ('C . (A1 . A2)) -> R := A2;
+    ('D . Ecode) -> R := cons 'D (cons 'tl (cons Ecode nil));
+  }
+write R
+
+(* AV-LIFT: AV -> residual EXPRESSION code recomputing it (explicit stack). *)
+procedure avlift
+read A;
+  Cd := cons A nil;
+  St := nil;
+  while Cd do {
+    case Cd, St of {
+      (('S . V) . Cr), SS ->
+        begin { Cd := Cr; St := cons (cons 'quote (cons V nil)) SS; } end
+      (('D . Ecode) . Cr), SS ->
+        begin { Cd := Cr; St := cons Ecode SS; } end
+      (('C . (A1 . A2)) . Cr), SS ->
+        begin { Cd := cons A1 (cons A2 (cons 'docons Cr)); St := SS; } end
+      ('docons . Cr), (R2 . (R1 . Sr)) ->
+        begin { Cd := Cr; St := cons (cons 'cons (cons R1 (cons R2 nil))) Sr; } end
+    }
+  }
+  Res := hd St;
+write Res
+
+(* AV-EQ: both static -> static bool; otherwise lift and residualize. *)
+procedure aveq
+read P;
+  A1 := hd P;
+  A2 := tl P;
+  case A1, A2 of {
+    ('S . V1), ('S . V2) -> R := cons 'S (=? V1 V2);
+    Other1, Other2 -> begin {
+        E1 := avlift A1;
+        E2 := avlift A2;
+        R := cons 'D (cons 'eq (cons E1 (cons E2 nil)));
+      } end
+  }
+write R
+
+(* ===================== AV store ops ===================== *)
+
+procedure lookup
+read P;
+  Vl := hd P;
+  K := tl P;
+  T := Vl;
+  while K do { T := tl T; K := tl K; }
+  if T then { X := hd T; } else { X := cons 'S nil; }
+write X
+
+procedure update
+read P;
+  Vl := hd P;
+  K := hd (tl P);
+  X := tl (tl P);
+  Rev := nil;
+  while K do {
+    if Vl then { H := hd Vl; Vl := tl Vl; } else { H := cons 'S nil; }
+    Rev := cons H Rev;
+    K := tl K;
+  }
+  if Vl then { Vl := tl Vl; }
+  Vl := cons X Vl;
+  while Rev do { Vl := cons (hd Rev) Vl; Rev := tl Rev; }
+write Vl
+
+(* ===================== residual-code helpers ===================== *)
+
+(* MAKE-SEQ: reversed command list (newest first = runs last) -> one command. *)
+procedure makeseq
+read Rev;
+  if Rev then {
+    Acc := hd Rev;
+    Rest := tl Rev;
+    while Rest do {
+      Acc := cons 'semi (cons (hd Rest) (cons Acc nil));
+      Rest := tl Rest;
+    }
+  } else {
+    NV := cons 'var (cons (cons nil nil) nil);          (* var 1 *)
+    Acc := cons 'asgn (cons NV (cons NV nil));           (* no-op V1 := V1 *)
+  }
+write Acc
+
+(* APPEND: (A . B) -> A ++ B *)
+procedure appendlist
+read P;
+  A := hd P;
+  B := tl P;
+  Tmp := nil;
+  while A do { Tmp := cons (hd A) Tmp; A := tl A; }
+  while Tmp do { B := cons (hd Tmp) B; Tmp := tl Tmp; }
+write B
+
+(* MERGE: (S1 . S2) two AV stores after specializing both branches of a dynamic *)
+(* conditional -> (S3 . (Fix1 . Fix2)).  S3 keeps slots equal in both branches;  *)
+(* differing slots become dynamic-self ('D.(var k)) and get a fix-up assignment  *)
+(* `(var k) := lift(slot)` appended to each branch (reversed lists Fix1/Fix2).   *)
+procedure merge
+read P;
+  S1 := hd P;
+  S2 := tl P;
+  S3rev := nil;
+  Fix1 := nil;
+  Fix2 := nil;
+  K := nil;
+  Go := nil;
+  if S1 then { Go := cons nil nil; }
+  if S2 then { Go := cons nil nil; }
+  while Go do {
+    if S1 then { A1 := hd S1; S1 := tl S1; } else { A1 := cons 'S nil; }
+    if S2 then { A2 := hd S2; S2 := tl S2; } else { A2 := cons 'S nil; }
+    Eqv := =? A1 A2;
+    if Eqv then {
+      S3rev := cons A1 S3rev;
+    } else {
+      VarK := cons 'var (cons K nil);
+      S3rev := cons (cons 'D VarK) S3rev;
+      L1 := avlift A1;
+      L2 := avlift A2;
+      Fix1 := cons (cons 'asgn (cons VarK (cons L1 nil))) Fix1;
+      Fix2 := cons (cons 'asgn (cons VarK (cons L2 nil))) Fix2;
+    }
+    K := cons nil K;
+    Go := nil;
+    if S1 then { Go := cons nil nil; }
+    if S2 then { Go := cons nil nil; }
+  }
+  S3 := nil;
+  while S3rev do { S3 := cons (hd S3rev) S3; S3rev := tl S3rev; }
+  Result := cons S3 (cons Fix1 Fix2);
+write Result
+
+(* DYNAMICIZE-ALL((Vl . RC)) -> (Vl' . RC'): materialise every non-trivial store *)
+(* slot into the residual (emit `(var k) := lift(slot)`) and reset all slots to  *)
+(* the self-reference ('D.(var k)).  Slots already self-referential, or static    *)
+(* nil (residual vars default to nil), need no flush.  Used before/after a        *)
+(* dynamic loop so the residual loop sees correct runtime values and the abstract *)
+(* store reaches a fixpoint (all dynamic-self).                                   *)
+procedure dynall
+read P;
+  Vl := hd P;
+  RC := tl P;
+  K := nil;
+  NewRev := nil;
+  while Vl do {
+    Slot := hd Vl;
+    Vl := tl Vl;
+    VarK := cons 'var (cons K nil);
+    SelfAV := cons 'D VarK;
+    StaNil := cons 'S nil;
+    Skip := nil;
+    if =? Slot SelfAV then { Skip := cons nil nil; }
+    if =? Slot StaNil then { Skip := cons nil nil; }
+    if Skip then {
+      Dummy := nil;
+    } else {
+      L := avlift Slot;
+      RC := cons (cons 'asgn (cons VarK (cons L nil))) RC;
+    }
+    NewRev := cons SelfAV NewRev;
+    K := cons nil K;
+  }
+  NewVl := nil;
+  while NewRev do { NewVl := cons (hd NewRev) NewVl; NewRev := tl NewRev; }
+  Result := cons NewVl RC;
+write Result
+
+(* ===================== specializer main ===================== *)
+
+read PD;
+  Pgm := hd PD;                      (* ⌜p⌝ = ((var i) c (var j))           *)
+  Rest := tl PD;                     (* (BT . S)                            *)
+  BT := hd Rest;
+  Sval := tl Rest;
+  I := hd (tl (hd Pgm));             (* read variable index  nil^i          *)
+  J := hd (tl (hd (tl (tl Pgm))));   (* output variable index nil^j         *)
+  C := hd (tl Pgm);                  (* program body c                      *)
+
+  (* MKAV: build the input AV from the binding-time tag BT. *)
+  VarI := cons 'var (cons I nil);
+  if =? BT 'S then {
+    InputAV := cons 'C (cons (cons 'S Sval) (cons 'D VarI));
+  } else {
+    InputAV := cons 'D VarI;
+  }
+  Vl := nil;
+  Tmp := cons Vl (cons I InputAV);
+  Vl := update Tmp;
+
+  RC := nil;                         (* residual command list (reversed)    *)
+  Cd := cons C nil;
+  St := nil;
+  while Cd do {
+    case Cd, St of {
+
+      (* ----- expression specialization (push AVs) ----- *)
+
+      (('quote . (DD . nil)) . Cr), SS ->
+        begin { Cd := Cr; St := cons (cons 'S DD) SS; } end
+
+      (('var . (KK . nil)) . Cr), SS ->
+        begin {
+          Cd := Cr;
+          Tmp := cons Vl KK;
+          AvV := lookup Tmp;
+          St := cons AvV SS;
+        } end
+
+      (('hd . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dohd Cr); St := SS; } end
+      ('dohd . Cr), (A1 . Sr) ->
+        begin { Cd := Cr; Rv := avhd A1; St := cons Rv Sr; } end
+
+      (('tl . (E . nil)) . Cr), SS ->
+        begin { Cd := cons E (cons 'dotl Cr); St := SS; } end
+      ('dotl . Cr), (A1 . Sr) ->
+        begin { Cd := Cr; Rv := avtl A1; St := cons Rv Sr; } end
+
+      (('cons . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'docons Cr)); St := SS; } end
+      ('docons . Cr), (A2 . (A1 . Sr)) ->
+        begin { Cd := Cr; St := cons (cons 'C (cons A1 A2)) Sr; } end
+
+      (('eq . (E1 . (E2 . nil))) . Cr), SS ->
+        begin { Cd := cons E1 (cons E2 (cons 'doeq Cr)); St := SS; } end
+      ('doeq . Cr), (A2 . (A1 . Sr)) ->
+        begin { Cd := Cr; Tmp := cons A1 A2; Rv := aveq Tmp; St := cons Rv Sr; } end
+
+      (* ----- command specialization ----- *)
+
+      (('semi . (C1 . (C2 . nil))) . Cr), SS ->
+        begin { Cd := cons C1 (cons C2 Cr); St := SS; } end
+
+      (('asgn . (('var . (KK . nil)) . (E . nil))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doasgn (cons KK Cr)); St := SS; } end
+      (* emit-on-dynamic-assignment (MixEmitModel.emit-sound): a fully static  *)
+      (* value is FOLDED into the slot; anything dynamic/partial is MATERIALISED *)
+      (* -- emit `(var KK) := lift(A1)` and set the slot to the self-reference   *)
+      (* ('D.(var KK)), so no slot ever references another variable (which would *)
+      (* go stale when DYNAMICIZE-ALL re-materialises it; MixEmitModel.fold-      *)
+      (* unsound).                                                               *)
+      ('doasgn . (KK . Cr)), (A1 . Sr) ->
+        begin {
+          Cd := Cr; St := Sr;
+          case A1 of {
+            ('S . V) -> begin {
+                Tmp := cons Vl (cons KK A1);
+                Vl := update Tmp;
+              } end
+            Other -> begin {
+                Le := avlift A1;
+                VarKK := cons 'var (cons KK nil);
+                RC := cons (cons 'asgn (cons VarKK (cons Le nil))) RC;
+                SelfAV := cons 'D VarKK;
+                Tmp := cons Vl (cons KK SelfAV);
+                Vl := update Tmp;
+              } end
+          }
+        } end
+
+      (* static while (unrolling); dynamic while is out of scope here *)
+      (('while . (E . (C1 . nil))) . Cr), SS ->
+        begin {
+          Cd := cons E (cons 'dowh (cons (cons 'while (cons E (cons C1 nil))) Cr));
+          St := SS;
+        } end
+      ('dowh . (WH . Cr)), (('S . V) . Sr) ->
+        begin {
+          case V of {
+            nil -> begin { Cd := Cr; St := Sr; } end
+            Other -> begin {
+                Cbody := hd (tl (tl WH));
+                Cd := cons Cbody (cons WH Cr);
+                St := Sr;
+              } end
+          }
+        } end
+      (* a partially-static cons guard ('C..) is statically known to be a cons *)
+      (* (non-nil), so the loop unrolls -- this case is pervasive under          *)
+      (* self-application (e.g. a code-stack `cons C nil`).                      *)
+      ('dowh . (WH . Cr)), (('C . PR) . Sr) ->
+        begin {
+          Cbody := hd (tl (tl WH));
+          Cd := cons Cbody (cons WH Cr);
+          St := Sr;
+        } end
+      (* dynamic guard ('D..): residualize the loop.  DYNAMICIZE-ALL flushes the *)
+      (* pre-loop store, re-evaluate the guard over the all-dynamic store, then   *)
+      (* specialize the body once ('whmk starts a fresh body RC, 'whend flushes   *)
+      (* the body's store changes and emits the residual while).                  *)
+      ('dowh . (WH . Cr)), (('D . DC) . Sr) ->
+        begin {
+          Tmp := cons Vl RC;
+          PR := dynall Tmp;
+          Vl := hd PR;
+          RC := tl PR;
+          Ehdr := hd (tl WH);
+          Cbody := hd (tl (tl WH));
+          Cd := cons Ehdr (cons 'whmk (cons Cbody Cr));
+          St := Sr;
+        } end
+      ('whmk . (Cbody . Cr)), (GA . Sr) ->
+        begin {
+          Ge := avlift GA;
+          RCsave := RC;
+          RC := nil;
+          Whend := cons 'whend (cons Ge (cons RCsave nil));
+          Cd := cons Cbody (cons Whend Cr);
+          St := Sr;
+        } end
+      (('whend . (Ge . (RCsave . nil))) . Cr), SS ->
+        begin {
+          Tmp := cons Vl RC;
+          PR := dynall Tmp;
+          Vl := hd PR;
+          RC := tl PR;
+          BodyC := makeseq RC;
+          Whilecmd := cons 'while (cons Ge (cons BodyC nil));
+          RC := cons Whilecmd RCsave;
+          Cd := Cr;
+          St := SS;
+        } end
+
+      (* ----- first-class conditional ----- *)
+
+      (('if . (E . (C1 . (C2 . nil)))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doif (cons C1 (cons C2 Cr))); St := SS; } end
+
+      (* static guard: pick a branch (unroll) *)
+      ('doif . (C1 . (C2 . Cr))), (('S . V) . Sr) ->
+        begin {
+          case V of {
+            nil -> begin { Cd := cons C2 Cr; St := Sr; } end
+            Other -> begin { Cd := cons C1 Cr; St := Sr; } end
+          }
+        } end
+      (* known cons ('C..): statically non-nil -> take the then branch *)
+      ('doif . (C1 . (C2 . Cr))), (('C . PR) . Sr) ->
+        begin { Cd := cons C1 Cr; St := Sr; } end
+      (* dynamic guard ('D..): residualize -- spec both branches from a snapshot *)
+      ('doif . (C1 . (C2 . Cr))), (G . Sr) ->
+        begin {
+          Ge := avlift G;
+          S0 := Vl;
+          RCsave := RC;
+          RC := nil;
+          Aft1 := cons 'after1 (cons Ge (cons S0 (cons RCsave (cons C2 nil))));
+          Cd := cons C1 (cons Aft1 Cr);
+          St := Sr;
+        } end
+      (('after1 . (Ge . (S0 . (RCsave . (C2 . nil))))) . Cr), SS ->
+        begin {
+          S1 := Vl;
+          RC1 := RC;
+          Vl := S0;
+          RC := nil;
+          Aft2 := cons 'after2 (cons Ge (cons S1 (cons RC1 (cons RCsave nil))));
+          Cd := cons C2 (cons Aft2 Cr);
+          St := SS;
+        } end
+      (('after2 . (Ge . (S1 . (RC1 . (RCsave . nil))))) . Cr), SS ->
+        begin {
+          S2 := Vl;
+          RC2 := RC;
+          MP := cons S1 S2;
+          MR := merge MP;
+          S3 := hd MR;
+          Fix1 := hd (tl MR);
+          Fix2 := tl (tl MR);
+          AP1 := cons Fix1 RC1; B1 := appendlist AP1; B1c := makeseq B1;
+          AP2 := cons Fix2 RC2; B2 := appendlist AP2; B2c := makeseq B2;
+          Ifc := cons 'if (cons Ge (cons B1c (cons B2c nil)));
+          RC := cons Ifc RCsave;
+          Vl := S3;
+          Cd := Cr;
+          St := SS;
+        } end
+    }
+  }
+
+  (* ----- assemble residual: RC ++ [ (var j) := lift Vl[j] ] ----- *)
+  Tmp := cons Vl J;
+  OutAV := lookup Tmp;
+  OutE := avlift OutAV;
+  VarJ := cons 'var (cons J nil);
+  OutAsgn := cons 'asgn (cons VarJ (cons OutE nil));
+  RCfull := cons OutAsgn RC;
+  BodyAll := makeseq RCfull;
+  VarI2 := cons 'var (cons I nil);
+  Comp := cons VarI2 (cons BodyAll (cons VarJ nil));
+write Comp

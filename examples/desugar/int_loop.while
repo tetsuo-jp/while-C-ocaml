@@ -1,0 +1,15 @@
+(* int_loop.while - a tiny program with a DYNAMIC while loop, to exercise      *)
+(* mix.while's dynamic-loop residualization (gap #1, MixEmitModel-backed).      *)
+(*                                                                             *)
+(* Reads In = (S . D): S static, D dynamic.  Drains the dynamic list D to nil  *)
+(* and outputs (S . nil).  The loop guard X is dynamic, so mix must residualize *)
+(* the `while` rather than unroll it.                                          *)
+(*   [int_loop]((S . D)) = (S . nil)                                           *)
+read In;
+  S := hd In;
+  X := tl In;
+  while X do {
+    X := tl X;
+  }
+  Out := cons S X;
+write Out

@@ -107,6 +107,15 @@ read PD;
           Cd := cons C1 (cons (cons 'while (cons E (cons C1 nil))) Cr);
           St := Sr;
         } end
+
+      (* Conditional (first-class 'if, used by the Futamura machinery; not core *)
+      (* WHILE -- residuals from mix.while and int_min carry it).               *)
+      (('if . (E . (C1 . (C2 . nil)))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doif (cons C1 (cons C2 Cr))); St := SS; } end
+      ('doif . (C1 . (C2 . Cr))), (nil . Sr) ->
+        begin { Cd := cons C2 Cr; St := Sr; } end
+      ('doif . (C1 . (C2 . Cr))), (DD . Sr) ->
+        begin { Cd := cons C1 Cr; St := Sr; } end
     }
   }
 

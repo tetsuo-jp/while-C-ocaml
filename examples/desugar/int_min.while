@@ -1,0 +1,24 @@
+(* int_min.while - a MINIMAL interpreter, the target program for the first    *)
+(* Futamura projection (cf. rwhile examples/ri_min.rwhile).                    *)
+(*                                                                             *)
+(* Input convention shared by every program in the projection game:           *)
+(*   the single read variable holds a pair (static . dynamic).                 *)
+(* Here  In = (Op . X) :  Op is the static "source program" (an op tag),       *)
+(*                        X  is the dynamic run-time data.                     *)
+(*                                                                             *)
+(*   Op = 'swap : (a . b) -> (b . a)                                           *)
+(*   Op = anything else   : X unchanged                                        *)
+(* Output echoes the op, like the book's universal program echoes ⌜p⌝:        *)
+(*   [int_min]((Op . X)) = (Op . X')                                           *)
+(*                                                                             *)
+(* The single `if =? Op 'swap` is a STATIC dispatch when Op is given static,   *)
+(* so [mix]((int_min . ('S . Op))) fully unrolls it and the residual is        *)
+(* finite -- exactly the first projection [[mix]((int_min.op))](X)=[int_min].. *)
+read In;
+  Op := hd In;
+  X := tl In;
+  if =? Op 'swap then {
+    X := cons (tl X) (hd X);
+  }
+  In := cons Op X;
+write In

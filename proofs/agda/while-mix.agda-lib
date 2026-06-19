@@ -1,0 +1,3 @@
+name: while-mix
+depend: standard-library
+include: .

@@ -62,6 +62,7 @@ src/core/EvalWhileTest
 oUnit-*.log
 oUnit-*.cache
 src/core/while.opt
+src/core/rundata
 docs/RECRUIT.md
 
 # web deployment artifacts (make install)
@@ -69,3 +70,7 @@ web/while
 web/examples/
 web/programs/*.while
 web/data/*.while
+
+# Agda proof build artifacts
+proofs/agda/_build/
+*.agdai

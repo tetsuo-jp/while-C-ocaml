@@ -1,4 +1,4 @@
-module ProgToData(progToData) where
+module ProgToData(progToData, progToDataIf) where
 
 import AbsWhile
 import PrintWhile(printTree)
@@ -55,6 +55,45 @@ progToData (Prog [AProc NoName x@(Ident xs) coms (Ident ys)]) =
   in list [var x, encComs coms, var (Ident ys)]
 progToData _ =
   error "progToData: expected a single unnamed procedure (run desugar first)"
+
+-- progToData と同じだが、第一級の `if` を ('if E ⌜C1⌝ ⌜C2⌝) として符号化する。
+-- desugarIf (expandIf 省略) と組で使う。空の else は no-op に符号化する。
+progToDataIf :: Program -> Val
+progToDataIf (Prog [AProc NoName x@(Ident xs) coms (Ident ys)]) =
+  let env = delete ys (nub (xs : varsComs coms)) ++ [ys]
+      var (Ident s) = list [atom "var", num (fromJust (elemIndex s env) + 1)]
+
+      noop = list [atom "asgn", var1, var1]
+        where var1 = list [atom "var", num 1]
+
+      encComs cs = case cs of
+        []        -> noop
+        [c]       -> encCom c
+        (c : cs') -> list [atom "semi", encCom c, encComs cs']
+
+      elseComs ElseNone      = []
+      elseComs (ElseOne cs)  = cs
+
+      encCom c = case c of
+        CAsn v e     -> list [atom "asgn", var v, encExp e]
+        CLoop e cs   -> list [atom "while", encExp e, encComs cs]
+        CIf e cs eop -> list [atom "if", encExp e, encComs cs, encComs (elseComs eop)]
+        _            -> error ("progToDataIf: not a supported command: " ++ printTree c)
+
+      encExp e = case e of
+        EVar v    -> var v
+        EVal d
+          | coreVal d -> list [atom "quote", d]
+          | otherwise -> error ("progToDataIf: not a core value: " ++ printTree d)
+        ECons a b -> list [atom "cons", encExp a, encExp b]
+        EHd a     -> list [atom "hd", encExp a]
+        ETl a     -> list [atom "tl", encExp a]
+        EEq a b   -> list [atom "eq", encExp a, encExp b]
+        _         -> error ("progToDataIf: not a core expression: " ++ printTree e)
+
+  in list [var x, encComs coms, var (Ident ys)]
+progToDataIf _ =
+  error "progToDataIf: expected a single unnamed procedure (run desugar first)"
 
 -- コアの値 (nil, アトム, 対) か
 coreVal :: Val -> Bool

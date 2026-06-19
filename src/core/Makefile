@@ -13,6 +13,11 @@ while: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile
 while.opt: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml EvalWhile.ml Main.ml
 	ocamlopt -O2 -o $@ $^
 
+# programs-as-data ⌜p⌝ をネイティブ直接実行する高速インタプリタ
+# (mix.while の大きな残余 comp2/comp3 の検証用; universal.while より高速)
+rundata: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml RunData.ml
+	ocamlopt -O2 -o $@ $^
+
 LexWhile.ml: LexWhile.mll
 	ocamllex $^
 

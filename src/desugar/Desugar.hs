@@ -1,4 +1,4 @@
-module Desugar(desugar, extractMain) where
+module Desugar(desugar, desugarIf, extractMain) where
 
 import AbsWhile
 import TransNumberWhile(transNumber)
@@ -20,3 +20,11 @@ extractMain (Prog procs) = Prog (filter f procs)
 desugar :: Program -> Program
 desugar = transNumber . transList . transBlk . expandIf . extractMain
         . doInline . transConsp . transAnd . transCase
+
+-- expandIf を省いた版: `if` を `while` に展開せず CIf のまま残す。
+-- 第一級の `if` を保つ programs-as-data 表現 (--data-if) 用。
+-- これにより、自己適用時に動的化する条件 (例: mix 自身の `if =? BT 'S`) が
+-- ループではなく再収束する分岐として特殊化器に渡る (FUTAMURA.md 参照)。
+desugarIf :: Program -> Program
+desugarIf = transNumber . transList . transBlk . extractMain
+          . doInline . transConsp . transAnd . transCase

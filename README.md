@@ -205,6 +205,36 @@ Construction "translate `tt` to one-variable I code"). It still meets the
 timed boundary; `examples/desugar/test-efficient-tu.sh` verifies both the
 one-variable property and `⟦tu_I⟧((⌜p⌝.d).nil^n)` at `n = time_p(d) ∓ 1`.
 
+### Partial evaluation and the Futamura projections
+
+`examples/desugar/mix.while` is a partial evaluator (specializer) over
+*annotated values* (`('S.v)` static, `('D.e)` dynamic residual code,
+`('C.(a1.a2))` partially-static), ported from the reversible specializer in
+`rwhile-C-ocaml`. It satisfies `[mix]((P . ('S . s))) = comp` with
+`[comp](d) = [P]((s . d))` — the **first Futamura projection** (compiling by
+specializing an interpreter):
+
+```
+src/desugar/DesugarWhile --data-if examples/desugar/int_min.while   # ⌜int_min⌝ with first-class 'if
+# [mix]((int_min . ('S.'swap)))  =>  read In; In := cons 'swap (cons (tl In)(hd In)); write In
+```
+
+A dynamic guard is residualized as a real conditional (snapshot store, specialize
+both branches, merge), so `[mix]((int_min . ('D . nil)))` keeps a first-class
+`'if`; a dynamic loop is likewise kept as a residual `while`. `DesugarWhile
+--data-if` is `--data` that preserves `if` instead of expanding it to `while`.
+`examples/desugar/test-futamura.sh` checks the first projection, the dynamic-`if`
+and dynamic-`while` residualizations against the universal-program oracle.
+
+The **second Futamura projection** (compiler generation,
+`comp2 = [mix]((mix . int_min))`) also works: it terminates and
+`[comp2](('S.op)) == [mix]((int_min.('S.op)))` for `op ∈ {swap,id}` (verified by
+`examples/desugar/test-fp2.sh`, ~40 min). `comp2` is large (a correct
+*interpreting* compiler); `src/core/rundata` runs such large `⌜p⌝` residuals
+natively (the verification oracle, since `universal.while` is too slow on them).
+The third projection (cogen) and shrinking the residuals to Jones-optimal size
+are the remaining work — see [docs/FUTAMURA.md](docs/FUTAMURA.md).
+
 ## Tests
 
 ```
