@@ -15,6 +15,7 @@ agda --safe MixBindingTime.agda
 agda --safe MixEmitModel.agda
 agda --safe MixPatRead.agda
 agda --safe MixMerge.agda
+agda --safe RevSpecGarbage.agda
 ```
 
 Both check with no postulates / holes / `--allow-unsolved` (`--safe`).
@@ -85,6 +86,25 @@ Models one slot of the dynamic-`if` merge and proves `merge-correct` (with both
 per-branch fix-ups, the post-`if` value equals the value the taken branch
 computed) and `merge-needs-both` / `merge-buggy-wrong` (dropping the else fix-up
 makes a divergent slot read a stale placeholder on the else branch).
+
+### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
+
+The proposed theoretical centerpiece (a constraint classical PE does not face).
+A *reversible* realization of a specializer `f : X→Y` is an **injective** `g`
+with a decode `d`, `d (g x) = f x`. For any pair `f` MERGES (`f x₁ = f x₂`,
+`x₁ ≠ x₂`): `separates` (`g x₁ ≠ g x₂`) and `same-residual` (`d(g x₁)=d(g x₂)`),
+so the reversible spec is forced to carry **garbage** distinguishing them;
+`no-clean-if-merges` / `clean→no-merge` give the dichotomy: a clean reversible
+spec is exactly an injective (non-merging) one. Predicts the observed trade-off:
+
+- `mix_triv` (trivial) is **injective** (residual encodes `(p,s)`) ⇒ a clean
+  reversible realization exists ⇒ no garbage — why rwhile's specializer is
+  trivial-leaning;
+- optimizing `mix` is **non-injective** (it folds distinctions away) ⇒ by the
+  theorem a reversible version must accumulate garbage — exactly rwhile's
+  `spec_av_rev` dead-path garbage embedding.
+
+Complements rwhile's `RWhileRevProjGen.agda` (`proj1-needs-trivial`).
 
 ## Relation to the implementation
 
