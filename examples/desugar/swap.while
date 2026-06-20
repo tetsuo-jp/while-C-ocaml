@@ -1,0 +1,7 @@
+(* swap.while - a tiny LOOP-FREE subject program, for the Jones-optimality test    *)
+(* (test-jones.sh): specializing the self-interpreter universal.while to it should  *)
+(* ideally yield a residual of about its own size.                                  *)
+(*   [swap](X) = (tl X . hd X)                                                      *)
+read X;
+  Y := cons (tl X) (hd X);
+write Y
