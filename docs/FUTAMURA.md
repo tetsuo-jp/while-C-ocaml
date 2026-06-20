@@ -273,11 +273,21 @@ bta int_loop SD  ->  while #0 : D-while                (drains the dynamic tail)
 
 So the *annotation* (`D-if` when op is dynamic) pre-decides "residualize this
 conditional" with no runtime-value dependence — the property that would keep
-`comp2`/`cogen` small. The remaining work is the **annotation-driven offline
-specializer** (reduce `S`, residualize `D`) plus the **program-point
-specialization / memoization** that makes it self-applicable and Jones-optimal —
-the Jones–Sestoft–Søndergaard (1985) landmark, realized for this WHILE; a
-multi-session build for which the BTA above is the foundation.
+`comp2`/`cogen` small.
+
+**The offline payoff, demonstrated** (`examples/desugar/gen_int_min.while`,
+`test-genext.sh`): the **generating extension** of `int_min` (its offline
+compiler — `gen(op)` emits the specialized target, `[gen(op)](d) =
+[int_min]((op.d))`) is **528 bytes**, versus the online `mix`'s **9.36 MB**
+`comp2` — the *same* function, ~18000× smaller, because the binding-time
+annotation `op:S → S-if → unroll` removes the interpretation overhead. Verified
+correct for swap/id/foo (`rundata` runs the emitted targets). `gen` is here
+hand-derived from the annotated program; the **general `cogen` transformation**
+(annotated program → generating extension, automatically), and the
+**self-applicable offline `mix` with program-point memoization** that produces
+such small compilers via the Futamura projections themselves, are the
+Jones–Sestoft–Søndergaard (1985) landmark realized for this WHILE — a
+multi-session build for which the BTA + this worked example are the foundation.
 
 ### Machine-checked design specs (Agda)
 

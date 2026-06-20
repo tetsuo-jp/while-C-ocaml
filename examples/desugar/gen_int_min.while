@@ -1,0 +1,20 @@
+(* gen_int_min.while - the GENERATING EXTENSION of int_min (offline PE): given
+ * the static op it EMITS the specialized target program ⌜target⌝, with
+ * [target](d) = [int_min]((op . d)).  The offline-optimal compiler for int_min:
+ * tiny, vs the online mix's 9.36 MB comp2 -- same function, the binding-time
+ * annotation (op static -> S-if -> unroll) made it small.
+ * int_min vars: Op=1, X=2, In=3 (read=write In, index nil^3).                   *)
+read Op;
+  Idx := cons nil (cons nil (cons nil nil));               (* nil^3 = index of In *)
+  V3 := cons 'var (cons Idx nil);                          (* (var In) *)
+  if =? Op 'swap then {
+    (* In := cons 'swap (cons (tl In) (hd In)) *)
+    Inner := cons 'cons (cons (cons 'tl (cons V3 nil)) (cons (cons 'hd (cons V3 nil)) nil));
+    E := cons 'cons (cons (cons 'quote (cons 'swap nil)) (cons Inner nil));
+  } else {
+    (* In := cons <op> In *)
+    E := cons 'cons (cons (cons 'quote (cons Op nil)) (cons V3 nil));
+  }
+  Body := cons 'asgn (cons V3 (cons E nil));
+  Target := cons V3 (cons Body (cons V3 nil));
+write Target
