@@ -30,6 +30,19 @@ chk "('x . ('y . 'z))" "(('y . 'z) . 'x)"
 chk "nil"              "(nil . nil)"
 
 S=$(wc -c < "$tmp/swap.data"); C=$(wc -c < "$tmp/comp.data")
-echo "-- Jones-optimality metric: |comp|=${C}B  |swap.data|=${S}B  ratio=$((C / S))x --"
+echo "-- Jones-optimality metric (offline cogen): |comp|=${C}B  |swap.data|=${S}B  ratio=$((C / S))x --"
 echo "   (ideal ~1; large ratio = interpreter overhead remains -> polyvariant PP-spec target)"
+
+# polyvariant (value-driven) specializer: must at least be CORRECT on the
+# self-interpreter (online mix and the pre-under_dyn cogen wrongly computed identity
+# here).  Size is still tracked; reaching ~1 needs program-point memoization.
+echo "-- cogen --online (polyvariant) on the self-interpreter: correctness --"
+src/core/cogen --online "$tmp/u.data" "$tmp/swap.data" > "$tmp/comp_on.data"
+ochk () { printf "%s" "$1" > "$tmp/d.val"; got=$(src/core/rundata "$tmp/comp_on.data" "$tmp/d.val")
+  if [ "$got" = "$2" ]; then echo "ok   [cogen --online(u,swap)]($1) = $got"
+  else echo "FAIL [cogen --online(u,swap)]($1) = $got != $2"; fail=1; fi; }
+ochk "('a . 'b)"        "('b . 'a)"
+ochk "('x . ('y . 'z))" "(('y . 'z) . 'x)"
+CO=$(wc -c < "$tmp/comp_on.data")
+echo "   --online ratio=$((CO / S))x (correct; not yet optimal -- a residual loop survives)"
 [ $fail -eq 0 ] && echo "jones: PASS (correct; optimality ratio tracked)" || { echo "jones: FAIL"; exit 1; }
