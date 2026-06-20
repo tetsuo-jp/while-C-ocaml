@@ -1,0 +1,21 @@
+(* poly.while - a witness that polyvariant/value-driven specialization beats the    *)
+(* monovariant BTA.  T is STATIC in the first loop (a copy of the static head P) but *)
+(* is REUSED dynamically afterwards (T := D).  A monovariant, one-binding-time-per-  *)
+(* variable BTA must join those uses to Dynamic, so it classifies `while T` as a     *)
+(* D-while and RESIDUALIZES it (the loop survives into the residual).  A value-driven *)
+(* (online/polyvariant) specializer sees T's ACTUAL value at the loop is static and  *)
+(* UNROLLS it, computing R as a constant -- a smaller, loop-free residual.           *)
+(*   In = (P . D): P static (a list), D dynamic.                                     *)
+(*   [poly]((P . D)) = (R . D)  where R = a list of 'x of length |P|.                *)
+read In;
+  P := hd In;
+  D := tl In;
+  T := P;
+  R := nil;
+  while T do {
+    R := cons 'x R;
+    T := tl T;
+  }
+  T := D;
+  Out := cons R T;
+write Out

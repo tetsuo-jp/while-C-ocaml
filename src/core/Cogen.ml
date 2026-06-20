@@ -18,6 +18,14 @@
  * usage: cogen <prog.data> <static-input.val>
  *   prog reads In=(s.d); prints ⌜target⌝ with [target](d) = [prog]((s.d)).
  *
+ *        cogen --online <prog.data> <static-input.val>
+ *   POLYVARIANT / value-driven specialization: decides Static/Dynamic from each
+ *   construct's ACTUAL annotated value (av_static, and nil-vs-cons for guards),
+ *   not from the conservative monovariant BTA.  This unrolls a statically-known
+ *   loop that the BTA wrongly collapses to Dynamic (see test-poly.sh) -- the route
+ *   toward Jones-optimal specialization.  Assignments under a residualized dynamic
+ *   if/while are always emitted (the `under_dyn` rule), as offline does via the BTA.
+ *
  *        cogen --gen <prog.data>
  *   prints ⌜gen⌝, a standalone WHILE program (the generating extension) with
  *   [gen](s) = ⌜target⌝ and [target](d) = [prog]((s.d)) -- the true Futamura
@@ -131,50 +139,86 @@ let rec spec_exp e = match e with
        | _ -> failwith "cogen: bad expr")
   | _ -> failwith "cogen: bad expr"
 
-let rec spec c = match c with
+(* ONLINE mode: decide Static/Dynamic from the ACTUAL annotated value (av_static),
+ * not from the conservative monovariant BTA.  This is what lets a statically-known
+ * loop guard -- e.g. an interpreter's code stack, which the BTA wrongly collapses to
+ * Dynamic -- unroll, the route to Jones-optimal specialization.  Offline (BTA-driven)
+ * behaviour is preserved when !online is false. *)
+let online = ref false
+(* `under_dyn` = currently specializing inside a residualized dynamic if/while.  In
+ * online mode every assignment there must be EMITTED, never folded: even a static
+ * value assigned under a dynamic guard is conditional, so it has to appear in the
+ * residual (offline gets this from the BTA's dynamic-control `under` rule). *)
+let under_dyn = ref false
+
+(* residualize a dynamic while `while g do b` over the current store *)
+let rec residualize_while g b =
+  dynamicize b;                              (* loop-assigned vars -> residual refs *)
+  let gv = lift (spec_exp g) in
+  let saved = !rc and sud = !under_dyn in
+  under_dyn := true;
+  rc := []; spec b; let body_res = makeseq !rc in
+  under_dyn := sud;
+  rc := VCons (a "'while", l2 gv body_res) :: saved
+
+and residualize_if g c1 c2 =
+  dynamicize c1; dynamicize c2;
+  let gv = lift (spec_exp g) in
+  let snap = Hashtbl.copy store in
+  let saved = !rc and sud = !under_dyn in
+  under_dyn := true;
+  rc := []; spec c1; let r1 = makeseq !rc in
+  Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;
+  rc := []; spec c2; let r2 = makeseq !rc in
+  under_dyn := sud;
+  rc := VCons (a "'if", l3 gv r1 r2) :: saved
+
+and spec c = match c with
   | VCons (VAtom (Atom op), args) ->
       (match op, args with
        | "'asgn", VCons (tgt, VCons (e, VNil)) ->
            let k = depth (hd (tl tgt)) in
            let v = spec_exp e in
-           if bstatic (bget k) then Hashtbl.replace store k v              (* S-assign: fold *)
-           else begin                                                      (* D-assign: emit *)
+           let is_static = if !online then (av_static v && not !under_dyn) else bstatic (bget k) in
+           if is_static then Hashtbl.replace store k v                    (* fold *)
+           else begin                                                     (* emit *)
              rc := l3 (a "'asgn") (mkvar k) (lift v) :: !rc;
              Hashtbl.replace store k (Dv (mkvar k))
            end
        | "'semi", VCons (c1, VCons (c2, VNil)) -> spec c1; spec c2
        | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
-           if bstatic (bt_exp g) then
-             (if av_val (spec_exp g) <> VNil then spec c1 else spec c2)    (* S-if: unroll *)
-           else begin                                                     (* D-if: residualize *)
-             dynamicize c1; dynamicize c2;          (* branch-assigned vars -> residual refs *)
-             let gv = lift (spec_exp g) in
-             let snap = Hashtbl.copy store in
-             let saved = !rc in
-             rc := []; spec c1; let r1 = makeseq !rc in
-             Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;  (* restore *)
-             rc := []; spec c2; let r2 = makeseq !rc in
-             rc := VCons (a "'if", l3 gv r1 r2) :: saved
-             (* store now reflects c2 from snap; dynamicized vars are Dv(var k) in both *)
-           end
+           let gv = spec_exp g in
+           if !online then
+             (match gv with                       (* control needs only nil-vs-cons *)
+              | Sv v -> if v <> VNil then spec c1 else spec c2
+              | Cv _ -> spec c1                    (* a cons = statically non-nil *)
+              | Dv _ -> residualize_if g c1 c2)    (* dynamic: residualize *)
+           else if bstatic (bt_exp g) then
+             (if av_val gv <> VNil then spec c1 else spec c2)             (* S-if: unroll *)
+           else residualize_if g c1 c2                                    (* D-if: residualize *)
        | "'while", VCons (g, VCons (b, VNil)) ->
-           if bstatic (bt_exp g) then
+           if !online then begin
+             (* unroll while the guard is statically non-nil (Sv non-nil, or a Cv cons);
+              * stop on Sv nil; residualize when the guard is dynamic *)
+             let cont = ref true and n = ref 0 in
+             let step () = incr n; if !n > 10000000 then failwith "online loop blew up"; spec b in
+             while !cont do
+               match spec_exp g with
+               | Sv v -> if v <> VNil then step () else cont := false
+               | Cv _ -> step ()
+               | Dv _ -> residualize_while g b; cont := false
+             done
+           end else if bstatic (bt_exp g) then
              (let n = ref 0 in
               while av_val (spec_exp g) <> VNil do
                 incr n; if !n > 1000000 then failwith "static loop blew up"; spec b done)
-           else begin                                                     (* D-while: residualize *)
-             dynamicize b;                          (* loop-assigned vars -> residual refs *)
-             let gv = lift (spec_exp g) in
-             let saved = !rc in
-             rc := []; spec b; let body_res = makeseq !rc in
-             rc := VCons (a "'while", l2 gv body_res) :: saved
-           end
+           else residualize_while g b
        | _ -> failwith "cogen: bad command")
   | _ -> failwith "cogen: bad command"
 
-let run_spec () =
-  let prog = let ch = open_in Sys.argv.(1) in let v = parseValT ch in close_in ch; v in
-  let s    = let ch = open_in Sys.argv.(2) in let v = parseValT ch in close_in ch; v in
+let run_spec progpath spath =
+  let prog = let ch = open_in progpath in let v = parseValT ch in close_in ch; v in
+  let s    = let ch = open_in spath    in let v = parseValT ch in close_in ch; v in
   let varI = hd prog and body = hd (tl prog) and varJ = hd (tl (tl prog)) in
   let i = depth (hd (tl varI)) and j = depth (hd (tl varJ)) in
   Hashtbl.replace benv i (C (S, D));
@@ -368,4 +412,7 @@ let run_gen () =
   print_endline (showValT (l3 (gvar gIN) genbody (gvar gOUT)))
 
 let () =
-  if Array.length Sys.argv >= 2 && Sys.argv.(1) = "--gen" then run_gen () else run_spec ()
+  if Array.length Sys.argv >= 2 && Sys.argv.(1) = "--gen" then run_gen ()
+  else if Array.length Sys.argv >= 4 && Sys.argv.(1) = "--online" then
+    (online := true; run_spec Sys.argv.(2) Sys.argv.(3))
+  else run_spec Sys.argv.(1) Sys.argv.(2)

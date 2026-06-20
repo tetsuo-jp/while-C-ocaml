@@ -22,15 +22,17 @@ done
 
 oracle () { printf "(%s . %s)" "$2" "$3" > "$tmp/o.val"; src/core/rundata "$tmp/$1.data" "$tmp/o.val"; }
 
-diff1 () { # prog s d : assert cogen-target and gen-target both match the oracle
+diff1 () { # prog s d : offline cogen, --online cogen, and gen-target all match the oracle
   orc=$(oracle "$1" "$2" "$3")
   printf "%s" "$2" > "$tmp/s.val"; printf "%s" "$3" > "$tmp/d.val"
   src/core/cogen "$tmp/$1.data" "$tmp/s.val" > "$tmp/tb.data" 2>"$tmp/e" || { echo "FAIL cogen($1,$2): $(cat "$tmp/e")"; fail=1; return; }
   gb=$(src/core/rundata "$tmp/tb.data" "$tmp/d.val")              # [cogen(p,s)](d)
+  src/core/cogen --online "$tmp/$1.data" "$tmp/s.val" > "$tmp/to.data" 2>"$tmp/e" || { echo "FAIL cogen --online($1,$2): $(cat "$tmp/e")"; fail=1; return; }
+  go=$(src/core/rundata "$tmp/to.data" "$tmp/d.val")             # [cogen --online(p,s)](d)
   src/core/rundata "$tmp/$1.gen" "$tmp/s.val" > "$tmp/tg.data"    # [gen(p)](s) = target
   gg=$(src/core/rundata "$tmp/tg.data" "$tmp/d.val")              # [[gen(p)](s)](d)
-  if [ "$gb" = "$orc" ] && [ "$gg" = "$orc" ]; then echo "ok   $1 s=$2 d=$3 -> $orc"
-  else echo "FAIL $1 s=$2 d=$3: cogen=$gb gen=$gg oracle=$orc"; fail=1; fi
+  if [ "$gb" = "$orc" ] && [ "$go" = "$orc" ] && [ "$gg" = "$orc" ]; then echo "ok   $1 s=$2 d=$3 -> $orc"
+  else echo "FAIL $1 s=$2 d=$3: cogen=$gb online=$go gen=$gg oracle=$orc"; fail=1; fi
 }
 
 # boundary dynamic inputs (one per line so the spaces survive word-splitting)

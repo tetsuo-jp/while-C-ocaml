@@ -367,8 +367,24 @@ loop is *residualized whole* instead of unrolled over the static program → the
 returns an incorrect compiler here — a separate bug to chase). This is the
 textbook motivation for **polyvariant program-point specialization** (Jones–
 Gomard–Sestoft 1993): specialize each program point per static store value, so the
-interpreter's dispatch unrolls and `comp` collapses toward `|p|`. That is the next
-build; `test-jones.sh` tracks the ratio (540× → ~1) as the success metric.
+interpreter's dispatch unrolls and `comp` collapses toward `|p|`.
+`test-jones.sh` tracks the ratio (540× → ~1) as the success metric.
+
+**Step 1 — value-driven (polyvariant) decisions: `cogen --online`.** The first
+ingredient is to stop trusting the conservative monovariant BTA and decide
+Static/Dynamic from each construct's *actual* annotated value: `av_static` for the
+fold-vs-emit choice, and nil-vs-cons (a `Cv` is a statically-known cons) for
+if/while guards. Assignments inside a residualized dynamic if/while are still
+always emitted (the `under_dyn` rule, the spec-time analogue of the BTA's dynamic-
+control rule). `test-poly.sh` is the witness that this beats monovariant: in
+`poly.while` a loop is statically controlled but its loop variable is *reused
+dynamically later*, so the monovariant BTA joins it to Dynamic and `cogen`
+**residualizes the loop** (1322 B, a `'while` survives); `cogen --online` sees the
+guard's real value is static and **unrolls it** (695 B, no `'while`) — both
+correct. (`cogen --online` is correct across the whole int_min/int_loop/int_if/
+int_nest corpus too; on `universal` it hits the same separate identity bug as
+`mix` — full Jones-optimality on the self-interpreter still needs program-point
+*memoization* on top of this, the remaining step.)
 
 ### Machine-checked design specs (Agda)
 
