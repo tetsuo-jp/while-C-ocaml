@@ -340,6 +340,35 @@ Still remaining: **Phase D — self-application** — `comp = [spec]((⌜spec_an
 ⌜p_ann⌝))` and `cogen = [spec]((⌜spec_ann⌝ . ⌜spec_ann⌝))`; measure `|comp|` vs the
 online `mix`'s 9.36 MB to see the annotation-driven payoff (and whether the
 remaining AV-expression dispatch needs arity-raising to a pure-S/D store).
+Measured: spec self-application does **not** complete in 75 min (RSS flat at
+22 MB) — the O(n) AV-store walked over the 2.4 MB `⌜spec_ann⌝` is impractical;
+spec is correct (M1) but not yet practically self-applicable.
+
+### Jones-optimality — diagnosis (`test-jones.sh`)
+
+The classic benchmark of a *good* specializer is **Jones-optimality**:
+specializing the self-interpreter `u` (`universal.while`) to a subject `p` should
+give back essentially `p` (the interpretation overhead removed) —
+`[mix]((u . ⌜p⌝)) ≈ p`. `test-jones.sh` measures `|comp| / |⌜p⌝|` for the
+loop-free subject `swap.while`. Findings:
+
+| specializer | `cogen(u, swap)` (offline, monovariant) | `mix(u, swap)` (online) |
+|---|---|---|
+| size ratio | **540×** | 698× |
+| correct?   | yes | **no** (computes identity) |
+
+Neither is Jones-optimal. Root cause (offline): the monovariant BTA collapses
+**every** variable of `u` to Dynamic — including the code-stack `Cd`, which is
+"really" static (it holds the program). The fixpoint is vicious: the main loop is
+tentatively D-while, so the dynamic-control rule dynamicizes its body assignments
+(including `Cd`), which confirms the D-while. With `Cd` dynamic the interpreter
+loop is *residualized whole* instead of unrolled over the static program → the
+~150 KB interpreter survives into `comp`. The online `mix` does no better (and
+returns an incorrect compiler here — a separate bug to chase). This is the
+textbook motivation for **polyvariant program-point specialization** (Jones–
+Gomard–Sestoft 1993): specialize each program point per static store value, so the
+interpreter's dispatch unrolls and `comp` collapses toward `|p|`. That is the next
+build; `test-jones.sh` tracks the ratio (540× → ~1) as the success metric.
 
 ### Machine-checked design specs (Agda)
 
