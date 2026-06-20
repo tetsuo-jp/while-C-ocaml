@@ -116,6 +116,40 @@ read Rev;
   }
 write Acc
 
+(* DYNAMICIZE-ALL((Vl . RC)) -> (Vl' . RC'): materialise every non-trivial store *)
+(* slot into the residual (emit `(var k) := lift(slot)`) and reset all slots to    *)
+(* the self-reference ('D.(var k)).  Slots already self-referential, or static     *)
+(* nil, need no flush.  Used before/after a dynamic loop so the residual loop sees  *)
+(* correct runtime values and the abstract store reaches a fixpoint.  (mix.while.)  *)
+procedure dynall
+read P;
+  Vl := hd P;
+  RC := tl P;
+  K := nil;
+  NewRev := nil;
+  while Vl do {
+    Slot := hd Vl;
+    Vl := tl Vl;
+    VarK := cons 'var (cons K nil);
+    SelfAV := cons 'D VarK;
+    StaNil := cons 'S nil;
+    Skip := nil;
+    if =? Slot SelfAV then { Skip := cons nil nil; }
+    if =? Slot StaNil then { Skip := cons nil nil; }
+    if Skip then {
+      Dummy := nil;
+    } else {
+      L := avlift Slot;
+      RC := cons (cons 'asgn (cons VarK (cons L nil))) RC;
+    }
+    NewRev := cons SelfAV NewRev;
+    K := cons nil K;
+  }
+  NewVl := nil;
+  while NewRev do { NewVl := cons (hd NewRev) NewVl; NewRev := tl NewRev; }
+  Result := cons NewVl RC;
+write Result
+
 (* ===================== specializer main ===================== *)
 
 read PD;
@@ -220,6 +254,41 @@ read PD;
         } end
       ('doif . (C1 . (C2 . Cr))), (('C . PR) . Sr) ->
         begin { Cd := cons C1 Cr; St := Sr; } end
+
+      (* dynamic while: the annotation says the guard is dynamic -> residualize.    *)
+      (* DYNAMICIZE-ALL flushes the pre-loop store, evaluate the guard over the      *)
+      (* all-dynamic store, specialize the body once ('whmk starts a fresh body RC,  *)
+      (* 'whend flushes the body's store changes and emits the residual while).      *)
+      (('whileD . (E . (C1 . nil))) . Cr), SS ->
+        begin {
+          Tmp := cons Vl RC;
+          PR := dynall Tmp;
+          Vl := hd PR;
+          RC := tl PR;
+          Cd := cons E (cons 'whmk (cons C1 Cr));
+          St := SS;
+        } end
+      ('whmk . (Cbody . Cr)), (GA . Sr) ->
+        begin {
+          Ge := avlift GA;
+          RCsave := RC;
+          RC := nil;
+          Whend := cons 'whend (cons Ge (cons RCsave nil));
+          Cd := cons Cbody (cons Whend Cr);
+          St := Sr;
+        } end
+      (('whend . (Ge . (RCsave . nil))) . Cr), SS ->
+        begin {
+          Tmp := cons Vl RC;
+          PR := dynall Tmp;
+          Vl := hd PR;
+          RC := tl PR;
+          BodyC := makeseq RC;
+          Whilecmd := cons 'while (cons Ge (cons BodyC nil));
+          RC := cons Whilecmd RCsave;
+          Cd := Cr;
+          St := SS;
+        } end
 
     }
   }
