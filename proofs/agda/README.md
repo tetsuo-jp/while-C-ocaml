@@ -7,7 +7,9 @@ its road to the Futamura projections. They are *design specs* (à la rwhile's
 particular choice in `mix.while` is the correct one, so the WHILE implementation
 can be written/changed against a checked result.
 
-Requires Agda + `standard-library` (this machine: Agda 2.8.0). Typecheck:
+Requires Agda + `standard-library` (this machine: Agda 2.8.0). Typecheck all
+modules at once with `sh proofs/agda/check.sh` (also run by
+`examples/desugar/run-all.sh` when `agda` is on PATH), or individually:
 
 ```
 cd proofs/agda

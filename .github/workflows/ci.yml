@@ -60,14 +60,29 @@ jobs:
           echo "$out"
           test "$out" = "('3 . ('2 . ('1 . nil)))"
 
-      - name: E2E timed universal program (boundary vs --time oracle)
-        run: sh examples/desugar/test-timed-universal.sh
+      # ---- Futamura projections / offline PE: native tools + full e2e suite ----
+      - name: Build offline/Futamura native tools (rundata, cogen, bta, simp)
+        run: make -C src/core rundata cogen bta simp
 
-      - name: E2E diagonalization program (hierarchy theorem)
-        run: sh examples/desugar/test-diag.sh
+      # run-all.sh runs every fast test-*.sh: the oracle cross-check (rundata vs
+      # while), the Futamura/offline suite (futamura, fp-triv, noninj, bta, genext,
+      # cogen) AND the ch.19 suite (timed-universal, diag, onevar, efficient-tu).
+      - name: E2E test suite (oracle, Futamura fp1/fp2-triv, BTA, cogen, ch.19 …)
+        run: sh examples/desugar/run-all.sh
 
-      - name: E2E one-variable (I) translation
-        run: sh examples/desugar/test-onevar.sh
-
-      - name: E2E one-variable timed universal program (--onevar . tt)
-        run: sh examples/desugar/test-efficient-tu.sh
+  # Agda design-spec proofs (proofs/agda/*.agda, all --safe).  Best-effort for now:
+  # continue-on-error keeps the workflow green while we confirm the CI Agda /
+  # standard-library versions match what the modules need (locally: Agda 2.8.0 +
+  # stdlib 2.x).  Promote to blocking once a CI run is confirmed green.
+  proofs:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Agda + standard-library
+        uses: wenkokke/setup-agda@v2
+        with:
+          agda-version: '2.8.0'
+          agda-stdlib-version: '2.1.1'
+      - name: Type-check design-spec proofs (--safe)
+        run: sh proofs/agda/check.sh
