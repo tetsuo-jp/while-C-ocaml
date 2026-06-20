@@ -76,3 +76,4 @@ proofs/agda/_build/
 *.agdai
 src/core/simp
 src/core/bta
+src/core/cogen

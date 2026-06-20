@@ -281,13 +281,23 @@ compiler — `gen(op)` emits the specialized target, `[gen(op)](d) =
 [int_min]((op.d))`) is **528 bytes**, versus the online `mix`'s **9.36 MB**
 `comp2` — the *same* function, ~18000× smaller, because the binding-time
 annotation `op:S → S-if → unroll` removes the interpretation overhead. Verified
-correct for swap/id/foo (`rundata` runs the emitted targets). `gen` is here
-hand-derived from the annotated program; the **general `cogen` transformation**
-(annotated program → generating extension, automatically), and the
-**self-applicable offline `mix` with program-point memoization** that produces
-such small compilers via the Futamura projections themselves, are the
-Jones–Sestoft–Søndergaard (1985) landmark realized for this WHILE — a
-multi-session build for which the BTA + this worked example are the foundation.
+correct for swap/id/foo (`rundata` runs the emitted targets).
+
+**Automated** (`src/core/cogen`, `test-cogen.sh`): `cogen p s` is the general
+annotation-driven offline specializer — it runs the BTA, then reduces Static
+constructs and residualizes Dynamic ones over partially-static annotated values
+(so `In=(s.d)` is handled: `tl In` residualizes to the residual's input var). For
+`int_min` it auto-produces the small targets the hand-derived `gen_int_min`
+emits — 381–592 B, `[cogen(int_min,op)](d) = [int_min]((op.d))` for swap/id/foo —
+from the annotations, no hand work. Scope: static control (S-`if`/S-`while`
+unrolled); dynamic control (`int_loop`'s D-`while`) is rejected cleanly as the
+next step.
+
+Still remaining: emitting a standalone generating-extension *program* `⌜gen⌝`
+(not just the target), dynamic-control generation, and the **self-applicable
+offline `mix` with program-point memoization** that produces such small compilers
+via the Futamura projections themselves — the Jones–Sestoft–Søndergaard (1985)
+landmark for this WHILE; the BTA + `cogen` here are its foundation.
 
 ### Machine-checked design specs (Agda)
 

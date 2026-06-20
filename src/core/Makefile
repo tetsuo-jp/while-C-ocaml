@@ -61,3 +61,7 @@ simp: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.
 # 束縛時刻解析 (offline PE の第一構成要素)
 bta: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Bta.ml
 	ocamlopt -O2 -o $@ $^
+
+# 汎用 cogen (注釈追従の offline 特殊化器)
+cogen: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Cogen.ml
+	ocamlopt -O2 -o $@ $^
