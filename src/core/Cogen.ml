@@ -9,9 +9,11 @@
  * static, tail dynamic -- is handled correctly (tl In residualizes to the
  * residual's input variable).
  *
- * Scope: static control (S-if/S-while are unrolled at spec time).  Dynamic
- * control (D-if/D-while) needs the snapshot/merge + DYNAMICIZE-ALL generation of
- * mix.while and is out of scope (errors out clearly).
+ * Control: static guards (S-if/S-while) are unrolled at spec time; DYNAMIC guards
+ * (D-if/D-while) are residualized -- the `if`/`while` is kept, both branches / the
+ * body are specialized once, and every var the body assigns is dynamicized (the
+ * BTA raises assignments under a dynamic guard to D; see `under` / `dynamicize`).
+ * Out of scope: branches that diverge in binding shape (errors clearly).
  *
  * usage: cogen <prog.data> <static-input.val>
  *   prog reads In=(s.d); prints ⌜target⌝ with [target](d) = [prog]((s.d)).
@@ -58,16 +60,22 @@ let rec bt_exp e = match e with
        | _ -> D)
   | _ -> D
 let changed = ref false
-let rec bpass c = match c with
+(* `under` = are we under a DYNAMIC guard?  Then every assignment is dynamicized:
+ * an assignment executed conditionally / an unknown number of times has a value
+ * the specializer cannot track, so its target must be Dynamic (BTA soundness for
+ * dynamic control -- without it, e.g. `while D do X:=cons 'a X` would wrongly keep
+ * X static). *)
+let rec bpass under c = match c with
   | VCons (VAtom (Atom op), args) ->
       (match op, args with
        | "'asgn", VCons (tgt, VCons (e, VNil)) ->
            let k = depth (hd (tl tgt)) in
-           let nb = bjoin (bget k) (bt_exp e) in
+           let nb = bjoin (bget k) (bjoin (bt_exp e) (if under then D else S)) in
            if nb <> bget k then (changed := true; Hashtbl.replace benv k nb)
-       | "'semi", VCons (c1, VCons (c2, VNil)) -> bpass c1; bpass c2
-       | "'while", VCons (_, VCons (b, VNil)) -> bpass b
-       | "'if", VCons (_, VCons (c1, VCons (c2, VNil))) -> bpass c1; bpass c2
+       | "'semi", VCons (c1, VCons (c2, VNil)) -> bpass under c1; bpass under c2
+       | "'while", VCons (g, VCons (b, VNil)) -> bpass (under || not (bstatic (bt_exp g))) b
+       | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
+           let u = under || not (bstatic (bt_exp g)) in bpass u c1; bpass u c2
        | _ -> ())
   | _ -> ()
 
@@ -90,6 +98,26 @@ let av_eq x y =
 let store : (int, av) Hashtbl.t = Hashtbl.create 64
 let sget k = match Hashtbl.find_opt store k with Some v -> v | None -> Sv VNil
 let rc = ref []                                  (* residual commands, reversed *)
+
+let makeseq rev = match rev with
+  | [] -> let v1 = mkvar 1 in l3 (a "'asgn") v1 v1
+  | x :: xs -> List.fold_left (fun acc c -> l3 (a "'semi") c acc) x xs
+
+(* variables a command assigns to (its targets), for dynamicization under D-control *)
+let rec assigned_vars c = match c with
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'asgn", VCons (tgt, VCons (_, VNil)) -> [depth (hd (tl tgt))]
+       | "'semi", VCons (c1, VCons (c2, VNil)) -> assigned_vars c1 @ assigned_vars c2
+       | "'while", VCons (_, VCons (b, VNil)) -> assigned_vars b
+       | "'if", VCons (_, VCons (c1, VCons (c2, VNil))) -> assigned_vars c1 @ assigned_vars c2
+       | _ -> [])
+  | _ -> []
+(* before residualizing a dynamic if/while: every non-static var the body assigns
+ * must hold its residual reference (var k) (its pre-loop value, if any, was already
+ * residualized at its last D-assign, since the BTA makes it globally Dynamic) *)
+let dynamicize c = List.iter (fun k ->
+  if not (bstatic (bget k)) then Hashtbl.replace store k (Dv (mkvar k))) (assigned_vars c)
 
 let rec spec_exp e = match e with
   | VCons (VAtom (Atom op), args) ->
@@ -118,19 +146,31 @@ let rec spec c = match c with
        | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
            if bstatic (bt_exp g) then
              (if av_val (spec_exp g) <> VNil then spec c1 else spec c2)    (* S-if: unroll *)
-           else failwith "cogen: dynamic if (D-if) out of scope (needs merge, cf mix.while)"
+           else begin                                                     (* D-if: residualize *)
+             dynamicize c1; dynamicize c2;          (* branch-assigned vars -> residual refs *)
+             let gv = lift (spec_exp g) in
+             let snap = Hashtbl.copy store in
+             let saved = !rc in
+             rc := []; spec c1; let r1 = makeseq !rc in
+             Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;  (* restore *)
+             rc := []; spec c2; let r2 = makeseq !rc in
+             rc := VCons (a "'if", l3 gv r1 r2) :: saved
+             (* store now reflects c2 from snap; dynamicized vars are Dv(var k) in both *)
+           end
        | "'while", VCons (g, VCons (b, VNil)) ->
            if bstatic (bt_exp g) then
              (let n = ref 0 in
               while av_val (spec_exp g) <> VNil do
                 incr n; if !n > 1000000 then failwith "static loop blew up"; spec b done)
-           else failwith "cogen: dynamic while (D-while) out of scope (cf mix.while)"
+           else begin                                                     (* D-while: residualize *)
+             dynamicize b;                          (* loop-assigned vars -> residual refs *)
+             let gv = lift (spec_exp g) in
+             let saved = !rc in
+             rc := []; spec b; let body_res = makeseq !rc in
+             rc := VCons (a "'while", l2 gv body_res) :: saved
+           end
        | _ -> failwith "cogen: bad command")
   | _ -> failwith "cogen: bad command"
-
-let makeseq rev = match rev with
-  | [] -> let v1 = mkvar 1 in l3 (a "'asgn") v1 v1
-  | x :: xs -> List.fold_left (fun acc c -> l3 (a "'semi") c acc) x xs
 
 let run_spec () =
   let prog = let ch = open_in Sys.argv.(1) in let v = parseValT ch in close_in ch; v in
@@ -138,7 +178,7 @@ let run_spec () =
   let varI = hd prog and body = hd (tl prog) and varJ = hd (tl (tl prog)) in
   let i = depth (hd (tl varI)) and j = depth (hd (tl varJ)) in
   Hashtbl.replace benv i (C (S, D));
-  changed := true; while !changed do changed := false; bpass body done;
+  changed := true; while !changed do changed := false; bpass false body done;
   (* input In = (s . d): head s static, tail d = the residual's input var (var i) *)
   Hashtbl.replace store i (Cv (Sv s, Dv (mkvar i)));
   spec body;
@@ -227,10 +267,17 @@ let rec g_av e = match e with
 let gslot_snapshot () = Hashtbl.fold (fun k v acc -> (k, v) :: acc) gslot [] |> List.sort compare
 let gslot_restore snap = Hashtbl.clear gslot; List.iter (fun (k, v) -> Hashtbl.replace gslot k v) snap
 
-(* append residual command `rcmd-expr` to the accumulator R at gen-runtime *)
-let gappend rcmd = gasgn (gvar gR) (gcons (gq (a "'semi")) (gcons (gvar gR) (gcons rcmd (gq VNil))))
+(* append residual command (the gen-expr `rcmd`) to accumulator gen-var `acc` *)
+let gappend acc rcmd = gasgn (gvar acc) (gcons (gq (a "'semi")) (gcons (gvar acc) (gcons rcmd (gq VNil))))
+let gskip = ref VNil                              (* a harmless residual skip, set in run_gen *)
+let fresh_gv () = let g = !gv_next in incr gv_next; g
+(* under dynamic control: every non-static var the body assigns must hold its
+ * residual reference (var k) in gslot before we residualize (cf dynamicize, run_spec) *)
+let gdynamicize c = List.iter (fun k ->
+  if not (bstatic (bget k)) then Hashtbl.replace gslot k (Dv (gq (mkvar k)))) (assigned_vars c)
 
-let rec gemit c = match c with
+(* gemit acc c : the gen-code that, run on s, appends c's residual to gen-var `acc` *)
+let rec gemit acc c = match c with
   | VCons (VAtom (Atom op), args) ->
       (match op, args with
        | "'asgn", VCons (tgt, VCons (e, VNil)) ->
@@ -243,30 +290,54 @@ let rec gemit c = match c with
            end else begin                                  (* D/C-assign: append residual command *)
              let rcmd = gcons (gq (a "'asgn")) (gcons (gq (mkvar k)) (gcons (lift_code v) (gq VNil))) in
              Hashtbl.replace gslot k (Dv (gq (mkvar k)));
-             gappend rcmd
+             gappend acc rcmd
            end
        | "'semi", VCons (c1, VCons (c2, VNil)) ->
-           let a = gemit c1 in let b = gemit c2 in gsemi a b   (* force L-to-R: gemit mutates gslot *)
+           let x = gemit acc c1 in let y = gemit acc c2 in gsemi x y  (* force L-to-R: gemit mutates gslot *)
        | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
-           if not (bstatic (bt_exp g)) then
-             failwith "cogen --gen: dynamic if (D-if) out of scope (needs merge, cf mix.while)";
-           let gg = g_val (g_av g) in                      (* guard read with pre-branch slots *)
-           let snap = gslot_snapshot () in
-           let g1 = gemit c1 in let s1 = gslot_snapshot () in
-           gslot_restore snap;
-           let g2 = gemit c2 in let s2 = gslot_snapshot () in
-           if s1 <> s2 then
-             failwith "cogen --gen: S-if branches diverge in binding shape (out of scope)";
-           gif gg g1 g2
+           if bstatic (bt_exp g) then begin                (* S-if: a real if in gen *)
+             let gg = g_val (g_av g) in                    (* guard read with pre-branch slots *)
+             let snap = gslot_snapshot () in
+             let g1 = gemit acc c1 in let s1 = gslot_snapshot () in
+             gslot_restore snap;
+             let g2 = gemit acc c2 in let s2 = gslot_snapshot () in
+             if s1 <> s2 then
+               failwith "cogen --gen: S-if branches diverge in binding shape (out of scope)";
+             gif gg g1 g2
+           end else begin                                  (* D-if: gen builds a residual `if` *)
+             gdynamicize c1; gdynamicize c2;
+             let guard = lift_code (g_av g) in
+             let snap = gslot_snapshot () in
+             let a1 = fresh_gv () and a2 = fresh_gv () in
+             let init1 = gasgn (gvar a1) (gq !gskip) and init2 = gasgn (gvar a2) (gq !gskip) in
+             let b1 = gemit a1 c1 in let s1 = gslot_snapshot () in
+             gslot_restore snap;
+             let b2 = gemit a2 c2 in let s2 = gslot_snapshot () in
+             if s1 <> s2 then
+               failwith "cogen --gen: D-if branches diverge in binding shape (out of scope)";
+             let ifterm = gcons (gq (a "'if")) (gcons guard (gcons (gvar a1) (gcons (gvar a2) (gq VNil)))) in
+             gsemi init1 (gsemi b1 (gsemi init2 (gsemi b2 (gappend acc ifterm))))
+           end
        | "'while", VCons (g, VCons (b, VNil)) ->
-           if not (bstatic (bt_exp g)) then
-             failwith "cogen --gen: dynamic while (D-while) out of scope (cf mix.while)";
-           let gg = g_val (g_av g) in
-           let snap = gslot_snapshot () in
-           let gb = gemit b in
-           if snap <> gslot_snapshot () then
-             failwith "cogen --gen: S-while changes binding shape (out of scope)";
-           gwhile gg gb
+           if bstatic (bt_exp g) then begin                (* S-while: a real while in gen *)
+             let gg = g_val (g_av g) in
+             let snap = gslot_snapshot () in
+             let gb = gemit acc b in
+             if snap <> gslot_snapshot () then
+               failwith "cogen --gen: S-while changes binding shape (out of scope)";
+             gwhile gg gb
+           end else begin                                  (* D-while: gen builds a residual `while` *)
+             gdynamicize b;
+             let guard = lift_code (g_av g) in
+             let snap = gslot_snapshot () in
+             let sa = fresh_gv () in
+             let init = gasgn (gvar sa) (gq !gskip) in
+             let gb = gemit sa b in
+             if snap <> gslot_snapshot () then
+               failwith "cogen --gen: D-while changes binding shape (out of scope)";
+             let whterm = gcons (gq (a "'while")) (gcons guard (gcons (gvar sa) (gq VNil))) in
+             gsemi init (gsemi gb (gappend acc whterm))
+           end
        | _ -> failwith "cogen --gen: bad command")
   | _ -> failwith "cogen --gen: bad command"
 
@@ -275,19 +346,20 @@ let run_gen () =
   let varI = hd prog and body = hd (tl prog) and varJ = hd (tl (tl prog)) in
   let i = depth (hd (tl varI)) and j = depth (hd (tl varJ)) in
   Hashtbl.replace benv i (C (S, D));
-  changed := true; while !changed do changed := false; bpass body done;
+  changed := true; while !changed do changed := false; bpass false body done;
   (* the partially-static input: head static = gen's own input (var gIN),
    * tail dynamic = the residual's input var (var i) *)
   Hashtbl.replace gslot i (Cv (Sv (gvar gIN), Dv (gq (mkvar i))));
-  (* prologue: R := a single skip command (var i):=(var i) (harmless seed) *)
-  let prologue = gasgn (gvar gR) (gq (l3 (a "'asgn") (mkvar i) (mkvar i))) in
-  let walked = gemit body in
+  gskip := l3 (a "'asgn") (mkvar i) (mkvar i);    (* harmless residual skip (var i):=(var i) *)
+  (* prologue: R := a single skip command (harmless seed) *)
+  let prologue = gasgn (gvar gR) (gq !gskip) in
+  let walked = gemit gR body in
   (* epilogue: unless the output var is already a self-referential dynamic var,
    * append a final command (var j) := <residual code of its current value> *)
   let outv = gsget j in
   let epilogue_app =
     if outv = Dv (gq (mkvar j)) then None
-    else Some (gappend (gcons (gq (a "'asgn")) (gcons (gq (mkvar j)) (gcons (lift_code outv) (gq VNil))))) in
+    else Some (gappend gR (gcons (gq (a "'asgn")) (gcons (gq (mkvar j)) (gcons (lift_code outv) (gq VNil))))) in
   (* assemble ⌜target⌝ = ((var i) R (var j)) into gen's output var *)
   let out_target = gasgn (gvar gOUT)
       (gcons (gq (mkvar i)) (gcons (gvar gR) (gcons (gq (mkvar j)) (gq VNil)))) in

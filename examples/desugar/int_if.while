@@ -1,0 +1,17 @@
+(* int_if.while - a tiny program with a DYNAMIC if, to exercise cogen's D-if      *)
+(* residualization (the branch-merge path).                                       *)
+(*                                                                                *)
+(* Reads In = (S . D): S static, D dynamic.  The guard X is dynamic, so cogen must *)
+(* residualize the `if` (keep both branches) rather than choose one at spec time.  *)
+(*   [int_if]((S . D)) = (S . (S . hd D))   if D non-nil                           *)
+(*                     = (S . 'none)        if D = nil                             *)
+read In;
+  S := hd In;
+  X := tl In;
+  if X then {
+    Y := cons S (hd X);
+  } else {
+    Y := 'none;
+  }
+  Out := cons S Y;
+write Out

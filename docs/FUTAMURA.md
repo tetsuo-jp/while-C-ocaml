@@ -289,9 +289,16 @@ constructs and residualizes Dynamic ones over partially-static annotated values
 (so `In=(s.d)` is handled: `tl In` residualizes to the residual's input var). For
 `int_min` it auto-produces the small targets the hand-derived `gen_int_min`
 emits — 381–592 B, `[cogen(int_min,op)](d) = [int_min]((op.d))` for swap/id/foo —
-from the annotations, no hand work. Scope: static control (S-`if`/S-`while`
-unrolled); dynamic control (`int_loop`'s D-`while`) is rejected cleanly as the
-next step.
+from the annotations, no hand work.
+
+**Dynamic control** is handled too: a dynamic guard residualizes the construct
+rather than unrolling it. `cogen` keeps the `while`/`if`, specializes the body /
+both branches once, and **dynamicizes** every variable the body assigns — the BTA
+raises any assignment *under a dynamic guard* to `D` (without this rule a loop like
+`while D do X:=cons 'a X` would wrongly keep `X` static), and the specializer seeds
+those vars to their residual reference before residualizing. Verified on
+`int_loop` (D-`while`, drains a dynamic list → 599 B target) and `int_if` (D-`if`,
+branch-merge → 777 B target): `[cogen(p,s)](d) = [p]((s.d))` for several `d`.
 
 **The generating extension, automated** (`src/core/cogen --gen`, same
 `test-cogen.sh`): where `cogen p s` (above) emits the *target*, `cogen --gen p`
@@ -302,14 +309,17 @@ the transformation* instead of by hand. For `int_min` it is a 2.9 KB program; it
 emitted targets (515–726 B) run correctly for swap/id/foo. The transformation
 maps each construct to gen-code: static exprs become value computations, dynamic
 exprs become residual-code *builders* (the `cons`-trees of `gen_int_min`), S-`if`
-becomes a real `if` in `gen`, D-assigns append to a residual accumulator. Same
-scope (static control); D-control rejected cleanly.
+becomes a real `if` in `gen`, D-assigns append to a residual accumulator.
+**Dynamic control is generated too**: for a D-`while`/D-`if` the generating
+extension builds a residual `while`/`if` term — it threads a fresh sub-accumulator
+gen-var per loop body / branch, then conses `('while guard body)` / `('if guard
+b1 b2)` onto the outer accumulator. Verified on `int_loop` (`⌜gen⌝` 3.1 KB) and
+`int_if` (`⌜gen⌝` 4.3 KB): `[[gen(p)](s)](d) = [p]((s.d))`.
 
-Still remaining: dynamic-control generation (D-`if`/D-`while` in `cogen`/`--gen`),
-and the **self-applicable offline `mix` with program-point memoization** that
-produces such small compilers via the Futamura projections themselves — the
-Jones–Sestoft–Søndergaard (1985) landmark for this WHILE; the BTA + `cogen`
-(`--gen`) here are its foundation.
+Still remaining: the **self-applicable offline `mix` with program-point
+memoization** that produces such small compilers via the Futamura projections
+themselves — the Jones–Sestoft–Søndergaard (1985) landmark for this WHILE; the
+BTA + `cogen` (`--gen`) here are its foundation.
 
 ### Machine-checked design specs (Agda)
 

@@ -67,18 +67,23 @@ let rec bt_exp e =
        | _ -> D)
   | _ -> D
 
-(* one pass over the commands, raising variable bts; returns whether anything changed *)
+(* one pass over the commands, raising variable bts; returns whether anything changed.
+ * `under` = under a DYNAMIC guard: then every assignment is dynamicized (its target
+ * raised to D), because an assignment executed conditionally / an unknown number of
+ * times has a value the specializer cannot track (BTA soundness for dynamic control;
+ * e.g. without it `while D do X:=cons 'a X` would wrongly keep X static). *)
 let changed = ref false
-let rec pass_cmd c =
+let rec pass_cmd under c =
   match c with
   | VCons (VAtom (Atom op), args) ->
       (match op, args with
        | "'asgn", VCons (tgt, VCons (e, VNil)) when (match tgt with VCons (VAtom (Atom "'var"), _) -> true | _ -> false) ->
            let k = depth (hd (tl tgt)) in
-           if raise_to k (bt_exp e) then changed := true
-       | "'semi", VCons (c1, VCons (c2, VNil)) -> pass_cmd c1; pass_cmd c2
-       | "'while", VCons (_, VCons (b, VNil)) -> pass_cmd b
-       | "'if", VCons (_, VCons (c1, VCons (c2, VNil))) -> pass_cmd c1; pass_cmd c2
+           if raise_to k (join (bt_exp e) (if under then D else S)) then changed := true
+       | "'semi", VCons (c1, VCons (c2, VNil)) -> pass_cmd under c1; pass_cmd under c2
+       | "'while", VCons (g, VCons (b, VNil)) -> pass_cmd (under || not (fully_static (bt_exp g))) b
+       | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
+           let u = under || not (fully_static (bt_exp g)) in pass_cmd u c1; pass_cmd u c2
        | _ -> ())
   | _ -> ()
 
@@ -106,7 +111,7 @@ let () =
   let dbt = match div with "D" -> D | "S" -> S | _ -> C (S, D) in
   Hashtbl.replace env i dbt;                        (* binding-time division of the input *)
   changed := true;
-  while !changed do changed := false; pass_cmd body done;
+  while !changed do changed := false; pass_cmd false body done;
   report_cmd body;
   Printf.printf "binding-time division: read var %d = (S.D)\n" i;
   Hashtbl.fold (fun k b acc -> (k, b) :: acc) env []
