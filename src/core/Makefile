@@ -65,3 +65,7 @@ bta: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.m
 # 汎用 cogen (注釈追従の offline 特殊化器)
 cogen: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Cogen.ml
 	ocamlopt -O2 -o $@ $^
+
+# BTA 注釈器 (offline 特殊化器 spec.while の前段)
+annotate: BNFC_Util.ml AbsWhile.ml ShowWhile.ml PrintWhile.ml ParWhile.mli ParWhile.ml LexWhile.ml Annotate.ml
+	ocamlopt -O2 -o $@ $^

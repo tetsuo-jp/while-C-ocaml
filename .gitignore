@@ -77,3 +77,4 @@ proofs/agda/_build/
 src/core/simp
 src/core/bta
 src/core/cogen
+src/core/annotate

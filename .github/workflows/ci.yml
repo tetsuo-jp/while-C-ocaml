@@ -61,8 +61,8 @@ jobs:
           test "$out" = "('3 . ('2 . ('1 . nil)))"
 
       # ---- Futamura projections / offline PE: native tools + full e2e suite ----
-      - name: Build offline/Futamura native tools (rundata, cogen, bta, simp)
-        run: make -C src/core rundata cogen bta simp
+      - name: Build offline/Futamura native tools (rundata, cogen, bta, simp, annotate)
+        run: make -C src/core rundata cogen bta simp annotate
 
       # run-all.sh runs every fast test-*.sh: the oracle cross-check (rundata vs
       # while), the Futamura/offline suite (futamura, fp-triv, noninj, bta, genext,
