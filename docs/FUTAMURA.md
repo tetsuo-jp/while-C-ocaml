@@ -318,10 +318,28 @@ gen-var per loop body / branch, then conses `('while guard body)` / `('if guard
 b1 b2)` onto the outer accumulator. Verified on `int_loop` (`⌜gen⌝` 3.1 KB) and
 `int_if` (`⌜gen⌝` 4.3 KB): `[[gen(p)](s)](d) = [p]((s.d))`.
 
-Still remaining: the **self-applicable offline `mix` with program-point
-memoization** that produces such small compilers via the Futamura projections
-themselves — the Jones–Sestoft–Søndergaard (1985) landmark for this WHILE; the
-BTA + `cogen` (`--gen`) here are its foundation.
+### The self-applicable offline specializer (`spec.while`)
+
+`examples/desugar/spec.while` is the offline specializer *as a WHILE program* — the
+self-applicable `mix` of Jones–Sestoft–Søndergaard (1985). It consumes
+`(⌜p_ann⌝ . s)` where `⌜p_ann⌝ = annotate ⌜p⌝` (the BTA annotator, `src/core/
+annotate`), and emits `⌜target⌝` with `[target](d) = [p]((s.d))`. Unlike
+`mix.while` (online: it infers binding times by inspecting AV tags at spec time),
+`spec` **dispatches control on the annotation tags** `'asgnS/'asgnD`, `'ifS/'ifD`,
+`'whileS/'whileD`. Because the control is then fixed by the *static* program,
+specializing `spec` to a known `p_ann` folds that control away — the route to
+*small* compilers under the projections. It reuses `mix.while`'s `Cd`/`St` stack
+machine and AV procedures (`avhd/avtl/avlift/aveq`, `lookup/update`, `makeseq`,
+`merge`, `dynall`); static control unrolls, D-`while`/D-`if` residualize.
+
+**M1 done** (`test-spec.sh`, test-first): `[[spec]((⌜p_ann⌝ . s))](d) = [p]((s.d))`
+for int_min (S-if), int_loop (D-while), int_if (D-if), int_nest (nested) — the
+oracle via `rundata`, validated against `while` by `test-oracle.sh`.
+
+Still remaining: **Phase D — self-application** — `comp = [spec]((⌜spec_ann⌝ .
+⌜p_ann⌝))` and `cogen = [spec]((⌜spec_ann⌝ . ⌜spec_ann⌝))`; measure `|comp|` vs the
+online `mix`'s 9.36 MB to see the annotation-driven payoff (and whether the
+remaining AV-expression dispatch needs arity-raising to a pure-S/D store).
 
 ### Machine-checked design specs (Agda)
 
