@@ -16,7 +16,7 @@ DW=src/desugar/DesugarWhile
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 $DW examples/desugar/spec.while > "$tmp/spec.core" 2>"$tmp/e" || { echo "build spec.while (desugar) failed: $(cat "$tmp/e")"; exit 1; }
 fail=0
-progs="int_min int_loop"   # extend to: int_min int_loop int_if int_nest
+progs="int_min int_loop int_if int_nest"
 
 oracle () { printf "(%s . %s)" "$2" "$3" > "$tmp/o.val"; src/core/rundata "$tmp/$1.data" "$tmp/o.val"; }
 
@@ -44,4 +44,10 @@ diff1 int_min "'swap" "nil"
 diff1 int_loop "'S0"  "('a . ('b . ('c . nil)))"
 diff1 int_loop "'S0"  "nil"
 diff1 int_loop "'tag" "('x . ('y . nil))"
+diff1 int_if "'S0"  "('a . ('b . nil))"
+diff1 int_if "'S0"  "nil"
+diff1 int_if "'tag" "('x . nil)"
+diff1 int_nest "'TAG" "('a . (nil . ('c . nil)))"
+diff1 int_nest "'TAG" "nil"
+diff1 int_nest "'Z"   "(nil . (nil . nil))"
 [ $fail -eq 0 ] && echo "spec: PASS" || { echo "spec: FAIL"; exit 1; }

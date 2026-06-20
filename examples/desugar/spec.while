@@ -150,6 +150,59 @@ read P;
   Result := cons NewVl RC;
 write Result
 
+(* APPEND: (A . B) -> A ++ B  (shared with mix.while) *)
+procedure appendlist
+read P;
+  A := hd P;
+  B := tl P;
+  Tmp := nil;
+  while A do { Tmp := cons (hd A) Tmp; A := tl A; }
+  while Tmp do { B := cons (hd Tmp) B; Tmp := tl Tmp; }
+write B
+
+(* MERGE: (S1 . S2) two AV stores after specializing both branches of a dynamic   *)
+(* conditional -> (S3 . (Fix1 . Fix2)).  S3 keeps slots equal in both branches;    *)
+(* differing slots become dynamic-self ('D.(var k)) and get a fix-up assignment    *)
+(* `(var k) := lift(slot)` appended to each branch (reversed Fix1/Fix2).  (mix.)   *)
+procedure merge
+read P;
+  S1 := hd P;
+  S2 := tl P;
+  S3rev := nil;
+  Fix1 := nil;
+  Fix2 := nil;
+  K := nil;
+  Go := nil;
+  if S1 then { Go := cons nil nil; }
+  if S2 then { Go := cons nil nil; }
+  while Go do {
+    if S1 then { A1 := hd S1; S1 := tl S1; } else { A1 := cons 'S nil; }
+    if S2 then { A2 := hd S2; S2 := tl S2; } else { A2 := cons 'S nil; }
+    Eqv := =? A1 A2;
+    if Eqv then {
+      S3rev := cons A1 S3rev;
+    } else {
+      VarK := cons 'var (cons K nil);
+      S3rev := cons (cons 'D VarK) S3rev;
+      L1 := avlift A1;
+      L2 := avlift A2;
+      if =? L1 VarK then { Dummy := nil; } else {
+        Fix1 := cons (cons 'asgn (cons VarK (cons L1 nil))) Fix1;
+      }
+      if =? L2 VarK then { Dummy := nil; } else {
+        Fix2 := cons (cons 'asgn (cons VarK (cons L2 nil))) Fix2;
+      }
+    }
+    K := cons nil K;
+    Go := nil;
+    if S1 then { Go := cons nil nil; }
+    if S2 then { Go := cons nil nil; }
+  }
+  S3 := nil;
+  while S3rev do { S3 := cons (hd S3rev) S3; S3rev := tl S3rev; }
+  Result := cons S3 (cons Fix1 Fix2);
+write Result
+
 (* ===================== specializer main ===================== *)
 
 read PD;
@@ -286,6 +339,50 @@ read PD;
           BodyC := makeseq RC;
           Whilecmd := cons 'while (cons Ge (cons BodyC nil));
           RC := cons Whilecmd RCsave;
+          Cd := Cr;
+          St := SS;
+        } end
+
+      (* dynamic conditional: residualize -- specialize both branches from a        *)
+      (* snapshot store, then MERGE (equal slots kept, differing slots dynamicized   *)
+      (* with per-branch fix-up assignments) so the specializer's own store stays    *)
+      (* single-valued after the if.                                                 *)
+      (('ifD . (E . (C1 . (C2 . nil)))) . Cr), SS ->
+        begin { Cd := cons E (cons 'doifd (cons C1 (cons C2 Cr))); St := SS; } end
+      ('doifd . (C1 . (C2 . Cr))), (G . Sr) ->
+        begin {
+          Ge := avlift G;
+          S0 := Vl;
+          RCsave := RC;
+          RC := nil;
+          Aft1 := cons 'after1 (cons Ge (cons S0 (cons RCsave (cons C2 nil))));
+          Cd := cons C1 (cons Aft1 Cr);
+          St := Sr;
+        } end
+      (('after1 . (Ge . (S0 . (RCsave . (C2 . nil))))) . Cr), SS ->
+        begin {
+          S1 := Vl;
+          RC1 := RC;
+          Vl := S0;
+          RC := nil;
+          Aft2 := cons 'after2 (cons Ge (cons S1 (cons RC1 (cons RCsave nil))));
+          Cd := cons C2 (cons Aft2 Cr);
+          St := SS;
+        } end
+      (('after2 . (Ge . (S1 . (RC1 . (RCsave . nil))))) . Cr), SS ->
+        begin {
+          S2 := Vl;
+          RC2 := RC;
+          MP := cons S1 S2;
+          MR := merge MP;
+          S3 := hd MR;
+          Fix1 := hd (tl MR);
+          Fix2 := tl (tl MR);
+          AP1 := cons Fix1 RC1; B1 := appendlist AP1; B1c := makeseq B1;
+          AP2 := cons Fix2 RC2; B2 := appendlist AP2; B2c := makeseq B2;
+          Ifc := cons 'if (cons Ge (cons B1c (cons B2c nil)));
+          RC := cons Ifc RCsave;
+          Vl := S3;
           Cd := Cr;
           St := SS;
         } end
