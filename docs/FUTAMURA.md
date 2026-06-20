@@ -297,8 +297,10 @@ both branches once, and **dynamicizes** every variable the body assigns — the 
 raises any assignment *under a dynamic guard* to `D` (without this rule a loop like
 `while D do X:=cons 'a X` would wrongly keep `X` static), and the specializer seeds
 those vars to their residual reference before residualizing. Verified on
-`int_loop` (D-`while`, drains a dynamic list → 599 B target) and `int_if` (D-`if`,
-branch-merge → 777 B target): `[cogen(p,s)](d) = [p]((s.d))` for several `d`.
+`int_loop` (D-`while`, drains a dynamic list → 599 B target), `int_if` (D-`if`,
+branch-merge → 777 B target), and `int_nest` (a D-`if` nested in a D-`while`):
+`[cogen(p,s)](d) = [p]((s.d))`, checked differentially over boundary inputs + a
+small fuzz in `test-cogen.sh` (104 cases, both modes, oracle-validated).
 
 **The generating extension, automated** (`src/core/cogen --gen`, same
 `test-cogen.sh`): where `cogen p s` (above) emits the *target*, `cogen --gen p`

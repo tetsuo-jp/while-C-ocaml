@@ -1,0 +1,22 @@
+(* int_nest.while - NESTED dynamic control: a dynamic `if` inside a dynamic       *)
+(* `while`, to exercise cogen's D-while + D-if composition (merge inside a loop).  *)
+(*                                                                                *)
+(* Reads In = (S . D): S static, D = a dynamic list.  Walks the list; each truthy *)
+(* element is replaced by the static S, each falsy element is kept, and the result *)
+(* is accumulated (reversed).  Guard X (the list) and guard H (each element) are   *)
+(* both dynamic, so cogen must residualize the `while` AND the inner `if`.         *)
+read In;
+  S := hd In;
+  X := tl In;
+  Acc := nil;
+  while X do {
+    H := hd X;
+    if H then {
+      Acc := cons S Acc;
+    } else {
+      Acc := cons H Acc;
+    }
+    X := tl X;
+  }
+  Out := cons S Acc;
+write Out
