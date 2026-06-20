@@ -293,11 +293,23 @@ from the annotations, no hand work. Scope: static control (S-`if`/S-`while`
 unrolled); dynamic control (`int_loop`'s D-`while`) is rejected cleanly as the
 next step.
 
-Still remaining: emitting a standalone generating-extension *program* `⌜gen⌝`
-(not just the target), dynamic-control generation, and the **self-applicable
-offline `mix` with program-point memoization** that produces such small compilers
-via the Futamura projections themselves — the Jones–Sestoft–Søndergaard (1985)
-landmark for this WHILE; the BTA + `cogen` here are its foundation.
+**The generating extension, automated** (`src/core/cogen --gen`, same
+`test-cogen.sh`): where `cogen p s` (above) emits the *target*, `cogen --gen p`
+emits **`⌜gen⌝` itself** — a standalone WHILE *program* (the offline compiler as a
+program) with `[gen](s) = ⌜target⌝` and `[target](d) = [p]((s.d))`. This is the
+true Futamura **cogen** output: the hand-derived `gen_int_min.while` produced *by
+the transformation* instead of by hand. For `int_min` it is a 2.9 KB program; its
+emitted targets (515–726 B) run correctly for swap/id/foo. The transformation
+maps each construct to gen-code: static exprs become value computations, dynamic
+exprs become residual-code *builders* (the `cons`-trees of `gen_int_min`), S-`if`
+becomes a real `if` in `gen`, D-assigns append to a residual accumulator. Same
+scope (static control); D-control rejected cleanly.
+
+Still remaining: dynamic-control generation (D-`if`/D-`while` in `cogen`/`--gen`),
+and the **self-applicable offline `mix` with program-point memoization** that
+produces such small compilers via the Futamura projections themselves — the
+Jones–Sestoft–Søndergaard (1985) landmark for this WHILE; the BTA + `cogen`
+(`--gen`) here are its foundation.
 
 ### Machine-checked design specs (Agda)
 
