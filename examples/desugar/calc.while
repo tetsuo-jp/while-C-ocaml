@@ -1,0 +1,31 @@
+(* calc.while - a TINY interpreter with a STATIC-SPINE store (route 2 toward       *)
+(* Jones-optimality).  Unlike universal.while, the store is a single variable A --  *)
+(* there is NO indexed variable list and NO store-walk loop, so specializing this   *)
+(* interpreter to a (static) program leaves no residual store loops: the dispatch   *)
+(* over the static op-list unrolls and the residual is straight-line code on A      *)
+(* (the dynamic data) -- compact, ~ the size of the program (Jones-optimal).        *)
+(*                                                                                  *)
+(* Object language: a program is a list of ops applied left-to-right to A:          *)
+(*   'hd          -> A := hd A                                                      *)
+(*   'tl          -> A := tl A                                                      *)
+(*   ('cons . v)  -> A := cons v A   (push the static value v)                      *)
+(* In = (prog . d): prog static (the op list), d dynamic (initial A).               *)
+(*   [calc]((prog . d)) = apply prog's ops to d.                                    *)
+read In;
+  Prog := hd In;
+  A := tl In;
+  Cd := Prog;
+  while Cd do {
+    Op := hd Cd;
+    Cd := tl Cd;
+    if =? Op 'hd then {
+      A := hd A;
+    } else {
+      if =? Op 'tl then {
+        A := tl A;
+      } else {
+        A := cons (tl Op) A;
+      }
+    }
+  }
+write A
