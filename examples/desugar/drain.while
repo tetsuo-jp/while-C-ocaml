@@ -1,0 +1,26 @@
+(* drain.while - a LOOPING static-spine interpreter: it repeatedly applies a static *)
+(* op-list Body to A while A is non-nil.  The OUTER loop is over dynamic A (so it    *)
+(* residualizes to a single residual while); the INNER dispatch over the static Body *)
+(* unrolls -- so the residual is `while A do { <compiled Body> }` with NO interpreter *)
+(* dispatch overhead.  Tests that Jones-optimality holds for looping subjects too.   *)
+(*   In = (Body . d): Body static op-list (as in calc), d dynamic.                   *)
+read In;
+  Body := hd In;
+  A := tl In;
+  while A do {
+    Cd := Body;
+    while Cd do {
+      Op := hd Cd;
+      Cd := tl Cd;
+      if =? Op 'hd then {
+        A := hd A;
+      } else {
+        if =? Op 'tl then {
+          A := tl A;
+        } else {
+          A := cons (tl Op) A;
+        }
+      }
+    }
+  }
+write A
