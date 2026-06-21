@@ -406,6 +406,31 @@ interpreting the subject and often faster (e.g. `int_min` specialized to `'id`:
 6 vs 16 steps ≈ 2.6×) — the measurable face of Jones-optimality, independent of the
 `universal` store issue above.
 
+**Jones-optimality reached on static-spine interpreters, incl. looping ones
+(`cogen --online`, `test-calc.sh` / `test-drain.sh`).** Once the store is a single
+value (no indexed variable list, no store-walk loop), value-driven polyvariant
+specialization is Jones-optimal: `calc.while` (a tiny op-list interpreter)
+specializes to straight-line, loop-free residual code (no `'while`), 5.5× faster.
+The looping case `drain.while` (apply a static op-list to `A` *while `A`*) is the
+harder one: the outer loop is over dynamic `A`, so it must residualize to one
+`while`, but the inner dispatch over the static op-list should still unroll. The
+obstacle was `dynamicize`: before residualizing a dynamic loop it marked **every**
+body-assigned variable dynamic, including `Cd := Body` (re-initialised static each
+iteration) — leaving the dispatch in the residual (`'eq`>0, ≈1.07×). The fix is a
+**liveness-aware `dynamicize`** (`Cogen.ml`, `escaping_set`): a body-assigned var is
+dynamicized only if it is **live-in** (read before assigned in the body, so its
+value changes across iterations) or **live-out** (read after the loop, via a
+continuation stack threaded through `spec`'s `'semi`). A var that is neither — a
+dead loop-local like `Cd` — stays static, so the dispatch over it unrolls. This is
+sound by construction (a folded var's loop-head and loop-exit values are both dead).
+Result: `drain`'s residual is `while A do { <compiled Body> }` with **zero**
+dispatch (`'eq`=0) and 4.1× faster — full Jones-optimality for a looping subject.
+The same narrowing for **D-`if`** branches is *not* yet applied: the self-
+interpreter's dispatch over-unrolls (a statically-infinite spine) and `--online`
+fails to terminate, so `residualize_if` stays conservative (emit every assigned
+var). Narrowing D-`if` safely needs online-termination control (bounded unrolling /
+generalization) — the remaining step toward Jones-optimality on `universal` itself.
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in

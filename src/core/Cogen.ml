@@ -121,6 +121,50 @@ let rec assigned_vars c = match c with
        | "'if", VCons (_, VCons (c1, VCons (c2, VNil))) -> assigned_vars c1 @ assigned_vars c2
        | _ -> [])
   | _ -> []
+(* ----- liveness (to make dynamicize precise for online residual loops) -----
+ * A variable that a dynamic loop body assigns but that is neither LIVE-IN (read
+ * before being assigned in the body) nor LIVE-OUT (read after the loop) does NOT
+ * need dynamicizing: its loop-head value is dead (re-initialised each iteration)
+ * and its loop-exit value is dead (never read after).  Keeping such a var static
+ * lets the body's static dispatch unroll -- e.g. drain.while's `Cd := Body` per
+ * iteration -- driving residual interpreter overhead to 0 (full Jones-optimality
+ * for looping subjects).  Vars that ARE live-in/live-out stay dynamicized (sound:
+ * their value genuinely changes across iterations / is read afterwards). *)
+let uni a b = List.fold_left (fun acc x -> if List.mem x acc then acc else x :: acc) a b
+let rec reads_e e = match e with
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'var", VCons (k, VNil) -> [depth k]
+       | "'hd", VCons (e1, VNil) | "'tl", VCons (e1, VNil) -> reads_e e1
+       | "'cons", VCons (e1, VCons (e2, VNil))
+       | "'eq", VCons (e1, VCons (e2, VNil)) -> uni (reads_e e1) (reads_e e2)
+       | _ -> [])
+  | _ -> []
+(* (live_in, must_assign): must_assign = definitely-assigned, used to kill in seq *)
+let rec lva c = match c with
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'asgn", VCons (tgt, VCons (e, VNil)) -> (reads_e e, [depth (hd (tl tgt))])
+       | "'semi", VCons (c1, VCons (c2, VNil)) ->
+           let (l1, m1) = lva c1 and (l2, m2) = lva c2 in
+           (uni l1 (List.filter (fun x -> not (List.mem x m1)) l2), uni m1 m2)
+       | "'while", VCons (g, VCons (b, VNil)) ->          (* body may run 0 times *)
+           let (lb, _) = lva b in (uni (reads_e g) lb, [])
+       | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
+           let (l1, m1) = lva c1 and (l2, m2) = lva c2 in
+           (uni (reads_e g) (uni l1 l2), List.filter (fun x -> List.mem x m2) m1)
+       | _ -> ([], []))
+  | _ -> ([], [])
+let live_in c = fst (lva c)
+(* the continuation of the command currently being specialized, as a stack of
+ * pending commands; live_out = vars any continuation reads (conservative) plus
+ * the output variable.  Threaded by spec's `'semi` case. *)
+let cont_stack : valT list ref = ref []
+let out_var = ref (-1)
+let live_out () =
+  List.fold_left (fun acc c -> uni acc (live_in c))
+    (if !out_var >= 0 then [!out_var] else []) !cont_stack
+
 (* before residualizing a dynamic if/while: every non-static var the body assigns
  * must hold its residual reference (var k) (its pre-loop value, if any, was already
  * residualized at its last D-assign, since the BTA makes it globally Dynamic) *)
@@ -145,32 +189,49 @@ let rec spec_exp e = match e with
  * Dynamic -- unroll, the route to Jones-optimal specialization.  Offline (BTA-driven)
  * behaviour is preserved when !online is false. *)
 let online = ref false
-(* `under_dyn` = currently specializing inside a residualized dynamic if/while.  In
- * online mode every assignment there must be EMITTED, never folded: even a static
- * value assigned under a dynamic guard is conditional, so it has to appear in the
- * residual (offline gets this from the BTA's dynamic-control `under` rule). *)
-let under_dyn = ref false
+(* `dyn_live` = the ESCAPING variables of the dynamic if/while we are currently
+ * residualizing: those assigned in it that are live-in (read before assigned, so
+ * their value changes across iterations) or live-out (read after the construct).
+ * An assignment to such a var must be EMITTED, never folded -- it is conditional /
+ * iterated and its value escapes.  An assignment to a var NOT in dyn_live (a dead
+ * loop-local, e.g. drain.while's `Cd := Body` re-initialised each iteration) is
+ * folded, so the body's static dispatch over it unrolls.  This is the precise
+ * (liveness-aware) version of the old all-or-nothing "emit everything under a
+ * dynamic guard" rule -- the route to Jones-optimality for looping subjects. *)
+let dyn_live : int list ref = ref []
+let escaping_set b extra =                          (* live-in(b) | extra, non-static *)
+  let live = uni (live_in b) extra in
+  List.filter (fun k -> not (bstatic (bget k)) && List.mem k live) (assigned_vars b)
 
 (* residualize a dynamic while `while g do b` over the current store *)
 let rec residualize_while g b =
-  dynamicize b;                              (* loop-assigned vars -> residual refs *)
+  let esc = escaping_set b (live_out ()) in
+  let dyn () = List.iter (fun k -> Hashtbl.replace store k (Dv (mkvar k))) esc in
+  dyn ();                                    (* loop-head store: generalise escaping vars *)
   let gv = lift (spec_exp g) in
-  let saved = !rc and sud = !under_dyn in
-  under_dyn := true;
+  let saved = !rc and sdl = !dyn_live in
+  dyn_live := esc;
   rc := []; spec b; let body_res = makeseq !rc in
-  under_dyn := sud;
+  dyn_live := sdl;
+  dyn ();                                    (* post-loop store: escaping vars stay dynamic *)
   rc := VCons (a "'while", l2 gv body_res) :: saved
 
 and residualize_if g c1 c2 =
-  dynamicize c1; dynamicize c2;
+  (* conservative: every non-static var either branch assigns is treated as escaping
+   * (emitted).  Liveness-narrowing here is future work -- D-if dispatch in the self-
+   * interpreter is sensitive to it; the loop case (residualize_while) is where the
+   * Jones-optimality win for looping subjects comes from. *)
+  let esc = uni (List.filter (fun k -> not (bstatic (bget k))) (assigned_vars c1))
+                (List.filter (fun k -> not (bstatic (bget k))) (assigned_vars c2)) in
+  List.iter (fun k -> Hashtbl.replace store k (Dv (mkvar k))) esc;
   let gv = lift (spec_exp g) in
   let snap = Hashtbl.copy store in
-  let saved = !rc and sud = !under_dyn in
-  under_dyn := true;
+  let saved = !rc and sdl = !dyn_live in
+  dyn_live := esc;
   rc := []; spec c1; let r1 = makeseq !rc in
   Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;
   rc := []; spec c2; let r2 = makeseq !rc in
-  under_dyn := sud;
+  dyn_live := sdl;
   rc := VCons (a "'if", l3 gv r1 r2) :: saved
 
 and spec c = match c with
@@ -179,13 +240,18 @@ and spec c = match c with
        | "'asgn", VCons (tgt, VCons (e, VNil)) ->
            let k = depth (hd (tl tgt)) in
            let v = spec_exp e in
-           let is_static = if !online then (av_static v && not !under_dyn) else bstatic (bget k) in
+           let is_static =
+             if !online then (av_static v && not (List.mem k !dyn_live))
+             else bstatic (bget k) in
            if is_static then Hashtbl.replace store k v                    (* fold *)
            else begin                                                     (* emit *)
              rc := l3 (a "'asgn") (mkvar k) (lift v) :: !rc;
              Hashtbl.replace store k (Dv (mkvar k))
            end
-       | "'semi", VCons (c1, VCons (c2, VNil)) -> spec c1; spec c2
+       | "'semi", VCons (c1, VCons (c2, VNil)) ->
+           cont_stack := c2 :: !cont_stack; spec c1;
+           (match !cont_stack with _ :: t -> cont_stack := t | [] -> ());
+           spec c2
        | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
            let gv = spec_exp g in
            if !online then
@@ -225,6 +291,7 @@ let run_spec progpath spath =
   changed := true; while !changed do changed := false; bpass false body done;
   (* input In = (s . d): head s static, tail d = the residual's input var (var i) *)
   Hashtbl.replace store i (Cv (Sv s, Dv (mkvar i)));
+  out_var := j; cont_stack := [];           (* j is live at the end (write j) *)
   spec body;
   let outv = sget j in
   let body' =
