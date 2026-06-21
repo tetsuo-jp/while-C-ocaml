@@ -40,7 +40,9 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   self-applicability invariants of the optimizing specializer (MKAV binding-time,
   emit-model soundness, PAT-READ condition, dynamic-if merge), guiding the
   implementation; plus `BTAWiden.agda` (widening sound + terminating) and
-  `SpinePreservingEmit.agda` (spine-preserving emit faithful + sound), backing C5.
+  `SpinePreservingEmit.agda` (spine-preserving emit faithful + sound) and
+  `MemoFold.agda` (M2 fold soundness: folded `while` ≡ source loop when the
+  per-iteration body preserves the step), backing C5.
 - **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer
   (`src/core/Cogen.ml --online`) that decides static/dynamic from each construct's
   actual annotated value, not the monovariant BTA — so a statically-known loop the

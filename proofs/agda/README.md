@@ -113,6 +113,20 @@ re-materialising any other variable cannot change it — emit-model soundness fo
 partially-static spine case), with `cross-unsound` as the contrast (a
 cross-reference slot *would* change). Complements `MixEmitModel` (the scalar case).
 
+### `MemoFold.agda` — item-3 M2 configuration-memoization fold soundness (backs C5)
+
+Design spec for the M2 driver (`Cogen.ml` `drive`/`drive_dyn_if`, gated
+`COGEN_MEMO`). The driver unfolds the self-interpreter's loop and, on a back-edge
+(the subject loop iterating), **folds** it into a residual `while g do body`. Models
+a loop as a guard `g` and a step over an abstract state with a fuel-bounded `run`,
+and proves `fold-sound`/`while-cong`: if the residual one-iteration `body` equals the
+source step on every state, the folded `while` computes the **same partial function**
+as the source loop (every fuel, every start state) — M2 fold soundness. The contrast
+`fold-unsound-witness` is a concrete loop where a wrong body gives a different run, so
+the per-iteration "body ≡ source step" obligation is necessary (that per-iteration
+obligation is supplied by `spec`/`spec_exp`, differential-tested; full G1 = the
+whole-spec congruence).
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).
