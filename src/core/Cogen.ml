@@ -48,6 +48,18 @@ let mkvar k = let rec nils n = if n = 0 then VNil else VCons (VNil, nils (n - 1)
 
 (* ===== binding-time analysis (domain & fixpoint, as in Bta.ml) ===== *)
 type bt = S | D | C of bt * bt
+(* WIDENING: the partially-static domain (C) has infinite ascending chains -- e.g.
+ * a static-control accumulator `Acc := cons D Acc` makes Acc's type grow
+ * C(D, C(D, ...)) without bound, so the naive fixpoint diverges.  `widen` caps the
+ * C-nesting at bt_maxdepth (collapsing deeper structure to D) and normalizes
+ * C(D,D)->D; both are sound (D is top) and make the bt domain finite, so the BTA
+ * always terminates.  This is the binding-time half of online-termination control. *)
+let bt_maxdepth = 8
+let rec widen d = function
+  | C (a, b) ->
+      if d <= 0 then D
+      else (match widen (d - 1) a, widen (d - 1) b with D, D -> D | a', b' -> C (a', b'))
+  | x -> x
 let rec bjoin x y = match x, y with
   | S, b | b, S -> b | D, _ | _, D -> D | C (a, b), C (c, d) -> C (bjoin a c, bjoin b d)
 let rec bstatic = function S -> true | D -> false | C (a, b) -> bstatic a && bstatic b
@@ -62,7 +74,7 @@ let rec bt_exp e = match e with
        | "'quote", _ -> S
        | "'hd", VCons (e1, VNil) -> bhd (bt_exp e1)
        | "'tl", VCons (e1, VNil) -> btl (bt_exp e1)
-       | "'cons", VCons (e1, VCons (e2, VNil)) -> C (bt_exp e1, bt_exp e2)
+       | "'cons", VCons (e1, VCons (e2, VNil)) -> widen bt_maxdepth (C (bt_exp e1, bt_exp e2))
        | "'eq", VCons (e1, VCons (e2, VNil)) ->
            if bstatic (bt_exp e1) && bstatic (bt_exp e2) then S else D
        | _ -> D)
@@ -78,7 +90,7 @@ let rec bpass under c = match c with
       (match op, args with
        | "'asgn", VCons (tgt, VCons (e, VNil)) ->
            let k = depth (hd (tl tgt)) in
-           let nb = bjoin (bget k) (bjoin (bt_exp e) (if under then D else S)) in
+           let nb = widen bt_maxdepth (bjoin (bget k) (bjoin (bt_exp e) (if under then D else S))) in
            if nb <> bget k then (changed := true; Hashtbl.replace benv k nb)
        | "'semi", VCons (c1, VCons (c2, VNil)) -> bpass under c1; bpass under c2
        | "'while", VCons (g, VCons (b, VNil)) -> bpass (under || not (bstatic (bt_exp g))) b
@@ -203,9 +215,19 @@ let escaping_set b extra =                          (* live-in(b) | extra, non-s
   let live = uni (live_in b) extra in
   List.filter (fun k -> not (bstatic (bget k)) && List.mem k live) (assigned_vars b)
 
-(* residualize a dynamic while `while g do b` over the current store *)
-let rec residualize_while g b =
-  let esc = escaping_set b (live_out ()) in
+(* online-termination control: bounded unrolling of static-guarded loops, with a
+ * GENERALIZATION fallback (residualize the loop, its whole state made dynamic) when
+ * the budget is exceeded -- so a loop whose guard the value-driven analysis keeps
+ * statically non-nil for too long (a quasi-non-terminating unroll) still produces a
+ * finite, correct residual instead of diverging.  Budget is overridable for tests. *)
+exception Generalize
+let unroll_budget = try int_of_string (Sys.getenv "COGEN_UNROLL_BUDGET") with _ -> 1000000
+
+(* residualize a dynamic while `while g do b` over the current store.  `force` is a
+ * set of vars to treat as escaping in addition to the live-in/live-out ones (used by
+ * generalization to push the whole loop state dynamic). *)
+let rec residualize_while force g b =
+  let esc = uni (escaping_set b (live_out ())) force in
   let dyn () = List.iter (fun k -> Hashtbl.replace store k (Dv (mkvar k))) esc in
   dyn ();                                    (* loop-head store: generalise escaping vars *)
   let gv = lift (spec_exp g) in
@@ -265,20 +287,36 @@ and spec c = match c with
        | "'while", VCons (g, VCons (b, VNil)) ->
            if !online then begin
              (* unroll while the guard is statically non-nil (Sv non-nil, or a Cv cons);
-              * stop on Sv nil; residualize when the guard is dynamic *)
-             let cont = ref true and n = ref 0 in
-             let step () = incr n; if !n > 10000000 then failwith "online loop blew up"; spec b in
-             while !cont do
-               match spec_exp g with
-               | Sv v -> if v <> VNil then step () else cont := false
-               | Cv _ -> step ()
-               | Dv _ -> residualize_while g b; cont := false
-             done
+              * stop on Sv nil; residualize when the guard is dynamic.  If the unroll
+              * exceeds the budget, GENERALIZE: roll back, make the whole loop state
+              * dynamic, and residualize the loop (guaranteed finite & correct). *)
+             let snap_store = Hashtbl.copy store and snap_rc = !rc in
+             (try
+                let cont = ref true and n = ref 0 in
+                let step () = incr n; if !n > unroll_budget then raise Generalize; spec b in
+                while !cont do
+                  match spec_exp g with
+                  | Sv v -> if v <> VNil then step () else cont := false
+                  | Cv _ -> step ()
+                  | Dv _ -> residualize_while [] g b; cont := false
+                done
+              with Generalize ->
+                Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap_store;
+                rc := snap_rc;
+                (* materialize each still-static loop-carried var's entry value, then
+                 * make it dynamic, so the residual loop is self-contained *)
+                let carried = assigned_vars b in
+                List.iter (fun k -> match sget k with
+                  | Dv _ -> ()                         (* already a residual reference *)
+                  | av ->                              (* Sv/Cv: bind its entry value, go dynamic *)
+                      rc := l3 (a "'asgn") (mkvar k) (lift av) :: !rc;
+                      Hashtbl.replace store k (Dv (mkvar k))) carried;
+                residualize_while carried g b)
            end else if bstatic (bt_exp g) then
              (let n = ref 0 in
               while av_val (spec_exp g) <> VNil do
                 incr n; if !n > 1000000 then failwith "static loop blew up"; spec b done)
-           else residualize_while g b
+           else residualize_while [] g b
        | _ -> failwith "cogen: bad command")
   | _ -> failwith "cogen: bad command"
 

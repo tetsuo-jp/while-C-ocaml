@@ -448,6 +448,27 @@ Note `cogen --online` already makes the self-interpreter's residual ~2× faster
 with a single residual loop and one surviving dispatch — far from the 540× offline
 blow-up; the remaining gap is the store-walk loop, the target above.
 
+**Online-termination control (`test-terminate.sh`).** Value-driven unrolling can
+diverge two ways; both are now bounded:
+
+1. *BTA fixpoint.* The partially-static domain `C` has infinite ascending chains —
+   a static-control accumulator `Acc := cons D Acc` grows `C(D, C(D, …))` without
+   bound, so the naive fixpoint never converges (it hung on `count.while`). A
+   **widening** (`widen`, `Cogen.ml`) caps the `C`-nesting at `bt_maxdepth` and
+   normalizes `C(D,D)→D`; both are sound (D is top) and make the domain finite, so
+   the BTA always terminates.
+2. *Unrolling.* A static loop guard that the value analysis keeps non-nil too long
+   would unroll forever. The online `while` now unrolls under a budget
+   (`COGEN_UNROLL_BUDGET`, default 1e6) and, on exceeding it, **generalizes**: it
+   rolls back, materializes each loop-carried variable's entry value, makes the loop
+   state dynamic, and residualizes the loop. The result is finite and correct —
+   `count.while` specialized with a tiny budget over a long static list yields a
+   residual `while` computing the same function as the fully-unrolled residual.
+
+This is the safety net the value-driven specializer needs to be a total function of
+its static input, and the prerequisite for narrowing D-`if` (which can provoke
+case 2 on `universal`).
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in

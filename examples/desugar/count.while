@@ -1,0 +1,15 @@
+(* count.while - drives a loop by a STATIC list and builds DYNAMIC output.          *)
+(* In = (s . d): s is a static list (its length controls the loop), d is dynamic.    *)
+(*   [count]((s . d)) = a list of length |s|, every element = d.                     *)
+(* Under cogen --online the loop guard N is static, so the loop UNROLLS to straight- *)
+(* line code -- unless the static list is so long that unrolling exceeds the budget, *)
+(* in which case online-termination control GENERALIZES it (whole loop state made    *)
+(* dynamic) and emits a finite residual `while` instead of diverging.                *)
+read In;
+  N := hd In;
+  D := tl In;
+  while N do {
+    N := tl N;
+    Acc := cons D Acc;
+  }
+write Acc
