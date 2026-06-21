@@ -8,9 +8,16 @@
  * Handles every node mix/universal emit: commands 'asgn/'semi/'while/'if and
  * expressions 'var/'quote/'cons/'hd/'tl/'eq.  Variable indices are nil^k values.
  *
- * usage: rundata <prog.data> <input.val>      -- prints ⟦p⟧(input)
+ * usage: rundata <prog.data> <input.val>          -- prints ⟦p⟧(input)
+ *        rundata --time <prog.data> <input.val>   -- prints time_p(input), the
+ *          book's unit-cost step count (ch.16-19), matching `while --time`:
+ *          each hd/tl/cons/eq/var/quote costs 1, each asgn and each while-guard
+ *          test costs 1 (an if-guard test likewise; if is expanded by --data).
+ *          Lets us measure the cost of specialized residuals (Jones-optimality).
  *)
 open AbsWhile
+
+let steps = ref 0     (* unit-cost step counter for --time (see timeProc, EvalWhile) *)
 
 let parseValT (c : in_channel) : valT =
   ParWhile.pValT LexWhile.token (Lexing.from_channel c)
@@ -38,14 +45,14 @@ let rec evalE st e =
   match e with
   | VCons (VAtom (Atom op), args) ->
       (match op, args with
-       | "'var", VCons (k, VNil) -> lookup st k
-       | "'quote", VCons (d, VNil) -> d
-       | "'hd", VCons (e1, VNil) -> hd (evalE st e1)
-       | "'tl", VCons (e1, VNil) -> tl (evalE st e1)
+       | "'var", VCons (k, VNil) -> incr steps; lookup st k     (* EVar costs 1 *)
+       | "'quote", VCons (d, VNil) -> incr steps; d             (* EVal costs 1 *)
+       | "'hd", VCons (e1, VNil) -> incr steps; hd (evalE st e1)
+       | "'tl", VCons (e1, VNil) -> incr steps; tl (evalE st e1)
        | "'cons", VCons (e1, VCons (e2, VNil)) ->
-           VCons (evalE st e1, evalE st e2)
+           incr steps; VCons (evalE st e1, evalE st e2)
        | "'eq", VCons (e1, VCons (e2, VNil)) ->
-           if evalE st e1 = evalE st e2 then VCons (VNil, VNil) else VNil
+           incr steps; if evalE st e1 = evalE st e2 then VCons (VNil, VNil) else VNil
        | _ -> failwith ("rundata: bad expression: " ^ showValT e))
   | _ -> failwith ("rundata: bad expression: " ^ showValT e)
 
@@ -54,12 +61,13 @@ let rec evalC st c =
   | VCons (VAtom (Atom op), args) ->
       (match op, args with
        | "'asgn", VCons (VCons (VAtom (Atom "'var"), VCons (k, VNil)), VCons (e, VNil)) ->
-           update st k (evalE st e)
+           let v = evalE st e in incr steps; update st k v       (* timeExp(e) + 1 *)
        | "'semi", VCons (c1, VCons (c2, VNil)) -> evalC st c1; evalC st c2
        | "'while", VCons (e, VCons (c1, VNil)) ->
-           while evalE st e <> VNil do evalC st c1 done
+           while (let g = evalE st e in incr steps; g <> VNil) do evalC st c1 done
        | "'if", VCons (e, VCons (c1, VCons (c2, VNil))) ->
-           if evalE st e <> VNil then evalC st c1 else evalC st c2
+           let g = evalE st e in incr steps;
+           if g <> VNil then evalC st c1 else evalC st c2
        | _ -> failwith ("rundata: bad command: " ^ showValT c))
   | _ -> failwith ("rundata: bad command: " ^ showValT c)
 
@@ -75,14 +83,18 @@ let run prog input =
   lookup st j
 
 let () =
+  let timing = Array.length Sys.argv >= 2 && Sys.argv.(1) = "--time" in
+  let base = if timing then 1 else 0 in
   let prog =
-    let ch = open_in Sys.argv.(1) in
+    let ch = open_in Sys.argv.(base + 1) in
     let v = parseValT ch in
     close_in ch; v
   in
   let input =
-    let ch = open_in Sys.argv.(2) in
+    let ch = open_in Sys.argv.(base + 2) in
     let v = parseValT ch in
     close_in ch; v
   in
-  print_endline (showValT (run prog input))
+  let result = run prog input in
+  if timing then print_endline (string_of_int !steps)
+  else print_endline (showValT result)
