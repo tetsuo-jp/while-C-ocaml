@@ -2,8 +2,9 @@
 
 Design spec for the one open Jones-optimality gap (`docs/FUTAMURA.md` "item 3";
 `docs/RELATED-WORK.md` §item-3). This is a **multi-session build**, written down so
-the architecture, milestones, and tests are fixed in advance (test-first). No code
-here — `Cogen.ml` is unchanged until a milestone below is implemented.
+the architecture, milestones, and tests are fixed in advance (test-first).
+**M1a + M2 are now implemented** (gated `COGEN_MEMO` in `Cogen.ml`; see Milestones
+below); **M3 (universal/nested) is the open redesign**.
 
 ## Goal
 
