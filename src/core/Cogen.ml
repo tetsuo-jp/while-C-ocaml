@@ -240,9 +240,10 @@ let rec residualize_while force g b =
 
 and residualize_if g c1 c2 =
   (* conservative: every non-static var either branch assigns is treated as escaping
-   * (emitted).  Liveness-narrowing here is future work -- D-if dispatch in the self-
-   * interpreter is sensitive to it; the loop case (residualize_while) is where the
-   * Jones-optimality win for looping subjects comes from. *)
+   * (emitted).  Narrowing this with liveness (as residualize_while does) makes the
+   * self-interpreter's dispatch blow up COMBINATORIALLY -- many distinct static
+   * stores each spawn work -- which per-loop termination control cannot bound; the
+   * cure is program-point memoization (sharing specialized configurations), item 3. *)
   let esc = uni (List.filter (fun k -> not (bstatic (bget k))) (assigned_vars c1))
                 (List.filter (fun k -> not (bstatic (bget k))) (assigned_vars c2)) in
   List.iter (fun k -> Hashtbl.replace store k (Dv (mkvar k))) esc;

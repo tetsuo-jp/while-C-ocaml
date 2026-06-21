@@ -468,8 +468,16 @@ diverge two ways; both are now bounded:
    residual `while` computing the same function as the fully-unrolled residual.
 
 This is the safety net the value-driven specializer needs to be a total function of
-its static input, and the prerequisite for narrowing D-`if` (which can provoke
-case 2 on `universal`).
+its static input.
+
+*Finding (scopes the remaining work).* With termination control in place we tried
+re-enabling the liveness narrowing for D-`if` (so dispatch locals fold like loop
+locals). It does **not** rescue `universal`: the self-interpreter's residual now
+diverges *combinatorially* — many distinct static stores each spawn fresh
+specialization, 2.6 GB without finishing — which a per-loop budget cannot bound.
+The cure is **program-point memoization** (item 3): share specialized
+configurations `(pp, static-store)` so each is residualized once. So D-`if`
+narrowing is kept off until memoization lands; `residualize_if` stays conservative.
 
 ### Machine-checked design specs (Agda)
 
