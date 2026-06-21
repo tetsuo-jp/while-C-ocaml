@@ -558,6 +558,17 @@ evaluator for recursive flowchart languages*, SP&E 2012) — online × self-appl
 configurations and folding cycles into the subject's own loops (supercompilation
 folding, Sørensen–Glück–Jones 1996); see [`RELATED-WORK.md`](RELATED-WORK.md) §item-3.
 
+**Item 3 — M2 done (`COGEN_MEMO`, `test-item3-m1.sh`).** A configuration-memoizing
+driver in `Cogen.ml` (gated behind `COGEN_MEMO`; explicit continuation, `while`
+unfolded into it, back-edge detection on `(σ_s, k)`) folds a *single subject loop*
+and keeps the interpreter's code pointer static inside it. Result: a **control-bearing**
+subject is now Jones-optimal in control — `[cogen --online](usi, rev)` is
+`while X do { <compiled body> }`, i.e. rev's *own* loop with **zero** interpreter
+dispatch (`#while=1`, `#eq=0`), correct, 87 KB → 28 KB. The book's `universal` and
+nested control remain open and need the *single-pass global-memo* redesign (the M2
+trial-based prototype is proven not to extend — `docs/ITEM3-M3-FINDINGS.md`,
+`docs/ITEM3-DESIGN.md` M3). Default (memo off) behaviour is unchanged.
+
 *Cross-repo: the same wall, independently.* The reversible sibling
 `rwhile-C-ocaml` hits the identical obstacle under self-application — its
 `analysis_store_bti.md` reports that `comp2 = [spec_av]((spec_av.('S.ri_min)))`

@@ -57,8 +57,15 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   **loop-free** (no residual interpretation loop) and ~30× faster than interpreting
   through `usi` — **Jones-optimal control** for a self-interpreter
   (`test-usi.sh`, `test-bench.sh`). This directly addresses the "residuals not yet
-  Jones-optimal" limitation; what remains (control-bearing subjects; the book's
-  `case Cd,St of` universal) reduces to program-point memoization.
+  Jones-optimal" limitation. **Extended (M2) to a *control-bearing* subject** by a
+  configuration-memoizing driver (`cogen --online --` `COGEN_MEMO`): it folds the
+  subject's loop into a residual `while` and keeps the interpreter's code pointer
+  static inside it, so `usi`×rev compiles to the subject's own loop with **zero**
+  interpreter dispatch (`#eq=0`), correct (`test-item3-m1.sh`). What remains (the
+  book's `case Cd,St of` universal; nested control) reduces to a single-pass
+  *global* configuration memo — a standard memoized supercompiler; the M2 trial-based
+  prototype is shown not to extend to it (`docs/ITEM3-M3-FINDINGS.md`), scoping the
+  next step precisely.
   *Cross-repo validation:* the reversible sibling `rwhile-C-ocaml`
   (`analysis_store_bti.md`) independently hits the same store-index binding-time
   wall (125 residual store-walk loops in its self-applied `comp2`) and lists the
@@ -111,9 +118,11 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
    Danvy–López / Brown–Palsberg tag-elimination & Jones-optimality;
    Sørensen–Glück–Jones supercompilation); limitations (Jones-optimality reached for the value-driven
    online specializer on straight-line subjects via the static-spine self-
-   interpreter (C5); control-bearing subjects and the book's `case Cd,St of`
-   universal still residualize interpreter overhead inside object loops — reduces
-   to program-point memoization, future work; trade-off "triangle" partly
+   interpreter (C5), and on a *control-bearing* subject via configuration
+   memoization (M2: `usi`×rev loop-free-modulo-subject, `#eq=0`); the book's
+   `case Cd,St of` universal and nested control still residualize interpreter
+   overhead — reduces to a single-pass global-memo supercompiler (M3, future work,
+   precisely scoped in `docs/ITEM3-M3-FINDINGS.md`); trade-off "triangle" partly
    informal); future work.
 9. Conclusion. Artifact appendix (repos, `test-*.sh`, Agda).
 
@@ -138,12 +147,20 @@ interpretation overhead loop.
 | `calc` | online | 582 B | 0 | 0 | 5.5× | static-spine, loop-free |
 | `drain` | online | 484 B | 1 | 0 | 4.1× | looping subj.; 1 outer loop, no dispatch |
 | `usi`×swap | online | ~10 KB | **0** | **0** | ~30× | **self-interpreter, loop-free (Jones-optimal control)** |
-| `universal`×swap | online | ~211 KB | 1 | 1 | ~2× | book `case Cd,St of`; main loop residualizes (PP-memo open) |
+| `usi`×rev (M2) | online+memo | 28 KB | **1** | **0** | — | **control-bearing subject: residual = rev's OWN loop, interpreter dispatch unrolled inside it** |
+| `universal`×swap | online | ~211 KB | 1 | 1 | ~2× | book `case Cd,St of`; main loop residualizes (global-memo open) |
 
 Headline: specializing the *static-spine self-interpreter* `usi` to a straight-line
 program yields a **loop-free** residual ~30× faster than interpretation — i.e. the
 first Futamura projection produces a genuinely *compiled* program with no residual
-interpreter overhead, the value-driven route to Jones-optimality.
+interpreter overhead, the value-driven route to Jones-optimality.  **M2 extends this
+to a *control-bearing* subject**: a configuration-memoizing driver (`cogen --online`
+with `COGEN_MEMO`) folds the subject's loop and keeps the interpreter's code pointer
+static inside it, so `usi`×rev residualizes to `while X do { <compiled body> }` —
+the subject's own loop with **zero** interpreter dispatch (`#eq=0`), correct. The
+remaining open case (the book's `universal`, nested control) reduces to a single-pass
+*global* configuration memo (a standard memoized supercompiler); the M2 prototype's
+trial-based folding is proven not to extend to it (`docs/ITEM3-M3-FINDINGS.md`).
 
 ## §(b) Lower bound (Theorem A) vs measured garbage (rwhile §6)
 

@@ -115,18 +115,20 @@ place to introduce the Agda model of the memo loop.
 
 ## Milestones (each ends green; revert on red)
 
-- **M1 — memo table + dispatch-loop emit (strategy a).** Add `seen`/`pending` to
-  `Cogen.ml`; key on `(pp, σ_s)`; emit a PC-dispatched residual. *Witness:*
-  `universal`×swap residual is **constant-size in subject** no longer — it shares
-  configurations (residual shrinks toward `|p|`), correctness preserved on the
-  whole corpus. Still has 1 dispatch loop. Add a memo-hit counter to `test-bench`.
-- **M2 — structured folding (strategy b) for single-loop subjects.** Recover the
-  subject's loop for `usi`×`rev`. *Witness:* `usi`×`rev` `#while == rev's #while`,
-  no dispatch (`#eq` from interpreter = 0).
-- **M3 — the book's `universal`.** Same on `case Cd,St of`. *Witness:*
-  `universal`×swap `#while == 0`. (May need the single-scrutinee insight already in
-  `usi`, or short-circuit `case`; revisit the reverted desugaring tweak with memo
-  in place.)
+- **M1a — configuration machinery — DONE** (`proj_av`, `config`, `cfg`, `Fold`,
+  `loop_stack`; commit `7917ebd`, gated `COGEN_MEMO`, behaviour-neutral).
+- **M2 — structured folding for single-loop subjects — DONE** (commit `b587874`,
+  `test-item3-m1.sh`). The memoizing driver folds the subject's loop and keeps the
+  interpreter code pointer static inside it: `usi`×`rev` → `#while=1` (rev's own
+  loop), `#eq=0` (interpreter dispatch unrolled), correct, 87 KB → 28 KB.
+- **M3 — the book's `universal` + nested control — OPEN; needs the single-pass
+  global-memo redesign** (NOT a patch on M2). The M2 trial-based prototype is proven
+  not to extend (`docs/ITEM3-M3-FINDINGS.md`): non-loop-correctness and loop-folding
+  cannot both own the continuation in the trial architecture. Redesign: drive ONCE
+  with a global `seen : config ⇀ name`, fold on any recurrence, reconstruct
+  structured WHILE (single back-edge → `while`; irreducible → pc-dispatch), real
+  store merge for non-loop ifs, HEm-whistle generalization. *Witness:*
+  `universal`×swap `#while == 0`; `int_if`/`int_nest` correct under memo.
 - **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template).
 
 ## Risks / fallbacks
