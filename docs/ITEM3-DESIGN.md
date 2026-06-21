@@ -19,6 +19,13 @@ usi × rev        #while == (rev's own #while)      (today: interpreter loop sur
 universal × swap #while == 0                        (today: 1 interpreter loop)
 ```
 
+**Progress meter:** `examples/desugar/measure-item3.sh` records the baseline and
+trips when it changes. Measured baseline (2026-06-21): `universal` × {id, swap, sl4}
+all give **`#while=1, #eq=1`** (the interpreter main loop + one dispatch survive,
+subject-*independent*; size is a ~200 KB floor + a small subject-proportional part —
+*not* a literal constant), while `usi` × the same is **`#while=0, #eq=0`** (loop-free,
+C5). So the precise success metric is residual **control** (`#while 1 → 0`), not size.
+
 ## Why the current specializer cannot do it
 
 `Cogen.ml --online` unrolls/inlines with **no global table of specialized

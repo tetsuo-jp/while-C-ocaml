@@ -4,7 +4,7 @@
 # `case Cd of`), reading the value stack St directly in each arm.  universal.while's
 # `case Cd, St of` conjoins the static Cd test with a dynamic St test, so under
 # specialization Cd is dynamicized and the WHOLE interpreter loop residualizes
-# (~265 KB even for identity).  With usi the dispatch guard is purely on Cd (= the
+# (~200 KB even for identity).  With usi the dispatch guard is purely on Cd (= the
 # static object program), so it folds: the interpreter loop UNROLLS for a straight-
 # line subject, and the residual is ORDERS OF MAGNITUDE smaller than universal's.
 #

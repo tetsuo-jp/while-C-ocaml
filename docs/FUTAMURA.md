@@ -446,7 +446,7 @@ subject          mode |resid|B  #while   #eq   t_comp t_interp  speedup
 int_min        offline      592       0     0       12       20      1.6x   (offline-optimal: S-control unrolls)
 calc           online       582       0     0        8       44      5.5x   (Jones-optimal: loop-free)
 drain          online       484       1     0       14       58      4.1x   (Jones-optimal: 1 outer loop, no dispatch)
-universal      online    265055       1     1     4729     9240      1.9x   (open: store-walk loop survives)
+universal      online    210919       1     1     4400     9240      2.1x   (open: store-walk loop survives)
 ```
 
 Note `cogen --online` already makes the self-interpreter's residual ~2× faster
@@ -491,10 +491,13 @@ configurations `(pp, static-store)` so each is residualized once. So D-`if`
 narrowing is kept off until memoization lands; `residualize_if` stays conservative.
 
 *Root-cause diagnosis of `universal`'s blow-up (items 2/3).* Instrumenting
-`cogen --online` shows the residual is **constant in the subject and in the unroll
-budget** (identity, swap and a 3-assignment program all give ≈265 KB, budget 4 vs
-1e6 identical), with exactly one residual `while` whose guard is **variable 9 =
-`Cd`, the code stack**: the *main interpreter loop residualizes wholesale*. The
+`cogen --online` shows the residual control is **invariant in the subject and in
+the unroll budget** — `#while=1, #eq=1` for identity, swap and a 3-assignment
+program alike (budget 4 vs 1e6 identical), atop a large **subject-independent floor**
+(~200 KB; measured `examples/desugar/measure-item3.sh`: id 200 KB, swap 211 KB,
+sl4 237 KB — the floor plus a small subject-proportional part, *not* a literal
+constant size). The one residual `while` has guard **variable 9 = `Cd`, the code
+stack**: the *main interpreter loop residualizes wholesale*. The
 trigger is a cascade — `residualize_if` fires 26× even for identity, and its
 escaping sets contain `Cd` (9), the store index `K` (8) and the store `Vl`, so once
 a dynamic `if` dynamicizes `Cd`, everything the dispatch derives from it (`KK`,
@@ -519,7 +522,7 @@ except the dispatch is a **single-scrutinee `case Cd of`** — only the *code* s
 `hd`/`tl`/`cons` inside each arm, never in a guard. So the dispatch guard is fully
 static and folds, and the **main interpreter loop unrolls** (the surviving residual
 `while` for a straight-line subject is a store-walk on var `K`, not `Cd`). Result:
-`[cogen --online](usi, swap)` is **7.6 KB vs universal's 265 KB (≈34× smaller)**,
+`[cogen --online](usi, swap)` is **~10 KB vs universal's ~211 KB (≈21× smaller)**,
 correct; the only residual control that remains is the object program's own
 `while`/`if` (the `dowh`/`doif` markers, which legitimately test a dynamic `St`
 value). `usi` is verified as a correct self-interpreter on straight-line, looping
