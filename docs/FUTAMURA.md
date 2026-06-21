@@ -479,6 +479,27 @@ The cure is **program-point memoization** (item 3): share specialized
 configurations `(pp, static-store)` so each is residualized once. So D-`if`
 narrowing is kept off until memoization lands; `residualize_if` stays conservative.
 
+*Root-cause diagnosis of `universal`'s blow-up (items 2/3).* Instrumenting
+`cogen --online` shows the residual is **constant in the subject and in the unroll
+budget** (identity, swap and a 3-assignment program all give ≈265 KB, budget 4 vs
+1e6 identical), with exactly one residual `while` whose guard is **variable 9 =
+`Cd`, the code stack**: the *main interpreter loop residualizes wholesale*. The
+trigger is a cascade — `residualize_if` fires 26× even for identity, and its
+escaping sets contain `Cd` (9), the store index `K` (8) and the store `Vl`, so once
+a dynamic `if` dynamicizes `Cd`, everything the dispatch derives from it (`KK`,
+`E`) becomes dynamic and the store-walk loops residualize too. Two contributing
+factors were isolated: (a) the desugared multi-scrutinee `case Cd, St of` compiles
+its guard as a **non-short-circuiting** conjunction (`EAnd` → `=?(cons … …)(…)`),
+so the dynamic value-stack test poisons the otherwise-static `Cd` dispatch; and
+(b) the monovariant BTA classifies `Cd` as `D` (it is assigned under dynamic
+control in the `doif`/`dowh` arms), so `escaping_set` dynamicizes it at every
+residualized `if`. A short-circuiting `case` rewrite was tried for (a): it is
+*semantically* correct (universal and `reverse-case` still evaluate correctly) but
+only marginally shrank the residual and regressed the specializer, confirming (b)
+is the dominant cause — so the real fix is **polyvariant / program-point treatment
+of `Cd`** (item 3), or a self-interpreter whose code stack is provably static
+(item 2), not a desugaring tweak. (Attempt reverted to keep the suite green.)
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in
