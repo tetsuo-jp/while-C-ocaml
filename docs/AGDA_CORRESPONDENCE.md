@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (8 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (9 modules).
 
 ## Correspondence table
 
@@ -19,6 +19,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (8 modules).
 | `Cogen.ml --online` emit-vs-fold under dynamic control (`dynamicize`, self-ref slot) | `MixEmitModel`: `emit-sound`, `fold-unsound`, `fold-tracks-new` | **proven (design spec)**; the OCaml emit path is the same principle, differential-tested |
 | `Cogen.ml --online` value-driven control (unroll on `Sv`/`Cv` guard) | — | **differential** (`test-poly`, `test-jones`, `test-usi`, `test-bench`) |
 | `Cogen.ml` **M2 memo fold** (`drive`/`drive_dyn_if`, `COGEN_MEMO`) | `MemoFold`: `fold-sound`/`while-cong` (folded `while` ≡ source loop when body preserves the step), `fold-unsound-witness` | **proven (kernel)**; the per-iteration "body ≡ source step" obligation is differential (the loop-level fold is the proven part) |
+| `Cogen.ml` **expression specializer** (`spec_exp`, `lift`, `av_hd`/`av_tl`) | `AVExprSound`: `lift-sound` (`eval (lift av) ≡ concretize av`), `hd-sound`/`tl-sound`/`cons-sound` (av ops commute with concretisation) | **proven** (the expression-level congruence — the base case of G1) |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
@@ -31,12 +32,15 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (8 modules).
 ## Gaps (in priority order)
 
 - **G1 — spec correctness end-to-end.** No module yet proves
-  `[cogen --online(p,s)](d) = [p]((s,d))` for the *actual* `Cogen.ml` algorithm;
-  the pieces (`MixEmitModel`, `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the
-  individual decisions, and correctness is differential-tested (`run-all.sh`).
-  Closing G1 = an Agda model of the AV specializer's `spec`/`spec_exp` with a
-  congruence proof (cf. rwhile's `RWhileAVSound`/`RWhileAVSpec`, which did this for
-  their reversible AV specializer — a template).
+  `[cogen --online(p,s)](d) = [p]((s,d))` for the *actual* `Cogen.ml` algorithm,
+  but G1 is now being built **bottom-up**: `AVExprSound` proves the **expression**
+  level (lift/`spec_exp` congruence), `MemoFold` the **loop** level (fold soundness
+  given a step-preserving body); the remaining middle is the **command** level
+  (`spec` for `'asgn`/`'semi`/`'if`) tying them together. The earlier pieces
+  (`MixEmitModel`, `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual
+  decisions; correctness is differential-tested (`run-all.sh`). Closing G1 = the
+  command-level congruence connecting `AVExprSound`↔`MemoFold` (cf. rwhile's
+  `RWhileAVSound`/`RWhileAVSpec` — a template).
 - **G2 — quasi-termination (whole specializer total).** `BTAWiden` gives BTA
   termination; the online unroll budget + generalization (`test-terminate`) is only
   differential. Modeling the generalization fallback would make "total" proven.

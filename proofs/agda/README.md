@@ -127,6 +127,18 @@ the per-iteration "body ≡ source step" obligation is necessary (that per-itera
 obligation is supplied by `spec`/`spec_exp`, differential-tested; full G1 = the
 whole-spec congruence).
 
+### `AVExprSound.agda` — expression-level congruence of the specializer (G1 base)
+
+The base case of G1 (whole-spec congruence), complementing `MemoFold` (the loop
+level). Models annotated values `av = Sv | Dv | Cv`, residual expression code, the
+`lift : av → Expr` readback, and `concretize av env` (the value an av denotes once
+the dynamic environment is known). Proves `lift-sound` (`eval (lift av) env ≡
+concretize av env` — running the lifted residual reproduces the denoted value) and
+`hd-sound`/`tl-sound`/`cons-sound` (the av operations `av_hd`/`av_tl`/`Cv` commute
+with concretisation). Together: specializing an expression and running its residual
+yields the same value as the source expression — what the command/loop congruence
+(G1) is built on.
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).
