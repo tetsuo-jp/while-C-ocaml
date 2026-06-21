@@ -237,6 +237,31 @@ let trace_res kind g esc dl =
       (String.concat ";" (List.map string_of_int esc))
       (String.concat ";" (List.map string_of_int dl))
 
+(* ===== item-3 (M1a): configuration memoization & back-edge folding =====
+ * Gated behind COGEN_MEMO so the default (green) corpus is untouched while this is
+ * developed.  A CONFIGURATION is (program-point, static-store projection): two
+ * stores with the same static spine (dynamic leaves abstracted to a single bottom)
+ * are the SAME config even if dynamic leaf values differ.  When specialization
+ * re-reaches a config it is already inside (a back-edge -- e.g. an interpreter
+ * re-reaching a subject `while`), instead of unrolling forever we close a residual
+ * `while` (fold, a la supercompilation): the subject's own loop, with the code
+ * pointer kept static so the interpreter dispatch inside it unrolls. *)
+let memo_on = (try Sys.getenv "COGEN_MEMO" <> "" with Not_found -> false)
+(* static projection of an annotated value: the spine with dynamic leaves -> 'D *)
+let proj_av =
+  let rec p = function
+    | Sv v -> l2 (a "'S") v
+    | Dv _ -> a "'D"
+    | Cv (x, y) -> l3 (a "'C") (p x) (p y) in p
+(* canonical projection of the whole store (sorted by var index) = sigma_s *)
+let config () : (int * valT) list =
+  List.sort compare (Hashtbl.fold (fun k v acc -> (k, proj_av v) :: acc) store [])
+(* a configuration = (residual guard expression, sigma_s) *)
+type cfg = valT * (int * valT) list
+exception Fold of cfg
+(* loop heads currently being driven (ancestors), for back-edge detection *)
+let loop_stack : cfg list ref = ref []
+
 (* residualize a dynamic while `while g do b` over the current store.  `force` is a
  * set of vars to treat as escaping in addition to the live-in/live-out ones (used by
  * generalization to push the whole loop state dynamic). *)
