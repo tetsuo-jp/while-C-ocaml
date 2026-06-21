@@ -512,9 +512,26 @@ static and folds, and the **main interpreter loop unrolls** (the surviving resid
 correct; the only residual control that remains is the object program's own
 `while`/`if` (the `dowh`/`doif` markers, which legitimately test a dynamic `St`
 value). `usi` is verified as a correct self-interpreter on straight-line, looping
-and conditional object programs. The remaining store-walk `while` (var `K`) is the
-next target toward ratio ≈ 1 — a store representation whose index stays static
-end-to-end (or item 3's program-point sharing).
+and conditional object programs.
+
+*Loop-free residuals — spine-preserving emit (`Cogen.ml`).* The store-walk `while`
+that initially survived was a symptom of a deeper specializer issue: building a cons
+over a dynamic leaf (`T := cons (hd Vl) T`) yields a `Cv` with a dynamic leaf, which
+`av_static` rejects, so the assignment was emitted and the slot collapsed to
+`Dv (var k)` — **losing the static spine**, so the loop walking it residualized.
+The fix: on an emitted assignment whose value has a static spine, store the slot as
+a `Cv` mirroring that spine with each *dynamic* leaf replaced by a **self-reference**
+into `(var k)` (`hd`/`tl` paths), keeping the `Sv` parts (incl. the spine
+terminator) static. The spine then stays known, so store-walks unroll, while the
+self-references stay stable under re-materialisation (the `MixEmitModel` soundness
+condition). This is sound only **outside** residualized dynamic control (`dyn_live`
+empty): under a residualized dynamic `if`/`while` a variable's runtime spine can
+vary per iteration, so there the slot still collapses to `Dv`. With this,
+`[cogen --online](usi, swap)` is **loop-free** (`#while = 0`, no interpretation
+overhead loop) and **30× faster** than interpreting through `usi` — Jones-optimal
+*control* for a self-interpreter on straight-line subjects. `universal` still
+residualizes its main loop (its `case Cd, St of` dynamicizes `Cd`); making it
+loop-free remains item 3 (program-point memoization).
 
 ### Machine-checked design specs (Agda)
 

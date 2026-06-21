@@ -269,7 +269,25 @@ and spec c = match c with
            if is_static then Hashtbl.replace store k v                    (* fold *)
            else begin                                                     (* emit *)
              rc := l3 (a "'asgn") (mkvar k) (lift v) :: !rc;
-             Hashtbl.replace store k (Dv (mkvar k))
+             (* Preserve a partially-static SPINE across the emit: store the slot as
+              * a Cv with the same spine but every leaf a SELF-reference into (var k)
+              * (hd/tl paths).  Then loops that walk k's spine still unroll, while
+              * each leaf reads k's own slot -- stable under re-materialisation, so we
+              * keep the emit-model soundness (MixEmitModel: self-ref slots are sound,
+              * cross-ref slots are not).  A pure-dynamic value stays Dv (var k). *)
+             let rec selfref path = function
+               | Cv (x, y) -> Cv (selfref (l2 (a "'hd") path) x, selfref (l2 (a "'tl") path) y)
+               | Sv s -> Sv s                  (* keep static parts (incl. spine terminator) *)
+               | Dv _ -> Dv path in            (* dynamic leaf -> stable self-reference *)
+             (* Preserving the spine is sound only OUTSIDE residualized dynamic control:
+              * a self-ref bakes in a fixed spine length, but under a residualized
+              * dynamic if/while a variable's runtime spine can vary per iteration, so
+              * there we must collapse to a plain Dv.  In straight-line context
+              * (dyn_live empty) the spine is fixed, so self-refs keep it static and
+              * store-walks unroll -- the route to loop-free (Jones-optimal) residuals. *)
+             let slot =
+               if !online && !dyn_live = [] then selfref (mkvar k) v else Dv (mkvar k) in
+             Hashtbl.replace store k slot
            end
        | "'semi", VCons (c1, VCons (c2, VNil)) ->
            cont_stack := c2 :: !cont_stack; spec c1;

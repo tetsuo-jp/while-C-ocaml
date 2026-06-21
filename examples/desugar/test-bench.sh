@@ -67,11 +67,12 @@ row online drain "$tmp/drain.data" "('tl . nil)"          "('x . ('y . nil))"
 
 # self-interpreters specialized to the same straight-line subject (swap): the
 # static-spine usi makes the main loop unroll; the book's universal does not.
-row online usi "$tmp/usi.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; USIB=$B
+row online usi "$tmp/usi.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; USIB=$B; USIW=$W
 row online universal "$tmp/u.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; UNIB=$B
-echo "   (usi: main interpreter loop UNROLLS -> residual ~$((UNIB / USIB))x smaller than"
-echo "    universal's; the surviving while is a store-walk -- open target for full"
-echo "    Jones-optimality via program-point memoization / a static-spine store)"
+echo "   (usi: ALL interpreter loops unroll -> residual is LOOP-FREE (#while=$USIW) and"
+echo "    ~$((UNIB / USIB))x smaller than universal's; universal's main loop still"
+echo "    residualizes -- the open case for program-point memoization)"
 [ "$USIB" -lt "$((UNIB / 10))" ] || { echo "FAIL: usi residual not >10x smaller than universal ($USIB vs $UNIB)"; fail=1; }
+[ "$USIW" -eq 0 ] || { echo "FAIL: usi*swap residual not loop-free (#while=$USIW)"; fail=1; }
 
-[ $fail -eq 0 ] && echo "bench: PASS (calc/drain Jones-optimal; usi >10x over universal; ratios tracked)" || { echo "bench: FAIL"; exit 1; }
+[ $fail -eq 0 ] && echo "bench: PASS (calc/drain/usi Jones-optimal; usi loop-free + >10x over universal)" || { echo "bench: FAIL"; exit 1; }

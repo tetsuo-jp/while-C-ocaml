@@ -72,4 +72,16 @@ echo "   |usi*swap|=${USI}B   |universal*swap|=${UNI}B   ratio=$((UNI / USI))x s
 if [ "$USI" -lt "$((UNI / 10))" ]; then echo "ok   usi residual is >10x smaller (main loop unrolls; Cd stays static)"
 else echo "FAIL usi residual not >10x smaller (USI=$USI UNI=$UNI)"; fail=1; fi
 
-[ $fail -eq 0 ] && echo "usi: PASS (static-spine self-interpreter: correct + main loop unrolls)" || { echo "usi: FAIL"; exit 1; }
+echo "-- (d) Jones-optimal CONTROL: usi residual for a straight-line subject is LOOP-FREE --"
+# the self-interpreter's loops (main dispatch, variable-store walks) all unroll, so
+# NO residual 'while remains -- no interpretation overhead loop in the residual.
+for s in id swap; do
+  case $s in id) prog="$tmp/id.while";; swap) prog=examples/desugar/swap.while;; esac
+  $DW --data "$prog" > "$tmp/p.data" 2>/dev/null
+  src/core/cogen --online "$tmp/usi.data" "$tmp/p.data" > "$tmp/comp.data"
+  w=$(grep -c "'while" "$tmp/comp.data" || true)
+  if [ "$w" -eq 0 ]; then echo "ok   usi*$s residual is loop-free (#while=0)"
+  else echo "FAIL usi*$s residual still has $w 'while (store-walk not unrolled)"; fail=1; fi
+done
+
+[ $fail -eq 0 ] && echo "usi: PASS (static-spine self-interpreter: correct + loop-free on straight-line)" || { echo "usi: FAIL"; exit 1; }
