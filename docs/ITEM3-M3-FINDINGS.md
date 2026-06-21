@@ -58,6 +58,29 @@ Replace the exception/ancestor-stack scheme with standard memoized supercompilat
   budget; this is the item-2 whistle, which (per the earlier finding) only has
   teeth at the configuration level — i.e. exactly here.
 
+## Empirical confirmation (2026-06-22): the prototype is not patchable
+
+Two further attempts on the M2 prototype, both **reverted** (negative results):
+
+1. *Bail on non-loop dynamic-if* (use spec for anything not a self-loop): **broke
+   usi×rev**, because the subject loop's ENTRY `'dowh` is itself a non-loop
+   dynamic-if (its config differs from the steady-state back-edge by the first
+   iteration), so "bail unless self-loop" cannot even fold one subject loop.
+2. *Faithful merge for the non-loop path* (mirror `residualize_if`: pre-dynamicize
+   esc, drive each branch, emit `if`, drive the continuation once): **made int_if
+   correct** (memo == oracle on all inputs) **but broke usi×rev** (malformed
+   residual, #while=0). Cause: the `is_loop` trial drives the *continuation* to
+   detect a back-edge, while the non-loop path *also* drives the continuation —
+   the two share `rc`/`store`/`loop_stack` and produce inconsistent state when a
+   loop sits inside the continuation of a non-loop if (and vice-versa).
+
+So fixing non-loop correctness and preserving loop folding are **mutually exclusive
+in the trial architecture**: the trial's continuation-driving and the merge's
+continuation-driving cannot both own the continuation. This is decisive evidence
+that M3 needs the **single-pass global-memo driver** (drive once, memoize every
+config, fold on any recurrence) rather than any patch to the
+detect-then-residualize prototype.
+
 ## Takeaway
 
 M2 proves the core mechanism (fold a subject loop, keep the interpreter code
