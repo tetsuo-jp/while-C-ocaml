@@ -437,10 +437,11 @@ and book unit-cost time of the residual vs. interpreting the subject — and the
 optimal rows are asserted (regression guard):
 
 ```
-subject      |resid|B  #while   #eq   t_comp t_interp  speedup
-calc              582       0     0        8       44      5.5x   (Jones-optimal: loop-free)
-drain             484       1     0       14       58      4.1x   (Jones-optimal: 1 outer loop, no dispatch)
-universal      265055       1     1     4729     9240      1.9x   (open: store-walk loop survives)
+subject          mode |resid|B  #while   #eq   t_comp t_interp  speedup
+int_min        offline      592       0     0       12       20      1.6x   (offline-optimal: S-control unrolls)
+calc           online       582       0     0        8       44      5.5x   (Jones-optimal: loop-free)
+drain          online       484       1     0       14       58      4.1x   (Jones-optimal: 1 outer loop, no dispatch)
+universal      online    265055       1     1     4729     9240      1.9x   (open: store-walk loop survives)
 ```
 
 Note `cogen --online` already makes the self-interpreter's residual ~2× faster
