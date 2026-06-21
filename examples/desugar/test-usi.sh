@@ -34,6 +34,16 @@ read X;
   if X then { Y := hd X; } else { Y := 'empty; }
 write Y
 EOF
+# a MULTI-VARIABLE straight-line program (4 vars, several hd/tl/cons) -- to show
+# loop-free Jones-optimality is not limited to toy 1-2 variable subjects.
+cat > "$tmp/sl4.while" <<'EOF'
+read X;
+  A := hd X;
+  B := tl X;
+  C := cons B A;
+  Y := cons A C;
+write Y
+EOF
 
 echo "-- (a) usi is a correct self-interpreter: [usi]((#p# . d)) == [p](d) --"
 sint () { # progfile  d  expect
@@ -46,6 +56,7 @@ sint () { # progfile  d  expect
 sint "$tmp/id.while"          "'hello"                      "'hello"
 sint examples/desugar/swap.while "('a . 'b)"               "('b . 'a)"
 sint "$tmp/rev.while"         "('1 . ('2 . ('3 . nil)))"    "('3 . ('2 . ('1 . nil)))"
+sint "$tmp/sl4.while"         "('p . 'q)"                   "('p . ('q . 'p))"
 sint "$tmp/ifp.while"         "('a . 'b)"                   "'a"
 sint "$tmp/ifp.while"         "nil"                         "'empty"
 
@@ -62,6 +73,7 @@ spec "$tmp/id.while"              "'hello"            "'hello"
 spec examples/desugar/swap.while "('a . 'b)"         "('b . 'a)"
 spec examples/desugar/swap.while "('x . ('y . 'z))"  "(('y . 'z) . 'x)"
 spec "$tmp/rev.while"            "('1 . ('2 . nil))" "('2 . ('1 . nil))"
+spec "$tmp/sl4.while"            "('p . 'q)"         "('p . ('q . 'p))"
 
 echo "-- (c) static-spine win: usi residual >10x smaller than universal's --"
 $DW --data examples/desugar/swap.while > "$tmp/swap.data"
@@ -75,8 +87,8 @@ else echo "FAIL usi residual not >10x smaller (USI=$USI UNI=$UNI)"; fail=1; fi
 echo "-- (d) Jones-optimal CONTROL: usi residual for a straight-line subject is LOOP-FREE --"
 # the self-interpreter's loops (main dispatch, variable-store walks) all unroll, so
 # NO residual 'while remains -- no interpretation overhead loop in the residual.
-for s in id swap; do
-  case $s in id) prog="$tmp/id.while";; swap) prog=examples/desugar/swap.while;; esac
+for s in id swap sl4; do
+  case $s in id) prog="$tmp/id.while";; swap) prog=examples/desugar/swap.while;; sl4) prog="$tmp/sl4.while";; esac
   $DW --data "$prog" > "$tmp/p.data" 2>/dev/null
   src/core/cogen --online "$tmp/usi.data" "$tmp/p.data" > "$tmp/comp.data"
   w=$(grep -c "'while" "$tmp/comp.data" || true)
