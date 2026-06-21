@@ -18,6 +18,7 @@ fail=0
 $DW --data-if examples/desugar/int_min.while    > "$tmp/int.data"
 $DW --data-if examples/desugar/calc.while      > "$tmp/calc.data"
 $DW --data-if examples/desugar/drain.while      > "$tmp/drain.data"
+$DW --data-if examples/desugar/usi.while         > "$tmp/usi.data"
 $DW --data-if examples/desugar/universal.while  > "$tmp/u.data"
 $DW --data    examples/desugar/swap.while        > "$tmp/swap.data"
 
@@ -64,10 +65,13 @@ row online drain "$tmp/drain.data" "('tl . nil)"          "('x . ('y . nil))"
 [ "$E" -eq 0 ] || { echo "FAIL drain: residual has $E 'eq (expect 0, dispatch unrolled)"; fail=1; }
 [ "$TC" -lt "$TI" ] || { echo "FAIL drain: residual not faster ($TC !< $TI)"; fail=1; }
 
-row online universal "$tmp/u.data" "$(cat "$tmp/swap.data")" "('a . 'b)"
-# universal is the OPEN case: a residual store-walk loop survives.  Report only
-# (correctness already checked inside row); do NOT assert optimality here.
-echo "   (universal: residual store-walk loop survives -> not yet Jones-optimal; the"
-echo "    open target for program-point memoization / static-spine store rewrite)"
+# self-interpreters specialized to the same straight-line subject (swap): the
+# static-spine usi makes the main loop unroll; the book's universal does not.
+row online usi "$tmp/usi.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; USIB=$B
+row online universal "$tmp/u.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; UNIB=$B
+echo "   (usi: main interpreter loop UNROLLS -> residual ~$((UNIB / USIB))x smaller than"
+echo "    universal's; the surviving while is a store-walk -- open target for full"
+echo "    Jones-optimality via program-point memoization / a static-spine store)"
+[ "$USIB" -lt "$((UNIB / 10))" ] || { echo "FAIL: usi residual not >10x smaller than universal ($USIB vs $UNIB)"; fail=1; }
 
-[ $fail -eq 0 ] && echo "bench: PASS (calc & drain Jones-optimal; universal ratio tracked)" || { echo "bench: FAIL"; exit 1; }
+[ $fail -eq 0 ] && echo "bench: PASS (calc/drain Jones-optimal; usi >10x over universal; ratios tracked)" || { echo "bench: FAIL"; exit 1; }
