@@ -36,10 +36,28 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
 - **C3 (measurement).** The "self-application cost signature": trivial 1×/2×|spec|
   vs optimizing 12×|mix|; 46 GB allocation / 22k minor GCs for the optimizing
   fp2; residual simplification −59%. Concrete non-injectivity witness for `mix`.
-- **C4 (machine-checked design).** Four `--safe` Agda specs pinning the
+- **C4 (machine-checked design).** `--safe` Agda specs pinning the
   self-applicability invariants of the optimizing specializer (MKAV binding-time,
   emit-model soundness, PAT-READ condition, dynamic-if merge), guiding the
-  implementation.
+  implementation; plus `BTAWiden.agda` (widening sound + terminating, backing C5).
+- **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer
+  (`src/core/Cogen.ml --online`) that decides static/dynamic from each construct's
+  actual annotated value, not the monovariant BTA — so a statically-known loop the
+  BTA collapses to dynamic still unrolls. Two enabling techniques: (i)
+  **online-termination control** — a binding-time *widening* (sound + terminating,
+  machine-checked in `BTAWiden.agda`) plus bounded unrolling with a generalization
+  fallback, making the specializer total in its static input
+  (`test-terminate.sh`); (ii) **spine-preserving emit** — on an emitted assignment
+  with a static cons spine, store the slot as that spine with dynamic leaves
+  replaced by self-references into the slot (emit-model sound, C4), so loops that
+  walk the spine unroll. With a **static-spine self-interpreter** `usi.while`
+  (single-scrutinee `case Cd of`, so the dynamic value-stack never poisons the
+  static dispatch), `[cogen --online](usi, p)` for a straight-line `p` is
+  **loop-free** (no residual interpretation loop) and ~30× faster than interpreting
+  through `usi` — **Jones-optimal control** for a self-interpreter
+  (`test-usi.sh`, `test-bench.sh`). This directly addresses the "residuals not yet
+  Jones-optimal" limitation; what remains (control-bearing subjects; the book's
+  `case Cd,St of` universal) reduces to program-point memoization.
 
 ## What is classical vs novel (be explicit)
 - **Classical**: Futamura (1971); the running self-applicable mix and cogen
@@ -50,6 +68,13 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   cost study (C3) grounded in two sibling implementations; the verified-design
   methodology (C4). The reversible Futamura projections are themselves recent
   (Yokoyama lab, IEICE), not classical.
+- **Classical in spirit, our realization (C5)**: value-driven/online
+  polyvariant specialization and Jones-optimality are classical (JGS 1993); the
+  contribution is the *executable, machine-checked* realization for Jones C&C
+  WHILE — a loop-free self-interpreter residual with a **machine-checked
+  termination guarantee** (widening), and the spine-preserving-emit technique that
+  reconciles spine-static unrolling with emit-model soundness. We do not claim
+  online PE or Jones-optimality as novel concepts.
 
 ## Structure
 1. Introduction — Futamura projections; the reversible question; thesis.
@@ -64,8 +89,11 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
 6. Evidence: standard vs reversible (rwhile) — the cost signature, allocation,
    and **measured garbage vs the lower bound** (see PAPER §(b) below).
 7. Machine-checked design specs (C4) and the verified-PE methodology.
-8. Related work; limitations (optimizing residuals not yet Jones-optimal —
-   PAT-READ-ITER/store-sizing is future work; trade-off "triangle" is partly
+8. Related work; limitations (Jones-optimality reached for the value-driven
+   online specializer on straight-line subjects via the static-spine self-
+   interpreter (C5); control-bearing subjects and the book's `case Cd,St of`
+   universal still residualize interpreter overhead inside object loops — reduces
+   to program-point memoization, future work; trade-off "triangle" partly
    informal); future work.
 9. Conclusion. Artifact appendix (repos, `test-*.sh`, Agda).
 
@@ -76,6 +104,26 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
 | fp3 cogen size | 29.6 MB (≈12×) | 8.9 KB (≈2×) | 1,630,121 nodes (≈2×) |
 | fp3 build time | ~2 h | ~0.01 s | ~18 s |
 | correctness | byte-verified | byte-verified | byte-verified (d2p) |
+
+## Jones-optimality table (C5, `test-bench.sh`)
+
+Residual size, residual control (`#while`), residual dispatch (`#eq`), and book
+unit-cost time of the residual vs. interpreting the subject (speedup), via
+`cogen --online` (value-driven) unless noted. Loop-free = no residual
+interpretation overhead loop.
+
+| subject | mode | \|resid\| | #while | #eq | speedup | note |
+|---|---|---|---|---|---|---|
+| `int_min` | offline (BTA) | 592 B | 0 | 0 | 1.6× | S-control unrolls |
+| `calc` | online | 582 B | 0 | 0 | 5.5× | static-spine, loop-free |
+| `drain` | online | 484 B | 1 | 0 | 4.1× | looping subj.; 1 outer loop, no dispatch |
+| `usi`×swap | online | ~10 KB | **0** | **0** | ~30× | **self-interpreter, loop-free (Jones-optimal control)** |
+| `universal`×swap | online | ~211 KB | 1 | 1 | ~2× | book `case Cd,St of`; main loop residualizes (PP-memo open) |
+
+Headline: specializing the *static-spine self-interpreter* `usi` to a straight-line
+program yields a **loop-free** residual ~30× faster than interpretation — i.e. the
+first Futamura projection produces a genuinely *compiled* program with no residual
+interpreter overhead, the value-driven route to Jones-optimality.
 
 ## §(b) Lower bound (Theorem A) vs measured garbage (rwhile §6)
 
