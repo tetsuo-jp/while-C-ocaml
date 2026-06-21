@@ -78,8 +78,25 @@ JGS residuals are labelled flowcharts; WHILE has no `goto`. Two emit strategies:
 - **Termination / widening (item 2)**: the configuration set must be finite. Use
   the homeomorphic-embedding **whistle** (Leuschel 2002; `docs/RELATED-WORK.md`
   §C5(i)) on configurations — generalize a `cfg` that embeds an ancestor — instead
-  of the current ad-hoc unroll budget. **item-2 and item-3 share this whistle**, so
-  doing item-2 first is the natural ordering.
+  of the current ad-hoc unroll budget.
+
+  **Finding (2026-06-21): item-2 is not separable from item-3.** A HEm whistle on
+  the *store tuple alone* (the only state today's `Cogen.ml` unroll loop has) is
+  essentially **vacuous** relative to the existing budget, so there is no useful
+  standalone item-2 to land before item-3. Argument: with the standard
+  componentwise (Higman) embedding on the loop-carried tuple, the whistle fires only
+  if *every* carried component embeds (grows). But unbounded **static** growth of an
+  accumulator requires a **shrinking** static driver — otherwise the loop also
+  diverges at *runtime* (an infinite real loop, not a specialization artefact). That
+  driver is loop-carried and shrinks, so its component fails to embed, so the
+  tuple-whistle cannot fire before the budget does (e.g. `count.while`: counter
+  shrinks, acc grows ⇒ no tuple embedding; the budget remains the actual backstop).
+  The non-vacuous whistle needs the embedding to range over **program-point–indexed
+  configurations** `(pp, σ_s)` (growth in the residual/call structure, not the flat
+  store) — i.e. it only has teeth *inside* item-3's memoization. Conclusion: fold
+  the HEm whistle into item-3 **M1** as the configuration-finiteness guard; keep the
+  unroll budget as the standalone backstop until then. (The earlier "do item-2
+  first" ordering is therefore retired.)
 
 ## Soundness (gap G1 alignment)
 

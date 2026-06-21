@@ -69,7 +69,10 @@ generalization fallback; only the BTA-widening half is machine-checked
   Termination* (LOPSTR 2007, LNCS 4915; IPL 2009). TbHEm handles **infinite
   signatures** — the same problem our C-domain **widening** (`bt_maxdepth`,
   infinite ascending chains) solves by depth-capping. Re-presenting `widen` as a
-  TbHEm instance grounds C5(i) in the literature.
+  TbHEm instance grounds C5(i) in the literature. *Note (see `ITEM3-DESIGN.md`):
+  the whistle has teeth only over program-point–indexed configurations `(pp, σ_s)`,
+  not the flat store tuple — so it belongs inside item-3's memoization, not as a
+  separate change. The unroll budget stays the standalone backstop until then.*
 
 ## C5(ii) — partially-static store (our "spine-preserving emit")
 
