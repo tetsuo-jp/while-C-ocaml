@@ -223,11 +223,26 @@ let escaping_set b extra =                          (* live-in(b) | extra, non-s
 exception Generalize
 let unroll_budget = try int_of_string (Sys.getenv "COGEN_UNROLL_BUDGET") with _ -> 1000000
 
+(* behaviour-NEUTRAL diagnostic for item-3: when COGEN_TRACE is set, report each
+ * residualization (guard + escaping set + dyn_live context) so we can see which
+ * registers go dynamic inside a residualized loop -- the cause of surviving
+ * interpreter overhead.  No effect when the env var is unset. *)
+let trace_on = (try Sys.getenv "COGEN_TRACE" <> "" with Not_found -> false)
+(* report a residualization event; the thunk defers the (costly) guard/escaping
+ * rendering so there is ZERO cost when COGEN_TRACE is unset. *)
+let trace_res kind g esc dl =
+  if trace_on then
+    Printf.eprintf "[%s] guard=%s  esc=[%s]  dyn_live=[%s]\n" kind
+      (showValT g)
+      (String.concat ";" (List.map string_of_int esc))
+      (String.concat ";" (List.map string_of_int dl))
+
 (* residualize a dynamic while `while g do b` over the current store.  `force` is a
  * set of vars to treat as escaping in addition to the live-in/live-out ones (used by
  * generalization to push the whole loop state dynamic). *)
 let rec residualize_while force g b =
   let esc = uni (escaping_set b (live_out ())) force in
+  trace_res "res-while" g esc !dyn_live;
   let dyn () = List.iter (fun k -> Hashtbl.replace store k (Dv (mkvar k))) esc in
   dyn ();                                    (* loop-head store: generalise escaping vars *)
   let gv = lift (spec_exp g) in
@@ -246,6 +261,7 @@ and residualize_if g c1 c2 =
    * cure is program-point memoization (sharing specialized configurations), item 3. *)
   let esc = uni (List.filter (fun k -> not (bstatic (bget k))) (assigned_vars c1))
                 (List.filter (fun k -> not (bstatic (bget k))) (assigned_vars c2)) in
+  trace_res "res-if" g esc !dyn_live;
   List.iter (fun k -> Hashtbl.replace store k (Dv (mkvar k))) esc;
   let gv = lift (spec_exp g) in
   let snap = Hashtbl.copy store in
