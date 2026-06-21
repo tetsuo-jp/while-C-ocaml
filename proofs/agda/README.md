@@ -89,6 +89,18 @@ per-branch fix-ups, the post-`if` value equals the value the taken branch
 computed) and `merge-needs-both` / `merge-buggy-wrong` (dropping the else fix-up
 makes a divergent slot read a stale placeholder on the else branch).
 
+### `BTAWiden.agda` — binding-time widening: sound + terminating (backs cogen --online)
+
+Design spec for online-termination control (item 1). The binding-time domain
+`BT = S | D | C BT BT` has infinite ascending chains — a static-control
+accumulator `Acc := cons D Acc` grows `C(D, C(D, …))` unboundedly, so the naive
+BTA fixpoint diverges (cogen hung on `count.while`). Models the information order
+`⊑` (S least, D greatest, C pointwise) and proves `widen` (`Cogen.ml`) is both
+**sound** — `widen-sound : t ⊑ widen d t`, so capping the C-depth and normalizing
+`C D D → D` only moves up the lattice (the analysis stays a safe
+over-approximation) — and **depth-bounded** — `depth-widen : depth (widen d t) ≤ d`,
+so the widened domain is finite and the fixpoint terminates.
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).

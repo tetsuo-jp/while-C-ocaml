@@ -456,7 +456,9 @@ diverge two ways; both are now bounded:
    bound, so the naive fixpoint never converges (it hung on `count.while`). A
    **widening** (`widen`, `Cogen.ml`) caps the `C`-nesting at `bt_maxdepth` and
    normalizes `C(D,D)→D`; both are sound (D is top) and make the domain finite, so
-   the BTA always terminates.
+   the BTA always terminates. Machine-checked: `proofs/agda/BTAWiden.agda` proves
+   `widen-sound` (`t ⊑ widen d t`, widening only moves up the lattice) and
+   `depth-widen` (`depth (widen d t) ≤ d`, the domain is finite ⇒ termination).
 2. *Unrolling.* A static loop guard that the value analysis keeps non-nil too long
    would unroll forever. The online `while` now unrolls under a budget
    (`COGEN_UNROLL_BUDGET`, default 1e6) and, on exceeding it, **generalizes**: it
