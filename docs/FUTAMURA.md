@@ -431,6 +431,22 @@ fails to terminate, so `residualize_if` stays conservative (emit every assigned
 var). Narrowing D-`if` safely needs online-termination control (bounded unrolling /
 generalization) — the remaining step toward Jones-optimality on `universal` itself.
 
+**Results table (`test-bench.sh`).** The optimality numbers are collected in one
+place — residual size, residual control (`#'while`), residual dispatch (`#'eq`),
+and book unit-cost time of the residual vs. interpreting the subject — and the
+optimal rows are asserted (regression guard):
+
+```
+subject      |resid|B  #while   #eq   t_comp t_interp  speedup
+calc              582       0     0        8       44      5.5x   (Jones-optimal: loop-free)
+drain             484       1     0       14       58      4.1x   (Jones-optimal: 1 outer loop, no dispatch)
+universal      265055       1     1     4729     9240      1.9x   (open: store-walk loop survives)
+```
+
+Note `cogen --online` already makes the self-interpreter's residual ~2× faster
+with a single residual loop and one surviving dispatch — far from the 540× offline
+blow-up; the remaining gap is the store-walk loop, the target above.
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in

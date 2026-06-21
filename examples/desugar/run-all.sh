@@ -8,7 +8,7 @@
 #
 # Prereqs: make -C src/core while rundata cogen bta simp ; make -C src/desugar
 cd "$(dirname "$0")/../.." || exit 1   # repo root (the ch.19 scripts assume this cwd)
-fast="test-oracle test-futamura test-fp-triv test-noninj test-bta test-annotate test-genext test-cogen test-poly test-spec test-jones test-calc test-drain test-time \
+fast="test-oracle test-futamura test-fp-triv test-noninj test-bta test-annotate test-genext test-cogen test-poly test-spec test-jones test-calc test-drain test-bench test-time \
       test-timed-universal test-diag test-onevar test-efficient-tu"
 slow="test-fp2"
 if [ "${SLOW:-0}" = 1 ]; then list="$fast $slow"; else list="$fast"; fi
