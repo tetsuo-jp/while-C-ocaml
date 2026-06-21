@@ -534,6 +534,23 @@ overhead loop) and **30× faster** than interpreting through `usi` — Jones-opt
 residualizes its main loop (its `case Cd, St of` dynamicizes `Cd`); making it
 loop-free remains item 3 (program-point memoization).
 
+*Cross-repo: the same wall, independently.* The reversible sibling
+`rwhile-C-ocaml` hits the identical obstacle under self-application — its
+`analysis_store_bti.md` reports that `comp2 = [spec_av]((spec_av.('S.ri_min)))`
+keeps **125 residual store-walk loops** because the store index (from the inner
+program pointer `Cd`) goes dynamic, and proves (via a static op-list `looptest`
+with `CLoop=0`) that the loop machinery is fine — the index dynamicity is the sole
+cause. That is exactly the diagnosis here. Their proposed fix **candidate (A)** —
+a *partially-static store* (static index↔slot skeleton + dynamic content; index
+static ⇒ unroll, index dynamic ⇒ residual loop) — is what our `usi`
+(single-scrutinee dispatch, so the dynamic value-stack never poisons the static
+index) plus spine-preserving emit **realize for the classical case**. In rwhile
+candidate (A) is still open ("最難所"); the port sketch is
+`rwhile-C-ocaml/analysis_store_bti_classical_ref.md`. So the two repos
+cross-validate that the wall is fundamental, and the static-spine technique
+resolves it (classically here; reversibly there it additionally needs the static
+selection done via `SWAP-VIA-TEMP`).
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in

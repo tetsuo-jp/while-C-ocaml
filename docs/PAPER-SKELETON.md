@@ -59,6 +59,14 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   (`test-usi.sh`, `test-bench.sh`). This directly addresses the "residuals not yet
   Jones-optimal" limitation; what remains (control-bearing subjects; the book's
   `case Cd,St of` universal) reduces to program-point memoization.
+  *Cross-repo validation:* the reversible sibling `rwhile-C-ocaml`
+  (`analysis_store_bti.md`) independently hits the same store-index binding-time
+  wall (125 residual store-walk loops in its self-applied `comp2`) and lists the
+  *partially-static store* as its open fix candidate (A); our `usi` +
+  spine-preserving emit realize exactly that for the classical case — the two
+  implementations cross-validate both the obstacle and the technique. Both
+  enabling techniques are machine-checked (`BTAWiden`, `SpinePreservingEmit`);
+  the proven-vs-tested map is `docs/AGDA_CORRESPONDENCE.md`.
 
 ## What is classical vs novel (be explicit)
 - **Classical**: Futamura (1971); the running self-applicable mix and cogen
