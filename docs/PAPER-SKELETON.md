@@ -78,12 +78,19 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   methodology (C4). The reversible Futamura projections are themselves recent
   (Yokoyama lab, IEICE), not classical.
 - **Classical in spirit, our realization (C5)**: value-driven/online
-  polyvariant specialization and Jones-optimality are classical (JGS 1993); the
-  contribution is the *executable, machine-checked* realization for Jones C&C
-  WHILE — a loop-free self-interpreter residual with a **machine-checked
-  termination guarantee** (widening), and the spine-preserving-emit technique that
-  reconciles spine-static unrolling with emit-model soundness. We do not claim
-  online PE or Jones-optimality as novel concepts.
+  polyvariant specialization and Jones-optimality are classical (JGS 1993;
+  Glück 2012 *recursive polyvariant specialization* for online self-applicable
+  flowchart PE — our exact setting); the **partially-static store** technique
+  behind spine-preserving emit is Mogensen 1988; the store-index obstacle is the
+  classical Jones-optimality **tag** problem (Makholm 2001; Danvy–López 2003;
+  Brown–Palsberg 2018); online-termination via homeomorphic embedding is Leuschel
+  2002 / TbHEm. The contribution is the *executable, machine-checked* realization
+  for Jones C&C WHILE — a loop-free self-interpreter residual with a
+  **machine-checked termination guarantee** (widening) and a **machine-checked
+  partially-static store** (`SpinePreservingEmit`, the soundness side-condition
+  Mogensen's prose leaves implicit). We do not claim online PE, polyvariant
+  specialization, or Jones-optimality as novel concepts. Full
+  result→citation map: `docs/RELATED-WORK.md`.
 
 ## Structure
 1. Introduction — Futamura projections; the reversible question; thesis.
@@ -98,7 +105,11 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
 6. Evidence: standard vs reversible (rwhile) — the cost signature, allocation,
    and **measured garbage vs the lower bound** (see PAPER §(b) below).
 7. Machine-checked design specs (C4) and the verified-PE methodology.
-8. Related work; limitations (Jones-optimality reached for the value-driven
+8. Related work (full result→component map in `docs/RELATED-WORK.md`: Futamura;
+   JGS 1993; Glück 2012 recursive polyvariant specialization; Mogensen 1988
+   partially-static structures; Leuschel homeomorphic embedding; Makholm /
+   Danvy–López / Brown–Palsberg tag-elimination & Jones-optimality;
+   Sørensen–Glück–Jones supercompilation); limitations (Jones-optimality reached for the value-driven
    online specializer on straight-line subjects via the static-spine self-
    interpreter (C5); control-bearing subjects and the book's `case Cd,St of`
    universal still residualize interpreter overhead inside object loops — reduces

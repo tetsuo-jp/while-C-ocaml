@@ -369,6 +369,11 @@ textbook motivation for **polyvariant program-point specialization** (Jones–
 Gomard–Sestoft 1993): specialize each program point per static store value, so the
 interpreter's dispatch unrolls and `comp` collapses toward `|p|`.
 `test-jones.sh` tracks the ratio (540× → ~1) as the success metric.
+(The store-index dynamicity that blocks this is the WHILE-store form of the
+classical **tag** problem of Jones-optimality — Makholm's *Tag Elimination and
+Jones-Optimality* (PADO 2001), Danvy & López's *Tagging, Encoding, and Jones
+Optimality* (ESOP 2003) — and the "BTI-universal specializer" framing matches our
+documented store-index wall; see [`RELATED-WORK.md`](RELATED-WORK.md).)
 
 **Step 1 — value-driven (polyvariant) decisions: `cogen --online`.** The first
 ingredient is to stop trusting the conservative monovariant BTA and decide
@@ -468,7 +473,13 @@ diverge two ways; both are now bounded:
    residual `while` computing the same function as the fully-unrolled residual.
 
 This is the safety net the value-driven specializer needs to be a total function of
-its static input.
+its static input. *(The budget is ad-hoc; the principled, citable replacement is a
+**homeomorphic-embedding whistle** — Leuschel, *Homeomorphic Embedding for Online
+Termination of Symbolic Methods* (2002) — generalizing when a configuration embeds
+an earlier one. Type-based HEm (Leuschel et al. 2008/09) targets infinite
+signatures, the same problem our `C`-domain `widen` solves by depth-capping, so
+`widen` can be re-presented as a TbHEm instance. See
+[`RELATED-WORK.md`](RELATED-WORK.md) §C5(i) / gap G2.)*
 
 *Finding (scopes the remaining work).* With termination control in place we tried
 re-enabling the liveness narrowing for D-`if` (so dispatch locals fold like loop
@@ -514,7 +525,12 @@ correct; the only residual control that remains is the object program's own
 value). `usi` is verified as a correct self-interpreter on straight-line, looping
 and conditional object programs.
 
-*Loop-free residuals — spine-preserving emit (`Cogen.ml`).* The store-walk `while`
+*Loop-free residuals — spine-preserving emit (`Cogen.ml`).* This is the WHILE-store
+realization of Mogensen's **partially-static structures** (1988): a value kept with
+a static cons spine and dynamic leaves. Our delta is a *machine-checked* form for
+the variable store, with the explicit soundness side-condition (self-references
+sound, cross-references not). See [`RELATED-WORK.md`](RELATED-WORK.md) §C5(ii). The
+store-walk `while`
 that initially survived was a symptom of a deeper specializer issue: building a cons
 over a dynamic leaf (`T := cons (hd Vl) T`) yields a `Cv` with a dynamic leaf, which
 `av_static` rejects, so the assignment was emitted and the slot collapsed to
@@ -532,7 +548,12 @@ vary per iteration, so there the slot still collapses to `Dv`. With this,
 overhead loop) and **30× faster** than interpreting through `usi` — Jones-optimal
 *control* for a self-interpreter on straight-line subjects. `universal` still
 residualizes its main loop (its `case Cd, St of` dynamicizes `Cd`); making it
-loop-free remains item 3 (program-point memoization).
+loop-free remains item 3 (program-point memoization). The design for that step is
+Glück's **recursive polyvariant specialization** (*A self-applicable online partial
+evaluator for recursive flowchart languages*, SP&E 2012) — online × self-applicable
+× flowchart, exactly our setting — memoizing `(Cd-position, static-store)`
+configurations and folding cycles into the subject's own loops (supercompilation
+folding, Sørensen–Glück–Jones 1996); see [`RELATED-WORK.md`](RELATED-WORK.md) §item-3.
 
 *Cross-repo: the same wall, independently.* The reversible sibling
 `rwhile-C-ocaml` hits the identical obstacle under self-application — its
@@ -607,6 +628,12 @@ embedding). "Optimizing + reversible + clean" is impossible.
 
 ## Reference
 
+- **[`RELATED-WORK.md`](RELATED-WORK.md)** — the canonical bibliography for the PE
+  side: each existing result (Futamura; JGS 1993; Glück 2012 recursive polyvariant
+  specialization; Mogensen 1988 partially-static structures; Leuschel homeomorphic
+  embedding; Makholm / Danvy–López / Brown–Palsberg tag-elimination & Jones-
+  optimality; Sørensen–Glück–Jones supercompilation) mapped to a component or open
+  gap of this repo, with the classical-vs-novel boundary made explicit.
 - rwhile: `FINDINGS_reversible_projections.md` (AV, MKAV, store-sizing, the
   verification-via-direct-eval lesson), `FUTAMURA.md`, `spec_av.rwhile`.
 - Jones, *Computability and Complexity*, ch. on the universal program;

@@ -39,6 +39,8 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (7 modules).
 - **G2 — quasi-termination (whole specializer total).** `BTAWiden` gives BTA
   termination; the online unroll budget + generalization (`test-terminate`) is only
   differential. Modeling the generalization fallback would make "total" proven.
+  The principled, citable route is a homeomorphic-embedding whistle (Leuschel 2002;
+  TbHEm for the C-domain) — see `docs/RELATED-WORK.md` §C5(i).
 - **G3 — generating extension (`--gen`) correctness.** Differential only.
 
 ## Relation to `rwhile-C-ocaml`
