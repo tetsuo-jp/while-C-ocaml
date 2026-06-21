@@ -500,6 +500,22 @@ is the dominant cause — so the real fix is **polyvariant / program-point treat
 of `Cd`** (item 3), or a self-interpreter whose code stack is provably static
 (item 2), not a desugaring tweak. (Attempt reverted to keep the suite green.)
 
+**Item 2 — a static-spine self-interpreter (`usi.while`, `test-usi.sh`).** The
+constructive route: keep the existing specializer, but write the self-interpreter so
+factor (a) never arises. `usi.while` is the same STEP stack machine as `universal`,
+except the dispatch is a **single-scrutinee `case Cd of`** — only the *code* stack
+(static = the object program) is matched; the *value* stack `St` is read with plain
+`hd`/`tl`/`cons` inside each arm, never in a guard. So the dispatch guard is fully
+static and folds, and the **main interpreter loop unrolls** (the surviving residual
+`while` for a straight-line subject is a store-walk on var `K`, not `Cd`). Result:
+`[cogen --online](usi, swap)` is **7.6 KB vs universal's 265 KB (≈34× smaller)**,
+correct; the only residual control that remains is the object program's own
+`while`/`if` (the `dowh`/`doif` markers, which legitimately test a dynamic `St`
+value). `usi` is verified as a correct self-interpreter on straight-line, looping
+and conditional object programs. The remaining store-walk `while` (var `K`) is the
+next target toward ratio ≈ 1 — a store representation whose index stays static
+end-to-end (or item 3's program-point sharing).
+
 ### Machine-checked design specs (Agda)
 
 The two decisive design points are pinned down by `--safe` Agda models in
