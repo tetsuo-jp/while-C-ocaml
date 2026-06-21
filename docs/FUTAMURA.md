@@ -382,9 +382,29 @@ dynamically later*, so the monovariant BTA joins it to Dynamic and `cogen`
 **residualizes the loop** (1322 B, a `'while` survives); `cogen --online` sees the
 guard's real value is static and **unrolls it** (695 B, no `'while`) — both
 correct. (`cogen --online` is correct across the whole int_min/int_loop/int_if/
-int_nest corpus too; on `universal` it hits the same separate identity bug as
-`mix` — full Jones-optimality on the self-interpreter still needs program-point
-*memoization* on top of this, the remaining step.)
+int_nest corpus too; on `universal` it is now *correct* (the `under_dyn` fix above
+also fixed the earlier identity bug) but still ~1047× — not yet optimal.)
+
+**Why `universal` is still not optimal — diagnosis.** Instrumenting `cogen
+--online` on `(universal, ⌜swap⌝)` (a *loop-free* subject, so the residual should
+have no loops) shows **7 residualized `while`s, all with guard `(var 8/9/10)`** —
+`universal`'s internal **store-walk loops** (in `lookup`/`update` and the store
+set-up). Their guard variable is `Dv`, i.e. the variable store `Vl` collapses to
+*fully* dynamic, so these static-length loops cannot unroll. For Jones-optimality
+the store must stay **partially static** (a `Cv`: static spine = which slot holds
+which variable, dynamic leaves = the values) all the way through `universal`'s
+operations. Achieving that is a design choice — arity-raise the store into
+per-variable components, or restructure `universal` to a static-spine store, or add
+a polyvariant store treatment — not a mechanical fix; it is the next milestone for
+the time-based optimality figure (`test-time.sh`).
+
+**Quantitative optimality, measured (`rundata --time` + `test-time.sh`).** The
+book's unit-cost time (ch.16-19) is now available for residuals: `rundata --time`
+mirrors `EvalWhile.timeProc` exactly (verified equal to `while --time` on the
+corpus). For the cases that *do* specialize well, the residual is no slower than
+interpreting the subject and often faster (e.g. `int_min` specialized to `'id`:
+6 vs 16 steps ≈ 2.6×) — the measurable face of Jones-optimality, independent of the
+`universal` store issue above.
 
 ### Machine-checked design specs (Agda)
 
