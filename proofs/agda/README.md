@@ -101,6 +101,18 @@ BTA fixpoint diverges (cogen hung on `count.while`). Models the information orde
 over-approximation) — and **depth-bounded** — `depth-widen : depth (widen d t) ≤ d`,
 so the widened domain is finite and the fixpoint terminates.
 
+### `SpinePreservingEmit.agda` — spine-preserving emit: faithful + sound (backs C5)
+
+Design spec for the spine-preserving-emit technique of `cogen --online` (C5). When
+an emitted assignment's value has a static cons spine but dynamic leaves, the slot
+is stored as that spine with each leaf a **self-reference** (`hd`/`tl` path) into
+the slot's own variable. Models the slot (`buildSlot`/`evalSlot`) and proves
+`readback` (the spine-of-self-refs reconstructs the value — spine preservation is
+faithful) and `stable` (the slot references only its own variable, so
+re-materialising any other variable cannot change it — emit-model soundness for the
+partially-static spine case), with `cross-unsound` as the contrast (a
+cross-reference slot *would* change). Complements `MixEmitModel` (the scalar case).
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).

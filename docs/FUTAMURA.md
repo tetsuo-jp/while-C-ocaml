@@ -524,7 +524,8 @@ a `Cv` mirroring that spine with each *dynamic* leaf replaced by a **self-refere
 into `(var k)` (`hd`/`tl` paths), keeping the `Sv` parts (incl. the spine
 terminator) static. The spine then stays known, so store-walks unroll, while the
 self-references stay stable under re-materialisation (the `MixEmitModel` soundness
-condition). This is sound only **outside** residualized dynamic control (`dyn_live`
+condition; the spine case is machine-checked in `proofs/agda/SpinePreservingEmit.agda`
+— `readback` faithful, `stable` sound). This is sound only **outside** residualized dynamic control (`dyn_live`
 empty): under a residualized dynamic `if`/`while` a variable's runtime spine can
 vary per iteration, so there the slot still collapses to `Dv`. With this,
 `[cogen --online](usi, swap)` is **loop-free** (`#while = 0`, no interpretation
