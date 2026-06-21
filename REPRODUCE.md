@@ -38,6 +38,11 @@ each is in `docs/AGDA_CORRESPONDENCE.md`.
 The single entry point for everything is `examples/desugar/run-all.sh` (also run by CI);
 `reproduce.sh full` calls it.
 
+For the research positioning — how each result maps to existing PE work (Futamura,
+JGS 1993, Glück 2012, Mogensen 1988, Leuschel, tag-elimination) and where the one
+open gap stands — see `docs/RELATED-WORK.md`; the concrete plan to close it
+(program-point memoization) is `docs/ITEM3-DESIGN.md`.
+
 ## Cross-repo
 
 The reversible sibling `rwhile-C-ocaml` reproduces the reversible Futamura

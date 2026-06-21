@@ -49,6 +49,10 @@ loop. The fix is the classical polyvariant PP specialization, in its online form
 - **Glück 2012b**, *Bootstrapping Compiler Generators from Partial Evaluators*
   (PSI 2011, LNCS 7162). Relevant to fp3/`cogen` quality once item-3 lands.
 
+The concrete port of this algorithm to `Cogen.ml` (configuration key, memo table,
+emit strategies, milestones, tests) is specified in
+[`ITEM3-DESIGN.md`](ITEM3-DESIGN.md).
+
 ## C5(i) — online termination (currently `BTAWiden` + ad-hoc unroll budget)
 
 `Cogen.ml` bounds unrolling with `COGEN_UNROLL_BUDGET` (a constant) plus a
