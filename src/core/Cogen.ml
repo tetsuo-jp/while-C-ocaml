@@ -256,11 +256,19 @@ let proj_av =
 (* canonical projection of the whole store (sorted by var index) = sigma_s *)
 let config () : (int * valT) list =
   List.sort compare (Hashtbl.fold (fun k v acc -> (k, proj_av v) :: acc) store [])
-(* a configuration = (residual guard expression, sigma_s) *)
-type cfg = valT * (int * valT) list
+(* a configuration = (sigma_s, continuation k): two driving points are the SAME
+ * when the static store projection AND the pending continuation match -- a
+ * back-edge (the subject loop iterating).  The residual guard is a function of the
+ * store, so it need not be in the key. *)
+type cfg = (int * valT) list * valT list
 exception Fold of cfg
 (* loop heads currently being driven (ancestors), for back-edge detection *)
 let loop_stack : cfg list ref = ref []
+(* drive step budget: a back-edge that never recurs (config keeps growing) would
+ * drive forever; cap it and fall back to the non-memo spec. *)
+exception MemoBail
+let drive_steps = ref 0
+let drive_budget = try int_of_string (Sys.getenv "COGEN_MEMO_BUDGET") with _ -> 200000
 
 (* residualize a dynamic while `while g do b` over the current store.  `force` is a
  * set of vars to treat as escaping in addition to the live-in/live-out ones (used by
@@ -380,6 +388,85 @@ and spec c = match c with
        | _ -> failwith "cogen: bad command")
   | _ -> failwith "cogen: bad command"
 
+(* ===== item-3 (M1a): the memoizing process-tree DRIVER (COGEN_MEMO) =====
+ * Explicit continuation k (a list of pending commands).  `while` is unfolded into
+ * the continuation, so re-reaching a driving point with the same (sigma_s, k) is a
+ * back-edge -> we close a residual `while` (the subject's own loop), keeping
+ * loop-invariant registers (the interpreter's code pointer) STATIC so the dispatch
+ * inside the loop unrolls -> Jones-optimal (loop-free interpreter overhead). *)
+let emit_asgn k v =                               (* like spec's asgn emit branch *)
+  rc := l3 (a "'asgn") (mkvar k) (lift v) :: !rc;
+  let rec selfref path = function
+    | Cv (x, y) -> Cv (selfref (l2 (a "'hd") path) x, selfref (l2 (a "'tl") path) y)
+    | Sv s -> Sv s | Dv _ -> Dv path in
+  Hashtbl.replace store k (if !dyn_live = [] then selfref (mkvar k) v else Dv (mkvar k))
+
+let rec drive (k : valT list) : unit =
+  incr drive_steps; if !drive_steps > drive_budget then raise MemoBail;
+  match k with
+  | [] -> ()
+  | c :: rest ->
+    (match c with
+     | VCons (VAtom (Atom "'asgn"), VCons (tgt, VCons (e, VNil))) ->
+         let kk = depth (hd (tl tgt)) in
+         let v = spec_exp e in
+         if av_static v && not (List.mem kk !dyn_live) then Hashtbl.replace store kk v
+         else emit_asgn kk v;
+         drive rest
+     | VCons (VAtom (Atom "'semi"), VCons (c1, VCons (c2, VNil))) ->
+         drive (c1 :: c2 :: rest)
+     | VCons (VAtom (Atom "'if"), VCons (g, VCons (c1, VCons (c2, VNil)))) ->
+         (match spec_exp g with
+          | Sv v -> drive ((if v <> VNil then c1 else c2) :: rest)
+          | Cv _ -> drive (c1 :: rest)
+          | Dv _ -> drive_dyn_if g c1 c2 rest)
+     | VCons (VAtom (Atom "'while"), VCons (g, VCons (b, VNil))) ->
+         (match spec_exp g with
+          | Sv VNil -> drive rest
+          | Sv _ | Cv _ -> drive (b :: c :: rest)      (* unfold one iteration *)
+          | Dv _ ->                                    (* dynamic-guard while: treat as loop *)
+              drive_dyn_if g (VCons (a "'semi", l2 b c)) (l3 (a "'asgn") (mkvar 1) (mkvar 1)) rest)
+     | _ -> failwith "drive: bad command")
+
+(* a dynamic-guard branch point: detect whether the THEN path folds back here (a
+ * loop) and if so emit `while`, else emit a residual `if` (both branches driven). *)
+and drive_dyn_if g c1 c2 rest =
+  let key = (config (), rest) in
+  if List.mem key !loop_stack then raise (Fold key);     (* back-edge *)
+  let head = Hashtbl.copy store in
+  (* dynamicize loop-carried (non-static) vars to residual refs; static vars stay
+   * static so dispatch over them unrolls.  Body emits return them to (var k), so
+   * the config recurs and the back-edge is detected. *)
+  let carried = Hashtbl.fold (fun kk v acc -> if av_static v then acc else kk :: acc) store [] in
+  List.iter (fun kk -> Hashtbl.replace store kk (Dv (mkvar kk))) carried;
+  let gv = lift (spec_exp g) in
+  let saved_rc = !rc and sdl = !dyn_live in
+  loop_stack := key :: !loop_stack;
+  dyn_live := carried;
+  rc := [];
+  let is_loop =
+    (try drive (c1 :: rest); false with Fold kk when kk = key -> true) in
+  loop_stack := (match !loop_stack with _ :: t -> t | [] -> []);
+  let body = makeseq !rc in
+  dyn_live := sdl;
+  rc := saved_rc;
+  if is_loop then begin
+    Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) head;
+    List.iter (fun kk -> Hashtbl.replace store kk (Dv (mkvar kk))) carried;
+    rc := VCons (a "'while", l2 gv body) :: !rc;
+    drive (c2 :: rest)                                   (* exit continuation *)
+  end else begin
+    (* genuine dynamic if: drive both branches to completion (continuation
+     * duplicated -- correct, size cost), merging via the dynamicized carried set. *)
+    let snap = Hashtbl.copy store in
+    let s2 = !dyn_live in dyn_live := carried;
+    rc := []; drive (c1 :: rest); let r1 = makeseq !rc in
+    Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;
+    rc := []; drive (c2 :: rest); let r2 = makeseq !rc in
+    dyn_live := s2;
+    rc := VCons (a "'if", l3 gv r1 r2) :: saved_rc
+  end
+
 let run_spec progpath spath =
   let prog = let ch = open_in progpath in let v = parseValT ch in close_in ch; v in
   let s    = let ch = open_in spath    in let v = parseValT ch in close_in ch; v in
@@ -388,9 +475,15 @@ let run_spec progpath spath =
   Hashtbl.replace benv i (C (S, D));
   changed := true; while !changed do changed := false; bpass false body done;
   (* input In = (s . d): head s static, tail d = the residual's input var (var i) *)
-  Hashtbl.replace store i (Cv (Sv s, Dv (mkvar i)));
-  out_var := j; cont_stack := [];           (* j is live at the end (write j) *)
-  spec body;
+  let init () = Hashtbl.reset store; Hashtbl.replace store i (Cv (Sv s, Dv (mkvar i)));
+                rc := []; cont_stack := []; loop_stack := []; dyn_live := [] in
+  init ();
+  out_var := j;
+  if !online && memo_on then
+    (drive_steps := 0;
+     try drive [body]
+     with MemoBail -> init (); spec body)   (* fall back to the non-memo specializer *)
+  else spec body;
   let outv = sget j in
   let body' =
     if outv = Dv (mkvar j) then makeseq !rc       (* output already self-ref; RC set it *)
