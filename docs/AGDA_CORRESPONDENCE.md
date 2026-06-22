@@ -21,7 +21,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (11 modules)
 | `Cogen.ml` **M2 memo fold** (`drive`/`drive_dyn_if`, `COGEN_MEMO`) | `MemoFold`: `fold-sound`/`while-cong` (folded `while` ≡ source loop when body preserves the step), `fold-unsound-witness` | **proven (kernel)**; the per-iteration "body ≡ source step" obligation is differential (the loop-level fold is the proven part) |
 | `Cogen.ml` **expression specializer** (`spec_exp`, `lift`, `av_hd`/`av_tl`) | `AVExprSound`: `lift-sound` (`eval (lift av) ≡ concretize av`), `hd-sound`/`tl-sound`/`cons-sound` (av ops commute with concretisation) | **proven** (the expression-level congruence — the base case of G1) |
 | `Cogen.ml` **`spec_exp` over a store** (`sget`-indexed eval) | `SpecExprStore`: `spec-exp-sound` (consistent store ⇒ `concretize (spec_exp e σ) ≡ eval e ss`) | **proven** (the expression-over-store congruence; the form the command level uses) |
-| `Cogen.ml` **command spec** (`spec` `'asgn` fold, `'semi`) | `SpecCmdStore`: `asgn-fold-sound` (a folded `x:=e` preserves store consistency), `seq-cong` (sequencing composes) | **proven (stage 1)**; the emit case (self-ref/no-cross-ref) is stage 2 |
+| `Cogen.ml` **command spec** (`spec` `'asgn` fold+emit, `'semi`) | `SpecCmdStore`: `asgn-fold-sound`, `asgn-emit-sound` (both `x:=e` cases preserve store consistency), `seq-cong`; `SlotDepK`/`SelfRef`/`selfref-preserved` (the no-cross-ref invariant) | **proven** (assignment + sequencing); `'if`/`'while` remain (via `MixMerge`/`MemoFold`) |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
@@ -39,10 +39,11 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (11 modules)
   level, `SpecExprStore` lifts it to **expressions over a store** (`spec-exp-sound`,
   the form the command level consumes), and `MemoFold` proves the **loop** level
   (fold soundness given a step-preserving body); the **command** level is now
-  underway — `SpecCmdStore` proves the `'asgn` FOLD case + sequencing preserve the
-  store-consistency invariant (stage 1); the remaining `'asgn` EMIT case (needs the
-  self-reference/no-cross-ref condition of `SpinePreservingEmit`, lifted to the
-  store) and `'if`/`'while` (via `MixMerge`/`MemoFold`) are stage 2/3. The earlier pieces
+  proven for **assignment (both fold and emit) and sequencing** — `SpecCmdStore`
+  preserves the store-consistency invariant, the emit case using a `SelfRef`
+  (no-cross-reference) invariant lifted from `SpinePreservingEmit`. Remaining for
+  full G1: `'if` (via `MixMerge`) and `'while` (via `MemoFold`), then assembling the
+  whole-spec congruence. The earlier pieces
   (`MixEmitModel`, `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual
   decisions; correctness is differential-tested (`run-all.sh`). Closing G1 = the
   command-level congruence connecting `AVExprSound`↔`MemoFold` (cf. rwhile's
