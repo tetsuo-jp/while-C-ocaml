@@ -163,8 +163,11 @@ lift(spec_exp e σ)`, updating rs at x and setting the slot to the self-referenc
 rs-update at x — the no-cross-reference condition of `SpinePreservingEmit`, here as
 `SlotDepK k av` (concretising av depends only on rs at index k) and `SelfRef σ`
 (every slot depends only on its own index), with `selfref-preserved` showing emit
-keeps it. `seq-cong` gives the `'semi` case. Remaining for full G1: `'if`/`'while`
-via `MixMerge`/`MemoFold`.
+keeps it. `seq-cong` gives the `'semi` case. The `'if` case is `if-guard-agree`
+(the residual guard dispatches like the source, via `lift-sound` + `spec-exp-sound`)
++ `cond-cong` (with guard agreement and both branches reaching the common merged
+store, the matching branch preserves consistency; the per-slot merge is `MixMerge`).
+Remaining for full G1: `'while` (via `MemoFold`) and the whole-spec assembly.
 
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 

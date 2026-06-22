@@ -24,16 +24,24 @@
 --       preserves `SelfRef` of the whole store;
 --   * asgn-emit-sound : an EMITTED assignment preserves consistency, given the
 --       store is self-referential (so updating rs at x leaves other slots intact).
+--
+-- STAGE 3a (conditional).  A dynamic `if` specialises both branches and merges
+-- the stores (per-slot merge = `MixMerge`):
+--   * if-guard-agree : the residual guard dispatches like the source guard;
+--   * cond-cong : with guard agreement and both branches reaching the common
+--       merged store, the conditional preserves consistency.
+-- Remaining for full G1: `'while` (via `MemoFold`) and the whole-spec assembly.
 ------------------------------------------------------------------------
 
 module SpecCmdStore where
 
 open import Data.Nat using (ℕ)
 open import Data.Nat.Properties using (_≟_)
+open import Data.Bool using (Bool; true; false)
 open import Relation.Nullary using (yes; no; ¬_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong)
 
-open import AVExprSound using (Val; Expr; var; eval; AV; Dv; concretize; lift; lift-sound)
+open import AVExprSound using (Val; vnil; vatom; vcons; Expr; var; eval; AV; Dv; concretize; lift; lift-sound)
 open import SpecExprStore using (sxp; Consistent; spec-exp-sound)
 
 -- pointwise store update over any index→value function.
@@ -107,3 +115,40 @@ asgn-emit-sound σ ss rs k e cons-σ self j with k ≟ j
       trans (cons-σ j)
             (self j rs (upd rs k (eval (lift (sxp e σ)) rs))
                   (sym (upd-other rs k (eval (lift (sxp e σ)) rs) j k≢j)))
+
+----------------------------------------------------------------------
+-- STAGE 3a: the `'if` case.  A dynamic `if g c1 c2` specialises to
+-- `if (lift (spec_exp g σ)) r1 r2` and MERGES the two branch stores into one σ'
+-- (the per-slot merge is `MixMerge`).  Two facts:
+--
+--   * if-guard-agree : the residual guard evaluates (on rs) to the SAME value as
+--       the source guard (on ss), so both dispatch identically;
+--   * cond-cong : if both branches reach a COMMON consistent store σ' (the merge,
+--       justified by MixMerge) and the guards agree, the conditional preserves
+--       consistency -- whichever branch runs, the result is consistent with σ'.
+
+-- WHILE truthiness: nil is false, any cons/atom is true (as in EvalWhile/Cogen).
+istrue : Val → Bool
+istrue vnil        = false
+istrue (vatom _)   = true
+istrue (vcons _ _) = true
+
+dispatch : {A : Set} → Bool → A → A → A
+dispatch true  t e = t
+dispatch false t e = e
+
+-- the residual `if` guard dispatches exactly like the source guard.
+if-guard-agree : ∀ σ ss rs g → Consistent σ ss rs
+               → istrue (eval (lift (sxp g σ)) rs) ≡ istrue (eval g ss)
+if-guard-agree σ ss rs g cons-σ =
+  cong istrue (trans (lift-sound (sxp g σ) rs) (spec-exp-sound σ ss rs cons-σ g))
+
+-- given guard agreement and that each branch reaches the common merged store σ',
+-- the conditional preserves consistency (the taken branch's result is consistent).
+cond-cong : {σ′ : ℕ → AV} {s₁ s₂ r₁ r₂ : ℕ → Val} (b br : Bool)
+          → br ≡ b
+          → Consistent σ′ s₁ r₁ → Consistent σ′ s₂ r₂
+          → Consistent σ′ (dispatch b s₁ s₂) (dispatch br r₁ r₂)
+cond-cong b br eq h₁ h₂ rewrite eq with b
+... | true  = h₁
+... | false = h₂
