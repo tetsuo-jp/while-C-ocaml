@@ -46,6 +46,7 @@ open import Data.Nat using (ℕ)
 open import Data.Nat.Properties using (_≟_)
 open import Data.Bool using (Bool; true; false)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
+open import Data.List using (List; []; _∷_)
 open import Relation.Nullary using (yes; no; ¬_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong)
 import MemoFold
@@ -139,6 +140,25 @@ dyn1-sound σ ss rs k cons-σ self j with k ≟ j
       trans (cons-σ j)
             (self j rs (upd rs k (eval (lift (σ k)) rs))
                   (sym (upd-other rs k (eval (lift (σ k)) rs) j k≢j)))
+
+-- generalise a LIST of vars (the escaping set of an `'if`, or the loop-carried
+-- set of a `'while`): emit a residual fixup for each, threading the stores.
+dynList : List ℕ → (ℕ → AV) → (ℕ → AV)
+dynList []       σ = σ
+dynList (k ∷ ks) σ = dynList ks (upd σ k (Dv (var k)))
+
+dynListRS : List ℕ → (ℕ → AV) → (ℕ → Val) → (ℕ → Val)
+dynListRS []       σ rs = rs
+dynListRS (k ∷ ks) σ rs = dynListRS ks (upd σ k (Dv (var k))) (upd rs k (eval (lift (σ k)) rs))
+
+-- generalising a whole list preserves consistency and self-referentiality
+-- (a fold of dyn1-sound + selfref-preserved).
+dynlist-sound : ∀ ks σ ss rs → Consistent σ ss rs → SelfRef σ
+              → Consistent (dynList ks σ) ss (dynListRS ks σ rs) × SelfRef (dynList ks σ)
+dynlist-sound []       σ ss rs c s = c , s
+dynlist-sound (k ∷ ks) σ ss rs c s =
+  dynlist-sound ks (upd σ k (Dv (var k))) ss (upd rs k (eval (lift (σ k)) rs))
+                (dyn1-sound σ ss rs k c s) (selfref-preserved σ k s)
 
 ----------------------------------------------------------------------
 -- STAGE 3a: the `'if` case.  A dynamic `if g c1 c2` specialises to
