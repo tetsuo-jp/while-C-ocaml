@@ -30,7 +30,14 @@
 --   * if-guard-agree : the residual guard dispatches like the source guard;
 --   * cond-cong : with guard agreement and both branches reaching the common
 --       merged store, the conditional preserves consistency.
--- Remaining for full G1: `'while` (via `MemoFold`) and the whole-spec assembly.
+--
+-- STAGE 3b (loop).  A dynamic `while` reuses a fixed loop av-store σloop; modelling
+-- the loop state as the (source-store, residual-store) pair under the shared guard
+-- (lockstep justified by if-guard-agree), `WhileCase.while-store-cong` instantiates
+-- MemoFold.run-inv: if the body keeps the two stores consistent, the loop leaves
+-- them consistent on exit.
+-- Remaining for full G1: the whole-spec assembly (structural induction over `spec`
+-- tying asgn/semi/if/while together).
 ------------------------------------------------------------------------
 
 module SpecCmdStore where
@@ -38,8 +45,10 @@ module SpecCmdStore where
 open import Data.Nat using (ℕ)
 open import Data.Nat.Properties using (_≟_)
 open import Data.Bool using (Bool; true; false)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Relation.Nullary using (yes; no; ¬_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; trans; cong)
+import MemoFold
 
 open import AVExprSound using (Val; vnil; vatom; vcons; Expr; var; eval; AV; Dv; concretize; lift; lift-sound)
 open import SpecExprStore using (sxp; Consistent; spec-exp-sound)
@@ -152,3 +161,36 @@ cond-cong : {σ′ : ℕ → AV} {s₁ s₂ r₁ r₂ : ℕ → Val} (b br : Boo
 cond-cong b br eq h₁ h₂ rewrite eq with b
 ... | true  = h₁
 ... | false = h₂
+
+----------------------------------------------------------------------
+-- STAGE 3b: the `'while` case, via MemoFold's loop-invariant preservation.
+-- The residual `while` reuses a fixed loop av-store σloop; the loop body maps
+-- consistent (source, residual) stores to consistent ones (the command-IH), and
+-- guard agreement (if-guard-agree) lets both loops run in LOCKSTEP under the
+-- shared guard.  Modelling the loop state as the (source-store, residual-store)
+-- pair with the source guard, MemoFold.run-inv gives: the loop preserves store
+-- consistency -- if it exits, the final stores are consistent.
+module WhileCase (gexpr : Expr) (σloop : ℕ → AV)
+                 (bodyS bodyR : (ℕ → Val) → (ℕ → Val)) where
+
+  PS : Set
+  PS = (ℕ → Val) × (ℕ → Val)
+
+  pguard : PS → Bool
+  pguard p = istrue (eval gexpr (proj₁ p))
+
+  open MemoFold.Loop PS pguard
+
+  pstep : PS → PS
+  pstep (ss , rs) = (bodyS ss , bodyR rs)
+
+  Inv : PS → Set
+  Inv (ss , rs) = Consistent σloop ss rs
+
+  -- the loop preserves consistency, given the body does (the command-IH).
+  while-store-cong : (∀ ss rs → Consistent σloop ss rs
+                              → Consistent σloop (bodyS ss) (bodyR rs))
+                   → ∀ n ss rs → Consistent σloop ss rs
+                   → MaybeInv Inv (run pstep n (ss , rs))
+  while-store-cong pres n ss rs c =
+    run-inv Inv pstep (λ { (s , r) i → pres s r i }) n (ss , rs) c

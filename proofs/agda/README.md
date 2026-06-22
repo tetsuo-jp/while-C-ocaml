@@ -167,7 +167,12 @@ keeps it. `seq-cong` gives the `'semi` case. The `'if` case is `if-guard-agree`
 (the residual guard dispatches like the source, via `lift-sound` + `spec-exp-sound`)
 + `cond-cong` (with guard agreement and both branches reaching the common merged
 store, the matching branch preserves consistency; the per-slot merge is `MixMerge`).
-Remaining for full G1: `'while` (via `MemoFold`) and the whole-spec assembly.
+The `'while` case (`WhileCase.while-store-cong`) models the loop state as the
+(source-store, residual-store) pair under the shared guard (lockstep justified by
+`if-guard-agree`) and instantiates `MemoFold.run-inv`: if the body keeps the two
+stores consistent, the loop leaves them consistent on exit. So all four command
+forms preserve store consistency; only the whole-spec assembly (structural induction
+over `spec`) remains for full G1.
 
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 

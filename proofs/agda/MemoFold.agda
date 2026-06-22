@@ -34,6 +34,7 @@ module MemoFold where
 open import Data.Bool using (Bool; true; false)
 open import Data.Nat using (ℕ; zero; suc)
 open import Data.Maybe using (Maybe; just; nothing)
+open import Data.Unit using (⊤; tt)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 open import Relation.Nullary using (¬_)
 
@@ -62,6 +63,26 @@ module Loop (S : Set) (g : S → Bool) where
   fold-sound : (src body : S → S) → (∀ s → src s ≡ body s)
              → ∀ n s → run src n s ≡ run body n s
   fold-sound = while-cong
+
+  ----------------------------------------------------------------------
+  -- LOOP-INVARIANT PRESERVATION (the engine for the command-level `'while`
+  -- congruence, SpecCmdStore stage 3b).  If a step preserves an invariant `Inv`,
+  -- a fuel-bounded run preserves it: the exit state (when there is one) satisfies
+  -- Inv.  Instantiating S with the (source-store, residual-store) pair and Inv
+  -- with store consistency gives: a loop whose body keeps the two stores
+  -- consistent leaves them consistent on exit (guard agreement -- if-guard-agree
+  -- -- justifies running both in lockstep under the shared guard g).
+  MaybeInv : (S → Set) → Maybe S → Set
+  MaybeInv Inv nothing  = ⊤
+  MaybeInv Inv (just s) = Inv s
+
+  run-inv : (Inv : S → Set) (step : S → S)
+          → (∀ s → Inv s → Inv (step s))
+          → ∀ n s → Inv s → MaybeInv Inv (run step n s)
+  run-inv Inv step pres zero    s inv = tt
+  run-inv Inv step pres (suc n) s inv with g s
+  ... | false = inv
+  ... | true  = run-inv Inv step pres n (step s) (pres s inv)
 
 ------------------------------------------------------------------------
 -- Contrast: the per-iteration obligation is NECESSARY.  Concrete loop over Bool

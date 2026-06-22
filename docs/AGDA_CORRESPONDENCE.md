@@ -21,7 +21,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (11 modules)
 | `Cogen.ml` **M2 memo fold** (`drive`/`drive_dyn_if`, `COGEN_MEMO`) | `MemoFold`: `fold-sound`/`while-cong` (folded `while` ≡ source loop when body preserves the step), `fold-unsound-witness` | **proven (kernel)**; the per-iteration "body ≡ source step" obligation is differential (the loop-level fold is the proven part) |
 | `Cogen.ml` **expression specializer** (`spec_exp`, `lift`, `av_hd`/`av_tl`) | `AVExprSound`: `lift-sound` (`eval (lift av) ≡ concretize av`), `hd-sound`/`tl-sound`/`cons-sound` (av ops commute with concretisation) | **proven** (the expression-level congruence — the base case of G1) |
 | `Cogen.ml` **`spec_exp` over a store** (`sget`-indexed eval) | `SpecExprStore`: `spec-exp-sound` (consistent store ⇒ `concretize (spec_exp e σ) ≡ eval e ss`) | **proven** (the expression-over-store congruence; the form the command level uses) |
-| `Cogen.ml` **command spec** (`spec` `'asgn` fold+emit, `'semi`, `'if`) | `SpecCmdStore`: `asgn-fold-sound`, `asgn-emit-sound`, `seq-cong`, `SlotDepK`/`SelfRef`/`selfref-preserved`, `if-guard-agree` (residual guard dispatches like source) + `cond-cong` (matching branch preserves consistency) | **proven** (assignment, sequencing, conditional); `'while` remains (via `MemoFold`) + whole-spec assembly |
+| `Cogen.ml` **command spec** (`spec` `'asgn` fold+emit, `'semi`, `'if`, `'while`) | `SpecCmdStore`: `asgn-fold-sound`, `asgn-emit-sound`, `seq-cong`, `SlotDepK`/`SelfRef`/`selfref-preserved`, `if-guard-agree`+`cond-cong`, `WhileCase.while-store-cong` (loop preserves consistency, via `MemoFold.run-inv`) | **proven** (all four command forms preserve store consistency); only the whole-spec assembly remains |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
@@ -43,10 +43,13 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (11 modules)
   — `SpecCmdStore` preserves the store-consistency invariant: the emit case uses a
   `SelfRef` (no-cross-reference) invariant lifted from `SpinePreservingEmit`, and
   the `'if` case uses guard agreement (`if-guard-agree`) + matching-branch dispatch
-  (`cond-cong`), with the per-slot store merge supplied by `MixMerge`. Remaining for
-  full G1: `'while` (via `MemoFold` — reconciling its single-state loop model with
-  the two-store ss/rs consistency) and assembling the whole-spec congruence. The
-  earlier pieces
+  (`cond-cong`, per-slot merge by `MixMerge`), and the `'while` case
+  (`WhileCase.while-store-cong`) models the loop over the (source, residual) store
+  pair and instantiates `MemoFold.run-inv` to show the loop preserves consistency.
+  So all four command forms preserve the store-consistency invariant; the only
+  remaining step for full G1 is the **whole-spec assembly** (structural induction
+  over `spec` tying these together into `[cogen(p,s)](d) = [p]((s,d))`). The earlier
+  pieces
   (`MixEmitModel`, `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual
   decisions; correctness is differential-tested (`run-all.sh`). Closing G1 = the
   command-level congruence connecting `AVExprSound`↔`MemoFold` (cf. rwhile's
