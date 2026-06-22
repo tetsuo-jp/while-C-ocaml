@@ -174,6 +174,20 @@ stores consistent, the loop leaves them consistent on exit. So all four command
 forms preserve store consistency; only the whole-spec assembly (structural induction
 over `spec`) remains for full G1.
 
+### `SpecAssembly.agda` — whole-spec congruence, straight-line fragment (G1 capstone)
+
+The assembly: models `spec : Cmd → av-store → (residual, av-store)` and the source
+semantics `cexec` for the straight-line command language (`skip`/`asgn`/`semi`), and
+proves `spec-sound` by structural induction — specialising `c` and running its
+residual reproduces the source run while preserving store consistency and `SelfRef`.
+Each case is discharged by the command-level lemmas: assignment by
+`asgn-fold-sound`/`asgn-emit-sound` (with `selfref-fold`/`selfref-preserved` for the
+invariant — a folded slot is fully static, so `IsStatic`⇒`SlotDepK`), sequencing by
+threading the induction hypothesis. This is `[cogen(p,s)](d) = [p]((s,d))` proven for
+the loop-free, conditional-free fragment; extending the assembly to `'if` (per-branch
+store merge via `MixMerge`) and `'while` (loop generalisation σloop, then `WhileCase`)
+completes G1.
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).

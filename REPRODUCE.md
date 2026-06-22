@@ -3,7 +3,7 @@
 One command (mirrors `rwhile-C-ocaml/REPRODUCE.md`):
 
 ```sh
-./reproduce.sh         # fast: build, Jones-optimality table, Agda --safe (11 modules)
+./reproduce.sh         # fast: build, Jones-optimality table, Agda --safe (12 modules)
 ./reproduce.sh full    # also the full end-to-end suite (run-all.sh, ~3 min)
 ```
 
@@ -32,7 +32,7 @@ each is in `docs/AGDA_CORRESPONDENCE.md`.
 | **C2** fp2/fp3 (compiler / cogen), self-application | `SLOW=1 sh examples/desugar/run-all.sh` (≈40 min, `test-fp2.sh`) | byte-verified residuals |
 | **C2** generating extension (offline, hand vs auto) | `sh examples/desugar/test-genext.sh`, `test-cogen.sh` | small offline compiler; cogen matches |
 | **C1** Theorem A (reversible-PE information bound) | `agda --safe proofs/agda/RevSpecGarbage.agda` | type-checks; measured side in `rwhile-C-ocaml` |
-| **C4/C5** machine-checked design + enablers | `sh proofs/agda/check.sh` | 11 `--safe` modules `ok` (incl. `BTAWiden`, `SpinePreservingEmit`, `MemoFold`, `AVExprSound`, `SpecExprStore`, `SpecCmdStore`) |
+| **C4/C5** machine-checked design + enablers | `sh proofs/agda/check.sh` | 12 `--safe` modules `ok` (incl. `BTAWiden`, `SpinePreservingEmit`, `MemoFold`, `AVExprSound`, `SpecExprStore`, `SpecCmdStore`, `SpecAssembly`) |
 | oracle cross-check (⌜p⌝ interpreter) | `sh examples/desugar/test-oracle.sh` | `rundata` agrees with `while`/EvalWhile both encodings |
 
 The single entry point for everything is `examples/desugar/run-all.sh` (also run by CI);
