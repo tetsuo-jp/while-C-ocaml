@@ -125,6 +125,21 @@ asgn-emit-sound σ ss rs k e cons-σ self j with k ≟ j
             (self j rs (upd rs k (eval (lift (sxp e σ)) rs))
                   (sym (upd-other rs k (eval (lift (sxp e σ)) rs) j k≢j)))
 
+-- GENERALISATION step (shared by the `'if` merge and the `'while` loop-entry):
+-- dynamicise ONE var by emitting the residual-only fixup `var k := lift (σ k)`
+-- (the SOURCE store is unchanged; rs gets k ↦ the slot's current value; the slot
+-- becomes the self-reference Dv (var k)).  Preserves consistency, given SelfRef σ.
+dyn1-sound : ∀ σ ss rs k → Consistent σ ss rs → SelfRef σ
+           → Consistent (upd σ k (Dv (var k))) ss (upd rs k (eval (lift (σ k)) rs))
+dyn1-sound σ ss rs k cons-σ self j with k ≟ j
+... | yes refl =
+      trans (cons-σ k)
+            (sym (trans (upd-same rs k (eval (lift (σ k)) rs)) (lift-sound (σ k) rs)))
+... | no k≢j =
+      trans (cons-σ j)
+            (self j rs (upd rs k (eval (lift (σ k)) rs))
+                  (sym (upd-other rs k (eval (lift (σ k)) rs) j k≢j)))
+
 ----------------------------------------------------------------------
 -- STAGE 3a: the `'if` case.  A dynamic `if g c1 c2` specialises to
 -- `if (lift (spec_exp g σ)) r1 r2` and MERGES the two branch stores into one σ'
