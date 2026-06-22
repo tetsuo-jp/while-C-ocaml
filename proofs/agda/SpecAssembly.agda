@@ -20,13 +20,16 @@ open import Data.Nat using (ℕ)
 open import Data.Nat.Properties using (_≟_)
 open import Data.Bool using (Bool; true; false; _∧_)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Relation.Nullary using (yes; no)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong₂)
+open import Data.List using (List; []; _∷_; _++_)
+open import Data.Sum using (_⊎_; inj₁; inj₂)
+open import Data.Empty using (⊥)
+open import Relation.Nullary using (yes; no; ¬_)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; cong₂)
 
 open import AVExprSound using (Val; vcons; Expr; var; eval; AV; Sv; Dv; Cv; concretize; lift)
 open import SpecExprStore using (sxp; Consistent)
 open import SpecCmdStore
-  using (upd; asgn-fold-sound; asgn-emit-sound; SlotDepK; SelfRef; selfref-preserved)
+  using (upd; upd-other; asgn-fold-sound; asgn-emit-sound; SlotDepK; SelfRef; selfref-preserved)
 
 -- straight-line commands.
 data Cmd : Set where
@@ -103,3 +106,32 @@ spec-sound (semi c1 c2) σ ss rs cons-σ self =
   spec-sound c2 (proj₂ (spec c1 σ)) (cexec c1 ss) (cexec (proj₁ (spec c1 σ)) rs)
             (proj₁ IH1) (proj₂ IH1)
   where IH1 = spec-sound c1 σ ss rs cons-σ self
+
+----------------------------------------------------------------------
+-- FRAME: `spec c` leaves the av-store unchanged OUTSIDE c's assigned vars.  This
+-- is what makes the (forthcoming) `'if` merge well-defined: the two branches
+-- agree on every slot they do not touch, so the merge need only dynamicise the
+-- escaping (assigned) set.  Local list membership keeps it self-contained.
+_∈L_ : ℕ → List ℕ → Set
+j ∈L []       = ⊥
+j ∈L (k ∷ ks) = (k ≡ j) ⊎ (j ∈L ks)
+
+assigned : Cmd → List ℕ
+assigned skip         = []
+assigned (asgn k _)   = k ∷ []
+assigned (semi c1 c2) = assigned c1 ++ assigned c2
+
+∉++ : ∀ {j} xs ys → ¬ (j ∈L (xs ++ ys)) → (¬ (j ∈L xs)) × (¬ (j ∈L ys))
+∉++ []       ys ni = (λ ()) , ni
+∉++ (x ∷ xs) ys ni =
+  (λ { (inj₁ e) → ni (inj₁ e) ; (inj₂ m) → proj₁ (∉++ xs ys (λ z → ni (inj₂ z))) m })
+  , proj₂ (∉++ xs ys (λ z → ni (inj₂ z)))
+
+frame : ∀ c σ j → ¬ (j ∈L assigned c) → proj₂ (spec c σ) j ≡ σ j
+frame skip       σ j ni = refl
+frame (asgn k e) σ j ni with av-static? (sxp e σ)
+... | true  = upd-other σ k (sxp e σ)   j (λ e≡ → ni (inj₁ e≡))
+... | false = upd-other σ k (Dv (var k)) j (λ e≡ → ni (inj₁ e≡))
+frame (semi c1 c2) σ j ni =
+  let (ni1 , ni2) = ∉++ (assigned c1) (assigned c2) ni
+  in trans (frame c2 (proj₂ (spec c1 σ)) j ni2) (frame c1 σ j ni1)
