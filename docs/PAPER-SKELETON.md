@@ -44,8 +44,9 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   `MemoFold.agda` (M2 fold soundness: folded `while` ≡ source loop when the
   per-iteration body preserves the step), `AVExprSound.agda` (the
   expression-level specializer congruence — the base case of G1) and
-  `SpecExprStore.agda` (`spec_exp` over a store, the form the command level uses),
-  backing C5.
+  `SpecExprStore.agda` (`spec_exp` over a store, the form the command level uses)
+  and `SpecCmdStore.agda` (the command level — `'asgn` fold + `'semi` preserve
+  store consistency, stage 1 toward whole-spec G1), backing C5.
 - **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer
   (`src/core/Cogen.ml --online`) that decides static/dynamic from each construct's
   actual annotated value, not the monovariant BTA — so a statically-known loop the

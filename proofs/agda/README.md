@@ -151,6 +151,17 @@ source store. This is the exact form the command-level congruence consumes (no
 function extensionality — consistency is pointwise), connecting `AVExprSound` toward
 `MemoFold` (the loop level).
 
+### `SpecCmdStore.agda` — command-level congruence, stage 1 (fold + sequencing)
+
+The command level of G1, connecting `SpecExprStore` toward `MemoFold`. Adds a
+pointwise store `upd` and proves `asgn-fold-sound`: a FOLDED assignment `x := e`
+(the specializer updates its av-store, no residual code, so the residual store is
+unchanged) preserves the consistency invariant — the new slot `spec_exp e σ`
+concretises to the source value `eval e ss` (via `spec-exp-sound`). `seq-cong`
+gives the `'semi` case (consistency-preserving steps compose). Stage 2 will add the
+EMIT case (using the self-reference/no-cross-ref condition of `SpinePreservingEmit`,
+lifted to the store) and `'if`/`'while` via `MixMerge`/`MemoFold`.
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).
