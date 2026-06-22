@@ -139,6 +139,18 @@ with concretisation). Together: specializing an expression and running its resid
 yields the same value as the source expression — what the command/loop congruence
 (G1) is built on.
 
+### `SpecExprStore.agda` — `spec_exp` over a store (G1 middle, expr→command)
+
+Lifts `AVExprSound` from a single annotated value to expressions evaluated against
+an **av-store** `σ : ℕ → AV` (what `spec_exp`/`sget` actually do). Defines `sxp`
+(`spec_exp` over σ) and a pointwise **consistency** `∀ k → ss k ≡ concretize (σ k)
+denv` between the source store `ss` and σ, and proves `spec-exp-sound`: under
+consistency, `concretize (sxp e σ) denv ≡ eval e ss` — specialising an expression
+against the store and concretising equals evaluating the source expression on the
+source store. This is the exact form the command-level congruence consumes (no
+function extensionality — consistency is pointwise), connecting `AVExprSound` toward
+`MemoFold` (the loop level).
+
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
 The proposed theoretical centerpiece (a constraint classical PE does not face).
