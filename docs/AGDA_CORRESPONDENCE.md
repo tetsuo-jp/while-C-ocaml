@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (12 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (13 modules).
 
 ## Correspondence table
 
@@ -22,7 +22,8 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (12 modules)
 | `Cogen.ml` **expression specializer** (`spec_exp`, `lift`, `av_hd`/`av_tl`) | `AVExprSound`: `lift-sound` (`eval (lift av) ≡ concretize av`), `hd-sound`/`tl-sound`/`cons-sound` (av ops commute with concretisation) | **proven** (the expression-level congruence — the base case of G1) |
 | `Cogen.ml` **`spec_exp` over a store** (`sget`-indexed eval) | `SpecExprStore`: `spec-exp-sound` (consistent store ⇒ `concretize (spec_exp e σ) ≡ eval e ss`) | **proven** (the expression-over-store congruence; the form the command level uses) |
 | `Cogen.ml` **command spec** (`spec` `'asgn` fold+emit, `'semi`, `'if`, `'while`) | `SpecCmdStore`: `asgn-fold-sound`, `asgn-emit-sound`, `seq-cong`, `SlotDepK`/`SelfRef`/`selfref-preserved`, `if-guard-agree`+`cond-cong`, `WhileCase.while-store-cong` (loop preserves consistency, via `MemoFold.run-inv`), `dyn1-sound`/`dynlist-sound` (the generalisation step — dynamicise a var / a list of vars with residual fixups — shared by the `'if` merge and `'while` loop-entry) | **proven** (all four command forms preserve store consistency) |
-| `Cogen.ml` **whole-spec congruence** (straight-line) | `SpecAssembly`: `spec-sound` — by structural induction `[spec c](residual) reproduces [c](source)`, preserving consistency, for `skip`/`asgn`/`semi` | **proven** (the assembled `[cogen(p,s)](d)=[p]((s,d))` for the loop-free, if-free fragment); `'if`/`'while` assembly remains |
+| `Cogen.ml` **whole-spec congruence** (straight-line) | `SpecAssembly`: `spec-sound` — by structural induction `[spec c](residual) reproduces [c](source)`, preserving consistency, for `skip`/`asgn`/`semi`; `frame` (spec preserves the store off assigned vars) | **proven** (assembled `[cogen(p,s)](d)=[p]((s,d))` for the loop-free, if-free fragment) |
+| `Cogen.ml` **whole-spec congruence — `'if`** | `SpecAssemblyIf`: `spec-if-sound` — the conditional's result is consistent with the merged store `dynList esc σ`, via `frame`+`dynList-cong` (branches agree off the escaping set) + `dynlist-sound` (fixups) + `if-guard-agree`+`cond-cong` | **proven** (the `'if` case assembled); only `'while` assembly remains |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
@@ -38,13 +39,13 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (12 modules)
   the straight-line fragment: `AVExprSound` (expression level) → `SpecExprStore`
   (expressions over a store) → `SpecCmdStore` (all four command forms preserve the
   store-consistency invariant: `'asgn` fold/emit, `'semi`, `'if`, `'while`) →
-  `MemoFold` (loop level) → **`SpecAssembly.spec-sound`**, which by structural
-  induction proves `[spec c](residual) reproduces [c](source)` for `skip`/`asgn`/
-  `semi` — i.e. `[cogen(p,s)](d) = [p]((s,d))` for the **loop-free, conditional-free
-  fragment**, discharging each case by the command lemmas. *Remaining for full G1:*
-  extend `SpecAssembly` to `'if` (needs the per-branch store MERGE — `MixMerge` —
-  lifted to a store transformer) and `'while` (needs the loop generalisation σloop
-  as a store transformer, then `WhileCase`). The earlier pieces
+  `MemoFold` (loop level) → **`SpecAssembly.spec-sound`** (`skip`/`asgn`/`semi`) →
+  **`SpecAssemblyIf.spec-if-sound`** (the `'if` case: branches merged at the escaping
+  set via `frame`+`dynList-cong`+`dynlist-sound`, dispatched by `if-guard-agree`+
+  `cond-cong`). So `[cogen(p,s)](d) = [p]((s,d))` is machine-checked for the
+  **if-and-straight-line fragment** (`skip`/`asgn`/`semi`/`if`). *Remaining for full
+  G1:* the `'while` assembly (the loop generalisation σloop as a store transformer,
+  then `WhileCase`/`MemoFold.run-inv`). The earlier pieces
   (`MixEmitModel`, `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual
   decisions; whole-spec correctness for the full language is also differential-tested
   (`run-all.sh`). (cf. rwhile's `RWhileAVSound`/`RWhileAVSpec`.)

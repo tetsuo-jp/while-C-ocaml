@@ -48,10 +48,11 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   `SpecCmdStore.agda` (the command level — `'asgn` (fold + emit), `'semi`, `'if`,
   and `'while` all preserve store consistency; emit via a no-cross-reference
   `SelfRef` invariant, `'if` via guard agreement + matching-branch dispatch, `'while`
-  via `MemoFold.run-inv` over the store pair) and `SpecAssembly.agda` (the whole-spec
-  congruence assembled for the straight-line fragment: `[cogen(p,s)](d)=[p]((s,d))`
-  for `skip`/`asgn`/`semi` by structural induction; `'if`/`'while` assembly remains
-  for full G1), backing C5.
+  via `MemoFold.run-inv` over the store pair) and `SpecAssembly.agda` +
+  `SpecAssemblyIf.agda` (the whole-spec congruence assembled:
+  `[cogen(p,s)](d)=[p]((s,d))` machine-checked for the if-and-straight-line fragment
+  — `skip`/`asgn`/`semi`/`if` — by structural induction; only `'while` assembly
+  remains for full G1), backing C5.
 - **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer
   (`src/core/Cogen.ml --online`) that decides static/dynamic from each construct's
   actual annotated value, not the monovariant BTA — so a statically-known loop the

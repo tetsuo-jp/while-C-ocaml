@@ -184,9 +184,21 @@ Each case is discharged by the command-level lemmas: assignment by
 `asgn-fold-sound`/`asgn-emit-sound` (with `selfref-fold`/`selfref-preserved` for the
 invariant — a folded slot is fully static, so `IsStatic`⇒`SlotDepK`), sequencing by
 threading the induction hypothesis. This is `[cogen(p,s)](d) = [p]((s,d))` proven for
-the loop-free, conditional-free fragment; extending the assembly to `'if` (per-branch
-store merge via `MixMerge`) and `'while` (loop generalisation σloop, then `WhileCase`)
-completes G1.
+the loop-free, conditional-free fragment; the `'if` case is `SpecAssemblyIf` and
+`'while` remains.
+
+### `SpecAssemblyIf.agda` — whole-spec congruence, the `'if` case
+
+Assembles the conditional. A dynamic `if g c1 c2` specialises both branches and
+MERGES by dynamicising the escaping set `esc = assigned c1 ++ assigned c2` (the only
+slots a branch can touch, by `frame`), emitting a fixup for each (`dynlist-sound`).
+Both branches then reach the SAME merged store `dynList esc σ` — `frame` +
+`dynList-cong` show the branch stores agree off `esc`, so the per-branch
+`dynList esc σb` equals `dynList esc σ` pointwise (`consistent-cong`). Then
+`if-guard-agree` (guards dispatch identically) + `cond-cong` (matching branch) give
+`spec-if-sound`: the conditional preserves store consistency. So
+`[cogen(p,s)](d)=[p]((s,d))` is machine-checked for the if-and-straight-line fragment;
+only `'while` (loop generalisation σloop + `WhileCase`) remains for full G1.
 
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 
