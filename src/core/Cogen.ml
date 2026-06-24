@@ -467,6 +467,36 @@ and drive_dyn_if g c1 c2 rest =
     rc := VCons (a "'if", l3 gv r1 r2) :: saved_rc
   end
 
+(* ===== item-3 M3: single-pass GLOBAL-memo driver (COGEN_M3) =====
+ * The M2 driver (`drive`/`drive_dyn_if`, above) detects back-edges with an ANCESTOR
+ * STACK + a `Fold` exception: it can only fold to the IMMEDIATE ancestor, cannot
+ * share siblings, and a back-edge to a non-immediate ancestor escapes uncaught
+ * (docs/ITEM3-M3-FINDINGS.md, findings #2-#4).  M3 replaces it with a GLOBAL memo
+ * table `m3_seen : cfg -> name`: every driving point is looked up, a hit is a
+ * back-edge to THAT block (any ancestor or sibling), and the residual is
+ * reconstructed as structured WHILE (single back-edge dominating its body -> the
+ * subject's own `while`; irreducible -> a pc-dispatch `while`, ITEM3-DESIGN.md
+ * strategy (a)).  Non-loop dynamic-ifs emit a residual `if` with a real store merge,
+ * driven under the SAME global memo so shared continuations are not re-driven.
+ *
+ * Built behind COGEN_M3 so the proven default and the M2 (COGEN_MEMO) paths stay
+ * byte-identical.  FOUNDATION step (this commit): the gate, the global-memo
+ * structures, and the entry point `drive2` are in place and correctness-tested
+ * (examples/desugar/test-item3-m3.sh).  drive2 currently DELEGATES to the proven
+ * `spec` -- so the M3 path is CORRECT on every subject (incl. int_if/int_nest where
+ * the M2 trial prototype was wrong/blew up) but not yet loop-free.  The global-memo
+ * FOLD (the loop-free reconstruction = M3b) lands in the next increment, developed
+ * against the test harness this step installs. *)
+let m3_on = (try Sys.getenv "COGEN_M3" <> "" with Not_found -> false)
+let m3_seen : (cfg, int) Hashtbl.t = Hashtbl.create 64   (* config -> block name *)
+let m3_name = ref 0
+let m3_fresh () = incr m3_name; !m3_name
+let m3_init () = Hashtbl.reset m3_seen; m3_name := 0
+
+(* M3 entry point.  FOUNDATION: correctness-first delegation to `spec`; the
+ * global-memo structured fold (loop-free reconstruction) is the next increment. *)
+let drive2 (body : valT) : unit = ignore m3_fresh; ignore m3_seen; spec body
+
 let run_spec progpath spath =
   let prog = let ch = open_in progpath in let v = parseValT ch in close_in ch; v in
   let s    = let ch = open_in spath    in let v = parseValT ch in close_in ch; v in
@@ -483,6 +513,8 @@ let run_spec progpath spath =
     (drive_steps := 0;
      try drive [body]
      with MemoBail -> init (); spec body)   (* fall back to the non-memo specializer *)
+  else if !online && m3_on then
+    (m3_init (); drive2 body)               (* item-3 M3: single-pass global-memo driver *)
   else spec body;
   let outv = sget j in
   let body' =

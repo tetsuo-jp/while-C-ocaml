@@ -3,8 +3,10 @@
 Design spec for the one open Jones-optimality gap (`docs/FUTAMURA.md` "item 3";
 `docs/RELATED-WORK.md` §item-3). This is a **multi-session build**, written down so
 the architecture, milestones, and tests are fixed in advance (test-first).
-**M1a + M2 are now implemented** (gated `COGEN_MEMO` in `Cogen.ml`; see Milestones
-below); **M3 (universal/nested) is the open redesign**.
+**M1a + M2 are implemented** (gated `COGEN_MEMO` in `Cogen.ml`); **M3 (universal/
+nested) is in progress** as the single-pass global-memo driver behind a separate
+gate `COGEN_M3` — its foundation (gate + memo structures + correctness-tested entry
+point) is done; see Milestones below.
 
 ## Goal
 
@@ -122,15 +124,36 @@ place to introduce the Agda model of the memo loop.
   `test-item3-m1.sh`). The memoizing driver folds the subject's loop and keeps the
   interpreter code pointer static inside it: `usi`×`rev` → `#while=1` (rev's own
   loop), `#eq=0` (interpreter dispatch unrolled), correct, 87 KB → 28 KB.
-- **M3 — the book's `universal` + nested control — OPEN; needs the single-pass
+- **M3 — the book's `universal` + nested control — IN PROGRESS; the single-pass
   global-memo redesign** (NOT a patch on M2). The M2 trial-based prototype is proven
   not to extend (`docs/ITEM3-M3-FINDINGS.md`): non-loop-correctness and loop-folding
-  cannot both own the continuation in the trial architecture. Redesign: drive ONCE
-  with a global `seen : config ⇀ name`, fold on any recurrence, reconstruct
-  structured WHILE (single back-edge → `while`; irreducible → pc-dispatch), real
-  store merge for non-loop ifs, HEm-whistle generalization. *Witness:*
-  `universal`×swap `#while == 0`; `int_if`/`int_nest` correct under memo.
-- **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template).
+  cannot both own the continuation in the trial architecture. Drive ONCE with a
+  global `seen : config ⇀ name`, fold on any recurrence, reconstruct structured WHILE.
+  Built behind a separate gate `COGEN_M3` so the proven default + M2 (`COGEN_MEMO`)
+  paths stay byte-identical. Decomposed into green sub-milestones:
+  - **M3a — correct global-memo driver — IN PROGRESS.** *Foundation DONE* (this
+    step): the `COGEN_M3` gate, the global-memo structures (`m3_seen : cfg ⇀ name`,
+    name counter), and the entry point `drive2` are in place; `drive2` delegates to
+    the proven `spec` so the M3 path is **correct on every subject** — including
+    `int_if`/`int_nest`, where the M2 trial prototype was wrong/blew up — verified by
+    `examples/desugar/test-item3-m3.sh` (vs the `rundata` oracle). *Next:* replace the
+    delegation with the global-memo drive — every driving point looked up in
+    `m3_seen`, a hit is a back-edge to that block (any ancestor or sibling); residual
+    accumulated as labelled blocks. Output via **strategy (a) pc-dispatch** first
+    (always correct, finite). *Witness:* `int_if`/`int_nest`/`universal` correct under
+    `COGEN_M3` (already green via delegation; must stay green when the driver lands).
+  - **M3b — structured folding → loop-free.** Reconstruct the subject's own `while`
+    when the recurring config set is a single back-edge whose `pp` is a subject loop
+    head (interpreter code pointer static inside ⇒ dispatch unrolls, `#eq=0`); real
+    store merge for non-loop ifs; fall back to pc-dispatch (a) when structure can't be
+    recovered. *Witness:* `usi`×`rev` `#while=1, #eq=0` under `COGEN_M3` (match M2),
+    and `universal`×swap **`#while=0`** (the optimality goal M2 cannot reach).
+  - **M3c — HEm-whistle generalization** for configuration finiteness (the item-2
+    whistle, which only has teeth at the configuration level — see §"Termination /
+    widening" above), replacing the crude `COGEN_MEMO_BUDGET`.
+- **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template). The
+  G1 stack is now complete for the structured `spec` (`SpecAssembly{,If,While}`);
+  M4 lifts it to the memoized configuration loop (`MemoFold.run-inv` is the engine).
 
 ## Risks / fallbacks
 
