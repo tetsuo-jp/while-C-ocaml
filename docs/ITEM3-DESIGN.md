@@ -131,17 +131,28 @@ place to introduce the Agda model of the memo loop.
   global `seen : config ⇀ name`, fold on any recurrence, reconstruct structured WHILE.
   Built behind a separate gate `COGEN_M3` so the proven default + M2 (`COGEN_MEMO`)
   paths stay byte-identical. Decomposed into green sub-milestones:
-  - **M3a — correct global-memo driver — IN PROGRESS.** *Foundation DONE* (this
-    step): the `COGEN_M3` gate, the global-memo structures (`m3_seen : cfg ⇀ name`,
-    name counter), and the entry point `drive2` are in place; `drive2` delegates to
-    the proven `spec` so the M3 path is **correct on every subject** — including
-    `int_if`/`int_nest`, where the M2 trial prototype was wrong/blew up — verified by
-    `examples/desugar/test-item3-m3.sh` (vs the `rundata` oracle). *Next:* replace the
-    delegation with the global-memo drive — every driving point looked up in
-    `m3_seen`, a hit is a back-edge to that block (any ancestor or sibling); residual
-    accumulated as labelled blocks. Output via **strategy (a) pc-dispatch** first
-    (always correct, finite). *Witness:* `int_if`/`int_nest`/`universal` correct under
-    `COGEN_M3` (already green via delegation; must stay green when the driver lands).
+  - **M3a — correct global-memo driver — DONE.** The single-pass worklist driver
+    (`drive2` + `m3_specialize`/`m3_run_block`, gated `COGEN_M3`) is LIVE: a
+    configuration `(pp, σ_s)` is looked up in the global `m3_seen` at every driving
+    point, a hit is a back-edge to that block (any ancestor **or** sibling), the
+    residual is accumulated as labelled blocks and reconstructed via **strategy (a)
+    pc-dispatch** (`PC := entry; while PC do {if PC=?n then {block; set-PC} else …}`,
+    PC a program-scanned unused slot). It is **correct** on `int_min`/`int_if`/
+    `int_nest` — verified vs the `rundata` oracle by `examples/desugar/test-item3-m3.sh`
+    — *including `int_if`/`int_nest`, where the M2 trial prototype produced wrong
+    output / blew up* (the global memo merges reconverging branches automatically,
+    dissolving the manual-merge bug, M3-FINDINGS #1/#75). A **safety net** (`M3Bail`
+    → `spec`) means correctness is never lost: subjects whose configuration set does
+    not yet converge fall back to the proven `spec`. Strategy (a) reintroduces one
+    dispatch loop (`#while=1`, `#eq≥1`) **by design** — it is correctness-first, not
+    size-optimal (on a single-D-if subject like `int_if`, plain `spec`'s
+    `residualize_if` is already smaller/loop-free; M3's payoff is the nested /
+    control-bearing subjects, delivered by M3b).
+    - **Known limitation (→ M3c):** `usi×rev` does **not** converge under the driver
+      — its output accumulator's static spine grows every iteration, so the
+      spine-preserving config never recurs; it hits `COGEN_M3_BUDGET` and falls back
+      to `spec`. Folding control-bearing loops needs the homeomorphic-embedding
+      whistle (M3c) so the growing config is **generalized** to a recurring one.
   - **M3b — structured folding → loop-free.** Reconstruct the subject's own `while`
     when the recurring config set is a single back-edge whose `pp` is a subject loop
     head (interpreter code pointer static inside ⇒ dispatch unrolls, `#eq=0`); real

@@ -480,22 +480,210 @@ and drive_dyn_if g c1 c2 rest =
  * driven under the SAME global memo so shared continuations are not re-driven.
  *
  * Built behind COGEN_M3 so the proven default and the M2 (COGEN_MEMO) paths stay
- * byte-identical.  FOUNDATION step (this commit): the gate, the global-memo
- * structures, and the entry point `drive2` are in place and correctness-tested
- * (examples/desugar/test-item3-m3.sh).  drive2 currently DELEGATES to the proven
- * `spec` -- so the M3 path is CORRECT on every subject (incl. int_if/int_nest where
- * the M2 trial prototype was wrong/blew up) but not yet loop-free.  The global-memo
- * FOLD (the loop-free reconstruction = M3b) lands in the next increment, developed
- * against the test harness this step installs. *)
+ * byte-identical.  M3a (this milestone): the worklist driver `drive2` + PC-dispatch
+ * reconstruction below are LIVE and correctness-tested (examples/desugar/test-item3-m3.sh).
+ * It is CORRECT on int_min/int_if/int_nest -- including int_if/int_nest, where the M2
+ * trial prototype was wrong/blew up -- via the global memo + PC-dispatch (strategy a).
+ * Subjects whose configuration set does not yet converge (usi*rev: the accumulator's
+ * static spine grows every iteration with no whistle) hit the block budget and FALL
+ * BACK to the proven `spec` (M3Bail), so correctness is never lost.  Still to come:
+ * loop-free structured folding (M3b) and the homeomorphic-embedding whistle that lets
+ * control-bearing loops converge (M3c). *)
 let m3_on = (try Sys.getenv "COGEN_M3" <> "" with Not_found -> false)
 let m3_seen : (cfg, int) Hashtbl.t = Hashtbl.create 64   (* config -> block name *)
 let m3_name = ref 0
 let m3_fresh () = incr m3_name; !m3_name
 let m3_init () = Hashtbl.reset m3_seen; m3_name := 0
 
-(* M3 entry point.  FOUNDATION: correctness-first delegation to `spec`; the
- * global-memo structured fold (loop-free reconstruction) is the next increment. *)
-let drive2 (body : valT) : unit = ignore m3_fresh; ignore m3_seen; spec body
+(* ===== item-3 M3a: the single-pass GLOBAL-memo worklist driver =====
+ * Standard online recursive polyvariant specialization (Glück 2012 / JGS ch.4):
+ * a CONFIGURATION is (program-point, static-store projection); a GLOBAL memo
+ * `m3_seen : cfg -> name` is consulted at every driving point, so a re-reached
+ * configuration is a back-edge to THAT block (any ancestor OR sibling) -- unlike
+ * the M2 ancestor-stack/exception scheme (which folds only to the immediate
+ * ancestor and crashes on non-immediate back-edges, docs/ITEM3-M3-FINDINGS.md).
+ *
+ * The residual is accumulated as labelled BLOCKS (a flowchart) and reconstructed
+ * to a single core-WHILE command via strategy (a): a PC-dispatch loop
+ *   PC := <entry>;  while PC do { if PC =? n1 then {body1; set-PC1} else ... }
+ * (ITEM3-DESIGN.md).  This is ALWAYS correct and finite (it reintroduces one
+ * dispatch loop -- loop-free structured folding is M3b, out of scope here).
+ *
+ * SAFETY NET: any unhandled situation raises `M3Bail`; run_spec catches it and
+ * falls back to the proven `spec`, so correctness is NEVER lost. *)
+exception M3Bail
+
+type m3_transfer =
+  | THalt
+  | TGoto of int
+  | TIf of valT * int * int        (* residual guard expr, then-name, else-name *)
+type m3_block = { bname : int; mutable bstmts : valT list; mutable bxfer : m3_transfer }
+
+(* block table + pending worklist (name, store-snapshot, continuation) *)
+let m3_blocks : (int, m3_block) Hashtbl.t = Hashtbl.create 64
+let m3_pending : (int * (int, av) Hashtbl.t * valT list) Queue.t = Queue.create ()
+(* config-set finiteness backstop: a configuration that keeps growing (no whistle
+ * yet -- that is M3c) would spawn unbounded blocks; cap and fall back to spec. *)
+let m3_block_budget =
+  try int_of_string (Sys.getenv "COGEN_M3_BUDGET") with _ -> 500
+(* per-block straight-line drive guard (a static interpreter loop that spins at
+ * spec time within ONE block); fall back to spec when exceeded. *)
+let m3_step_budget =
+  try int_of_string (Sys.getenv "COGEN_M3_STEPS") with _ -> 200000
+
+(* PC variable index: a guaranteed-unused slot.  run_spec scans the program for the
+ * largest var index actually used and sets this to (max+1), so it cannot collide
+ * with any program variable.  Kept small (block names are nil^n; a small PC index
+ * keeps the dispatch numerals compact). *)
+let m3_pc = ref 100000
+let rec max_var_e e = match e with
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'var", VCons (k, VNil) -> depth k
+       | "'quote", _ -> 0
+       | "'hd", VCons (e1, VNil) | "'tl", VCons (e1, VNil) -> max_var_e e1
+       | "'cons", VCons (e1, VCons (e2, VNil))
+       | "'eq", VCons (e1, VCons (e2, VNil)) -> max (max_var_e e1) (max_var_e e2)
+       | _ -> 0)
+  | _ -> 0
+let rec max_var_c c = match c with
+  | VCons (VAtom (Atom op), args) ->
+      (match op, args with
+       | "'asgn", VCons (tgt, VCons (e, VNil)) -> max (max_var_e tgt) (max_var_e e)
+       | "'semi", VCons (c1, VCons (c2, VNil)) -> max (max_var_c c1) (max_var_c c2)
+       | "'while", VCons (g, VCons (b, VNil)) -> max (max_var_e g) (max_var_c b)
+       | "'if", VCons (g, VCons (c1, VCons (c2, VNil))) ->
+           max (max_var_e g) (max (max_var_c c1) (max_var_c c2))
+       | _ -> 0)
+  | _ -> 0
+
+(* the static projection of a store SNAPSHOT, computed by temporarily installing
+ * it into the global `store` (save/restore around `config ()`). *)
+let proj_snapshot (snap : (int, av) Hashtbl.t) : (int * valT) list =
+  let saved = Hashtbl.copy store in
+  Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;
+  let p = config () in
+  Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) saved;
+  p
+
+(* specialize a configuration (snapshot, k): return its block name, enqueueing if
+ * it is new.  The memo key is (static projection of snapshot, k). *)
+let m3_specialize (snap : (int, av) Hashtbl.t) (k : valT list) : int =
+  let key = (proj_snapshot snap, k) in
+  match Hashtbl.find_opt m3_seen key with
+  | Some n -> n
+  | None ->
+      let n = m3_fresh () in
+      if n > m3_block_budget then raise M3Bail;   (* config set not converging *)
+      Hashtbl.replace m3_seen key n;
+      Queue.add (n, Hashtbl.copy snap, k) m3_pending;
+      n
+
+(* numeral VALUE used to tag block name n (>=1) and as PC content; halt = VNil.
+ * We reuse mkvar n = ('var . nil^n) purely as a distinct data value. *)
+let m3_pcval n = mkvar n
+(* PC =? <numeral n> as a residual guard expression *)
+let m3_pc_is n = l3 (a "'eq") (mkvar !m3_pc) (l2 (a "'quote") (m3_pcval n))
+(* set-PC command for a transfer *)
+let m3_setpc = function
+  | THalt -> l3 (a "'asgn") (mkvar !m3_pc) (l2 (a "'quote") VNil)
+  | TGoto n -> l3 (a "'asgn") (mkvar !m3_pc) (l2 (a "'quote") (m3_pcval n))
+  | TIf (g, nt, ne) ->
+      VCons (a "'if", l3 g
+               (l3 (a "'asgn") (mkvar !m3_pc) (l2 (a "'quote") (m3_pcval nt)))
+               (l3 (a "'asgn") (mkvar !m3_pc) (l2 (a "'quote") (m3_pcval ne))))
+
+(* drive one block: restore its snapshot, run straight-line + STATIC control
+ * inline (mirroring the M2 `drive` asgn/semi/static-if/static-while cases),
+ * appending residual to `rc`, until a DYNAMIC-control point or []. *)
+let m3_run_block name (snap : (int, av) Hashtbl.t) (k0 : valT list) : unit =
+  Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;
+  rc := [];
+  dyn_live := [];
+  let steps = ref 0 in
+  let rec go k =
+    incr steps; if !steps > m3_step_budget then raise M3Bail;
+    match k with
+    | [] -> THalt
+    | c :: rest ->
+      (match c with
+       | VCons (VAtom (Atom "'asgn"), VCons (tgt, VCons (e, VNil))) ->
+           let kk = depth (hd (tl tgt)) in
+           let v = spec_exp e in
+           if av_static v && not (List.mem kk !dyn_live) then Hashtbl.replace store kk v
+           else emit_asgn kk v;
+           go rest
+       | VCons (VAtom (Atom "'semi"), VCons (c1, VCons (c2, VNil))) ->
+           go (c1 :: c2 :: rest)
+       | VCons (VAtom (Atom "'if"), VCons (g, VCons (c1, VCons (c2, VNil)))) ->
+           (match spec_exp g with
+            | Sv v -> go ((if v <> VNil then c1 else c2) :: rest)
+            | Cv _ -> go (c1 :: rest)
+            | Dv _ ->
+                (* dynamic if: dynamicize the escaping (non-static assigned) vars in
+                 * the CURRENT store so both successors can later coincide, then
+                 * specialize each successor under the SAME global memo. *)
+                let esc = uni (List.filter (fun x -> not (bstatic (bget x))) (assigned_vars c1))
+                              (List.filter (fun x -> not (bstatic (bget x))) (assigned_vars c2)) in
+                List.iter (fun x -> Hashtbl.replace store x (Dv (mkvar x))) esc;
+                let gv = lift (spec_exp g) in
+                let snap2 = Hashtbl.copy store in
+                let nt = m3_specialize snap2 (c1 :: rest) in
+                let ne = m3_specialize snap2 (c2 :: rest) in
+                TIf (gv, nt, ne))
+       | VCons (VAtom (Atom "'while"), VCons (g, VCons (b, VNil))) ->
+           (match spec_exp g with
+            | Sv VNil -> go rest
+            | Sv _ | Cv _ -> go (b :: c :: rest)             (* unfold one iteration *)
+            | Dv _ ->
+                (* dynamic while = if g then (b; while g b; rest) else rest *)
+                let esc = List.filter (fun x -> not (bstatic (bget x))) (assigned_vars b) in
+                List.iter (fun x -> Hashtbl.replace store x (Dv (mkvar x))) esc;
+                let gv = lift (spec_exp g) in
+                let snap2 = Hashtbl.copy store in
+                let nt = m3_specialize snap2 (b :: c :: rest) in
+                let ne = m3_specialize snap2 rest in
+                TIf (gv, nt, ne))
+       | _ -> raise M3Bail)
+  in
+  let xfer = go k0 in
+  (* if this block halts and the output var is still static, materialize it so the
+   * residual writes it (mirrors run_spec's epilogue reconstruction). *)
+  (match xfer with
+   | THalt when !out_var >= 0 && (match sget !out_var with Dv _ -> false | _ -> true) ->
+       emit_asgn !out_var (sget !out_var)
+   | _ -> ());
+  Hashtbl.replace m3_blocks name { bname = name; bstmts = !rc; bxfer = xfer }
+
+(* M3a entry point: build the block graph by worklist to fixpoint, then emit a
+ * PC-dispatch loop into `rc`.  Raises M3Bail on any unhandled situation. *)
+let drive2 (body : valT) : unit =
+  Hashtbl.reset m3_blocks; Queue.clear m3_pending;
+  let init_snap = Hashtbl.copy store in
+  let entry = m3_specialize init_snap [body] in
+  while not (Queue.is_empty m3_pending) do
+    let (name, snap, k) = Queue.pop m3_pending in
+    m3_run_block name snap k
+  done;
+  (* reconstruct: PC := entry; while PC do <dispatch>.  Dispatch is a right-nested
+   * if-chain over the block names, in ascending name order (deterministic). *)
+  let names = List.sort compare (Hashtbl.fold (fun n _ acc -> n :: acc) m3_blocks []) in
+  let dispatch =
+    List.fold_right
+      (fun n acc ->
+        let blk = Hashtbl.find m3_blocks n in
+        (* block body = bstmts (reversed accumulator) then set-PC, as a 'semi seq *)
+        let body_seq = makeseq (m3_setpc blk.bxfer :: blk.bstmts) in
+        VCons (a "'if", l3 (m3_pc_is n) body_seq acc))
+      names
+      (l3 (a "'asgn") (mkvar 1) (mkvar 1))   (* harmless else-skip: (var 1):=(var 1) *)
+  in
+  let pc_init = l3 (a "'asgn") (mkvar !m3_pc) (l2 (a "'quote") (m3_pcval entry)) in
+  let loop = VCons (a "'while", l2 (mkvar !m3_pc) dispatch) in
+  (* rc holds the residual reversed (makeseq folds it); [loop; pc_init] => pc_init;loop *)
+  rc := [loop; pc_init];
+  (* force run_spec to emit makeseq !rc verbatim: the blocks already wrote out_var *)
+  if !out_var >= 0 then Hashtbl.replace store !out_var (Dv (mkvar !out_var))
 
 let run_spec progpath spath =
   let prog = let ch = open_in progpath in let v = parseValT ch in close_in ch; v in
@@ -514,7 +702,10 @@ let run_spec progpath spath =
      try drive [body]
      with MemoBail -> init (); spec body)   (* fall back to the non-memo specializer *)
   else if !online && m3_on then
-    (m3_init (); drive2 body)               (* item-3 M3: single-pass global-memo driver *)
+    (m3_init ();
+     m3_pc := max_var_c body + 1;   (* guaranteed-unused PC slot (scanned the prog) *)
+     try drive2 body
+     with _ -> init (); spec body)          (* SAFETY NET: never lose correctness *)
   else spec body;
   let outv = sget j in
   let body' =
