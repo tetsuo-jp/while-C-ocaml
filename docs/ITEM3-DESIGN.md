@@ -13,24 +13,37 @@ under `COGEN_M3`: `#while=1, #eq=0`** (the subject's own loop, interpreter dispa
 unrolled) — Jones-optimal control matching M2's 28016B/1/0, but in the *correct*
 global-memo driver (M2 is wrong on int_if/int_nest). The one remaining subject is
 **`universal`**, which still does not *converge* under M3c (its store-walk over the
-object code stack `Cd` doesn't fold to a finite config set yet) → it bails to `spec`
-(correct, `#while=1`). Making `universal` converge (a stronger projection/whistle so
-the interpreter main loop recurs) is the last step to the `universal×swap #while=0`
-goal. See Milestones below.
+object code stack `Cd` doesn't fold). The cause is **not** a missing whistle: the
+book's `universal` uses `case Cd, St of`, which conjoins the *static* `Cd` test with
+a test on the *dynamic* value stack `St`, so the dispatch goes dynamic, `Cd`
+dynamicizes, and the main loop residualizes wholesale — the **store-index binding-time
+wall** (`docs/FUTAMURA.md`). `usi` (`case Cd of`) is the project's deliberate
+resolution of that wall. So `universal×swap #while=0` needs a **binding-time
+improvement** of the `St` dispatch ("The Trick" / arity-raising), *orthogonal* to the
+global-memo driver — see "Remaining" under Milestones. The driver-side Jones-optimality
+goal is **achieved for the wall-free formulation**: `usi×rev` is loop-free.
 
 ## Goal
 
 `[cogen --online](u, p)` should be **loop-free modulo the subject** for *every* `p`:
 the only residual control is `p`'s own `while`/`if`, with no surviving interpreter
-loop. Today this holds for straight-line `p` via `usi` + spine-preserving emit
-(`#while=0`), but a control-bearing `p` (e.g. `usi`×`rev`) and the book's
-`universal` (`case Cd,St of`) still residualize the interpreter's main / store-walk
-loop. Success metric (extend `test-jones.sh`/`test-bench.sh`):
+loop. For straight-line `p` this holds via `usi` + spine-preserving emit (`#while=0`).
+Success metric (extend `test-jones.sh`/`test-bench.sh`):
 
 ```
-usi × rev        #while == (rev's own #while)      (today: interpreter loop survives)
-universal × swap #while == 0                        (today: 1 interpreter loop)
+usi × rev        #while == (rev's own #while)   ACHIEVED (M3, COGEN_M3): #while=1, #eq=0
+universal × swap #while == 0                    OPEN: case Cd,St of binding-time wall,
+                                                needs binding-time improvement (not the
+                                                global-memo driver) -- usi is the fix
 ```
+
+**The control-bearing Jones-optimality goal is met for the wall-free interpreter
+(`usi`):** the M3 global-memo driver (`COGEN_M3`) folds `usi×rev` to the subject's
+own single loop, dispatch unrolled (`#while=1, #eq=0`), correct, while staying correct
+on `int_if`/`int_nest` (where the M2 prototype was wrong). The book's literal
+`universal` is a *separate* problem (the `St`-dispatch binding-time wall above), which
+`usi` was written to resolve — so the goal's spirit (no surviving interpreter loop for
+a control-bearing subject) is realized.
 
 **Progress meter:** `examples/desugar/measure-item3.sh` records the baseline and
 trips when it changes. Measured baseline (2026-06-21): `universal` × {id, swap, sl4}
@@ -199,13 +212,22 @@ place to introduce the Agda model of the memo loop.
     8 blocks (was diverging past 60), correct vs the oracle on every input, no `spec`
     fallback — and the multi-block M3b reconstruction (above) folds it to **loop-free
     `#while=1, #eq=0`**.
-  - **Remaining: `universal` convergence.** The book's `universal` (`case Cd,St of`)
-    still does **not** converge under M3c — it bails to `spec` (correct, `#while=1`).
-    Its store-walk over the object code stack `Cd` doesn't fold to a finite config set
-    with the current spine projection + whistle. Reaching the headline
-    `universal×swap #while=0` needs that to converge (a stronger `pp`/projection or a
-    whistle that fires on the `Cd` walk), after which the multi-block M3b above folds
-    it. This is the last open item-3 step.
+  - **Remaining (separate line): the book's `universal` and the `case Cd,St of`
+    binding-time wall.** `universal×swap` still bails to `spec` (correct, `#while=1`).
+    The cause is **not** a missing whistle/projection: `universal`'s `case Cd, St of`
+    conjoins the *static* code-stack test (`Cd`) with a test on the *dynamic* value
+    stack (`St`), so the dispatch becomes dynamic, `Cd` is dynamicized, and the
+    interpreter's main loop residualizes wholesale (the store-index **binding-time
+    wall**, `docs/FUTAMURA.md`; ~210 KB). No configuration projection over the store
+    recovers a finite, recurring config set while the dispatch tests dynamic `St`.
+    `usi` (`case Cd of` — guard on `Cd` alone, `St` read via hd/tl inside arms) is the
+    project's *deliberate reformulation* that removes the wall, and the M3 driver makes
+    `usi`×control-bearing loop-free (above). So reaching `universal×swap #while=0`
+    requires a **binding-time improvement** of the `St` dispatch ("The Trick" / bounded
+    static variation / arity-raising the value stack), which is **orthogonal to the
+    global-memo driver** — a distinct research line, not a continuation of M3a/b/c.
+    *(This mirrors the rwhile store-index BT-wall finding;
+    `rwhile-C-ocaml/analysis_store_bti_classical_ref.md`.)*
 - **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template). The
   G1 stack is now complete for the structured `spec` (`SpecAssembly{,If,While}`);
   M4 lifts it to the memoized configuration loop (`MemoFold.run-inv` is the engine).
