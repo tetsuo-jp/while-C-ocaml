@@ -255,8 +255,9 @@ place to introduce the Agda model of the memo loop.
   The M3 driver is now machine-checked (`--safe`), not only differential-tested, via
   three modules added on top of the G1 stack + `MemoFold`:
   - **(1) reconstruction (general/nested):** `MemoReconstructGen.Recon.loop-sound` — the
-    header flowchart loop ≡ the emitted `sH; while g {body; sH}; sX` for a **partial**
-    body (`S → Maybe S`), so nested loops compose; `branch-sound`/`seq-sound` cover the
+    header flowchart loop ≡ the emitted `sH; while g {body; sH}; exit` for a **partial
+    body AND partial exit** (`S → Maybe S`), so loops nest in bodies AND compose with
+    arbitrary (incl. looping) continuations; `branch-sound`/`seq-sound` cover the
     if/forward-edge rules. (Generalises the single-loop `MemoReconstruct` kernel.)
   - **(2) whistle termination:** `WhistleTerminates` — a generalization strictly
     increases the dynamic-slot count (`gen-strict`), bounded by the slot count
