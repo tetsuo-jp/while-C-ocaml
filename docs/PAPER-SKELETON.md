@@ -66,8 +66,12 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   no semantic change — per-config soundness is the G1 stack, fold/reconstruct are
   `MemoFold`/`MemoReconstructGen`). So `[cogen(p,s)](d)=[p]((s,d))` for the full language
   AND the memoized driver's reconstruction/termination/transparency are all `--safe`.
-- **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer
-  (`src/core/Cogen.ml --online`) that decides static/dynamic from each construct's
+- **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer for
+  Jones C&C WHILE that reaches **Jones-optimal control** — a loop-free self-interpreter
+  residual (straight-line subjects, ~30× speedup) and, for a *control-bearing* subject,
+  the subject's own loop with **zero** interpreter dispatch — via a single-pass
+  **global-configuration-memo supercompiler driver**. It decides static/dynamic from each
+  construct's
   actual annotated value, not the monovariant BTA — so a statically-known loop the
   BTA collapses to dynamic still unrolls. Two enabling techniques: (i)
   **online-termination control** — a binding-time *widening* (sound + terminating,
@@ -112,6 +116,23 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   implementations cross-validate both the obstacle and the technique. Both
   enabling techniques are machine-checked (`BTAWiden`, `SpinePreservingEmit`);
   the proven-vs-tested map is `docs/AGDA_CORRESPONDENCE.md`.
+- **C6 (machine-checked specializer, end-to-end).** Unlike typical partial evaluators
+  (validated by testing), this value-driven online specializer + global-memo driver is
+  **machine-checked end-to-end** in `--safe` Agda, not only differential-tested:
+  (a) the **whole-spec congruence** `[cogen(p,s)](d) = [p]((s,d))` for the *full* WHILE
+  language — `skip`/`asgn`/`semi`/`if`/`while` — built bottom-up (`AVExprSound` →
+  `SpecExprStore` → `SpecCmdStore` → `SpecAssembly{,If,While}`); (b) the **global-memo
+  supercompiler driver**'s reconstruction (`MemoFold`, `MemoReconstruct{,Gen}`),
+  generalization **termination** (`WhistleTerminates`), and **memo transparency**
+  (`MemoDriverSound`); (c) the enabling techniques (widening, spine-preserving emit).
+  The contribution is the *verified realization*, not the (classical) concepts: to our
+  knowledge this is the first Jones-optimal value-driven online specializer for a real
+  self-interpreter whose correctness, optimality enablers, and supercompiler driver are
+  all machine-checked. Honest scope: these are faithful `--safe` design specs of the
+  algorithm (the OCaml `Cogen.ml` is the executable artifact, cross-checked against an
+  oracle); the proven-vs-tested boundary is recorded in `docs/AGDA_CORRESPONDENCE.md`.
+  (18 `--safe` modules; one explicit hypothesis — the loop-generalisation fixpoint —
+  is discharged on a concrete loop, `SpecAssemblyWhile.example-while-sound`.)
 
 ## What is classical vs novel (be explicit)
 - **Classical**: Futamura (1971); the running self-applicable mix and cogen
@@ -120,8 +141,13 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
 - **Novel**: the reversible information lower bound for PE (C1) and its
   machine-checked form; the head-to-head optimizing-vs-trivial-vs-reversible
   cost study (C3) grounded in two sibling implementations; the verified-design
-  methodology (C4). The reversible Futamura projections are themselves recent
-  (Yokoyama lab, IEICE), not classical.
+  methodology (C4); and the **end-to-end machine-checked realization (C6)** — the
+  *verification* of a Jones-optimal value-driven online specializer and its global-memo
+  supercompiler driver (whole-spec congruence for the full language + driver
+  soundness/termination/transparency, `--safe`). The classical concepts (C5) are not
+  claimed novel; their machine-checked, executable realization for Jones C&C WHILE is.
+  The reversible Futamura projections are themselves recent (Yokoyama lab, IEICE), not
+  classical.
 - **Classical in spirit, our realization (C5)**: value-driven/online
   polyvariant specialization and Jones-optimality are classical (JGS 1993;
   Glück 2012 *recursive polyvariant specialization* for online self-applicable
@@ -149,7 +175,9 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
    evidence.
 6. Evidence: standard vs reversible (rwhile) — the cost signature, allocation,
    and **measured garbage vs the lower bound** (see PAPER §(b) below).
-7. Machine-checked design specs (C4) and the verified-PE methodology.
+7. Machine-checked design specs (C4) and the **end-to-end verified specializer** (C6):
+   the verified-PE methodology — whole-spec congruence for the full language + the
+   global-memo driver's soundness/termination/transparency, `--safe`.
 8. Related work (full result→component map in `docs/RELATED-WORK.md`: Futamura;
    JGS 1993; Glück 2012 recursive polyvariant specialization; Mogensen 1988
    partially-static structures; Leuschel homeomorphic embedding; Makholm /
