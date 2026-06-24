@@ -214,7 +214,7 @@ module WhileCase (gexpr : Expr) (σloop : ℕ → AV)
   pguard : PS → Bool
   pguard p = istrue (eval gexpr (proj₁ p))
 
-  open MemoFold.Loop PS pguard
+  open MemoFold.Loop PS pguard public
 
   pstep : PS → PS
   pstep (ss , rs) = (bodyS ss , bodyR rs)

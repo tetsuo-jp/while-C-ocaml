@@ -185,7 +185,7 @@ Each case is discharged by the command-level lemmas: assignment by
 invariant — a folded slot is fully static, so `IsStatic`⇒`SlotDepK`), sequencing by
 threading the induction hypothesis. This is `[cogen(p,s)](d) = [p]((s,d))` proven for
 the loop-free, conditional-free fragment; the `'if` case is `SpecAssemblyIf` and
-`'while` remains.
+the `'while` case is `SpecAssemblyWhile` — together the full language.
 
 ### `SpecAssemblyIf.agda` — whole-spec congruence, the `'if` case
 
@@ -196,9 +196,24 @@ Both branches then reach the SAME merged store `dynList esc σ` — `frame` +
 `dynList-cong` show the branch stores agree off `esc`, so the per-branch
 `dynList esc σb` equals `dynList esc σ` pointwise (`consistent-cong`). Then
 `if-guard-agree` (guards dispatch identically) + `cond-cong` (matching branch) give
-`spec-if-sound`: the conditional preserves store consistency. So
-`[cogen(p,s)](d)=[p]((s,d))` is machine-checked for the if-and-straight-line fragment;
-only `'while` (loop generalisation σloop + `WhileCase`) remains for full G1.
+`spec-if-sound`: the conditional preserves store consistency.
+
+### `SpecAssemblyWhile.agda` — whole-spec congruence, the `'while` case (closes G1)
+
+Assembles the loop — the last command form. A dynamic `while g c` is specialised
+against a fixed loop av-store σloop, the generalisation of the loop-carried set.
+Two parts: `spec-while-entry` (loop ENTRY — generalising the assigned set,
+`dynList (assigned c)`, makes the entry stores consistent with σloop; a corollary of
+`dynlist-sound`), and `spec-while-sound` (the LOOP — given σloop is a **fixpoint** of
+the body specialiser, `proj₂ (spec c σloop) ≡ σloop`, the body congruence `spec-sound`
+rewritten along that fixpoint by `consistent-cong` says the body maps consistent
+(source, residual) stores to consistent ones, so `WhileCase.while-store-cong`
+= `MemoFold.run-inv` propagates consistency through the whole fuel-bounded loop).
+The fixpoint hypothesis is the loop-store well-formedness Cogen.ml's
+iterate-to-fixpoint establishes (so the residual `while` folds). This is the assembly
+step that ties the body congruence to the loop kernel; with `SpecAssembly` and
+`SpecAssemblyIf`, `[cogen(p,s)](d)=[p]((s,d))` is now machine-checked for the **whole
+language** — `skip`/`asgn`/`semi`/`if`/`while` — closing G1.
 
 ### `RevSpecGarbage.agda` — Theorem A: reversible-PE information lower bound
 

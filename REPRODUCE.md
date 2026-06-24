@@ -3,7 +3,7 @@
 One command (mirrors `rwhile-C-ocaml/REPRODUCE.md`):
 
 ```sh
-./reproduce.sh         # fast: build, Jones-optimality table, Agda --safe (13 modules)
+./reproduce.sh         # fast: build, Jones-optimality table, Agda --safe (14 modules)
 ./reproduce.sh full    # also the full end-to-end suite (run-all.sh, ~3 min)
 ```
 
@@ -32,7 +32,7 @@ each is in `docs/AGDA_CORRESPONDENCE.md`.
 | **C2** fp2/fp3 (compiler / cogen), self-application | `SLOW=1 sh examples/desugar/run-all.sh` (≈40 min, `test-fp2.sh`) | byte-verified residuals |
 | **C2** generating extension (offline, hand vs auto) | `sh examples/desugar/test-genext.sh`, `test-cogen.sh` | small offline compiler; cogen matches |
 | **C1** Theorem A (reversible-PE information bound) | `agda --safe proofs/agda/RevSpecGarbage.agda` | type-checks; measured side in `rwhile-C-ocaml` |
-| **C4/C5** machine-checked design + enablers | `sh proofs/agda/check.sh` | 13 `--safe` modules `ok` (incl. `SpecAssembly`, `SpecAssemblyIf` + the bottom-up G1 stack) |
+| **C4/C5** machine-checked design + enablers | `sh proofs/agda/check.sh` | 14 `--safe` modules `ok` (incl. `SpecAssembly`/`SpecAssemblyIf`/`SpecAssemblyWhile` — the assembled G1 + the bottom-up stack) |
 | oracle cross-check (⌜p⌝ interpreter) | `sh examples/desugar/test-oracle.sh` | `rundata` agrees with `while`/EvalWhile both encodings |
 
 The single entry point for everything is `examples/desugar/run-all.sh` (also run by CI);
