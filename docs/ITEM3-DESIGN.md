@@ -233,6 +233,24 @@ place to introduce the Agda model of the memo loop.
     global-memo driver** — a distinct research line, not a continuation of M3a/b/c.
     *(This mirrors the rwhile store-index BT-wall finding;
     `rwhile-C-ocaml/analysis_store_bti_classical_ref.md`.)*
+
+    **Finding (2026-06-25): the case-guard BTI alone is necessary but NOT sufficient.**
+    A first binding-time improvement was tried and reverted (negative result): a
+    *dispatch-splitting* `transCaseBTI` desugaring that matches the first scrutinee
+    (`Cd`) exactly but the secondary scrutinees (`St`) **irrefutably** — skipping the
+    `consp St` shape tests (sound under the stack invariant), keeping only refutable
+    literal tests (the genuine `'dowh`/`'doif` control). This **is** semantics-
+    preserving (BTI'd `universal` ≡ `universal` on the corpus, verified via `rundata`)
+    and shrinks the desugared interpreter, but `universal`-BTI × `rev` **still diverges**
+    under the driver — 60+ configs / 3 distinct continuations, exactly like `universal`,
+    vs `usi`'s 8 (converges). So fixing the case-GUARD binding-times does not by itself
+    crack the wall: `usi`'s convergence is **also structural** — beyond `case Cd of`, it
+    threads the value stack `St` so the store projection stabilizes (St stays dynamic
+    rather than gaining a growing partially-static spine). The remaining gap to
+    `universal×swap #while=0` is therefore this St/store-threading reformulation (which
+    `usi` embodies), on top of the guard BTI — confirming that `usi` is the *whole*
+    resolution, not just its `case Cd of` guard. The experiment is in git history
+    (reverted); reconstruct from this note if pursuing the St-threading step.
 - **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template). The
   G1 stack is now complete for the structured `spec` (`SpecAssembly{,If,While}`);
   M4 lifts it to the memoized configuration loop (`MemoFold.run-inv` is the engine).
