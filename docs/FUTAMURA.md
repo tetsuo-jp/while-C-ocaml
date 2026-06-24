@@ -549,25 +549,31 @@ empty): under a residualized dynamic `if`/`while` a variable's runtime spine can
 vary per iteration, so there the slot still collapses to `Dv`. With this,
 `[cogen --online](usi, swap)` is **loop-free** (`#while = 0`, no interpretation
 overhead loop) and **30× faster** than interpreting through `usi` — Jones-optimal
-*control* for a self-interpreter on straight-line subjects. `universal` still
-residualizes its main loop (its `case Cd, St of` dynamicizes `Cd`); making it
-loop-free remains item 3 (program-point memoization). The design for that step is
-Glück's **recursive polyvariant specialization** (*A self-applicable online partial
-evaluator for recursive flowchart languages*, SP&E 2012) — online × self-applicable
-× flowchart, exactly our setting — memoizing `(Cd-position, static-store)`
-configurations and folding cycles into the subject's own loops (supercompilation
-folding, Sørensen–Glück–Jones 1996); see [`RELATED-WORK.md`](RELATED-WORK.md) §item-3.
+*control* for a self-interpreter on straight-line subjects. A **control-bearing**
+subject is reached by the program-point-memoization driver (item 3, below); `universal`
+is the one remaining subject, but that is a binding-time wall (its `case Cd, St of`
+dynamicizes `Cd`), not a driver gap — see item 3. The driver follows Glück's
+**recursive polyvariant specialization** (*A self-applicable online partial evaluator
+for recursive flowchart languages*, SP&E 2012) — online × self-applicable × flowchart,
+exactly our setting — memoizing `(Cd-position, static-store)` configurations and folding
+cycles into the subject's own loops (supercompilation folding, Sørensen–Glück–Jones
+1996); see [`RELATED-WORK.md`](RELATED-WORK.md) §item-3.
 
-**Item 3 — M2 done (`COGEN_MEMO`, `test-item3-m1.sh`).** A configuration-memoizing
-driver in `Cogen.ml` (gated behind `COGEN_MEMO`; explicit continuation, `while`
-unfolded into it, back-edge detection on `(σ_s, k)`) folds a *single subject loop*
-and keeps the interpreter's code pointer static inside it. Result: a **control-bearing**
-subject is now Jones-optimal in control — `[cogen --online](usi, rev)` is
-`while X do { <compiled body> }`, i.e. rev's *own* loop with **zero** interpreter
-dispatch (`#while=1`, `#eq=0`), correct, 87 KB → 28 KB. The book's `universal` and
-nested control remain open and need the *single-pass global-memo* redesign (the M2
-trial-based prototype is proven not to extend — `docs/ITEM3-M3-FINDINGS.md`,
-`docs/ITEM3-DESIGN.md` M3). Default (memo off) behaviour is unchanged.
+**Item 3 — DONE (M3a/b/c, `COGEN_M3`, `test-item3-m3.sh`), machine-checked (M4).** A
+single-pass **global-configuration-memo** driver in `Cogen.ml` (gated behind
+`COGEN_M3`) specializes each configuration once, folds a re-reached config to its block,
+reconstructs a reducible loop to structured WHILE, and keeps the config set finite with
+a homeomorphic-embedding whistle. Result: a control-bearing subject is Jones-optimal in
+control — `[cogen --online](usi, rev)` is `while X do { <compiled body> }`, i.e. rev's
+*own* loop with **zero** interpreter dispatch (`#while=1`, `#eq=0`), correct. It is
+correct on the non-loop/nested subjects where the earlier ancestor-stack prototype
+(`COGEN_MEMO`, superseded) was wrong, and its reconstruction/termination/transparency
+are machine-checked (M4: `MemoReconstruct{,Gen}`, `WhistleTerminates`, `MemoDriverSound`).
+The book's literal `universal` does **not** converge under the driver — its `case Cd,
+St of` makes the dispatch test the dynamic value stack, so the configuration set diverges
+(measured) — the store-index **binding-time wall**; it is resolved by the `case Cd of`
+reformulation `usi` (a binding-time improvement orthogonal to the driver), not by more
+driving (`docs/ITEM3-DESIGN.md`). Default (memo off) behaviour is unchanged.
 
 *Cross-repo: the same wall, independently.* The reversible sibling
 `rwhile-C-ocaml` hits the identical obstacle under self-application — its

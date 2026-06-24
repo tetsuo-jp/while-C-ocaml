@@ -62,11 +62,15 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (18 modules)
   `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual decisions;
   whole-spec correctness for the full language is also differential-tested
   (`run-all.sh`). (cf. rwhile's `RWhileAVSound`/`RWhileAVSpec`.)
-- **G2 — quasi-termination (whole specializer total).** `BTAWiden` gives BTA
-  termination; the online unroll budget + generalization (`test-terminate`) is only
-  differential. Modeling the generalization fallback would make "total" proven.
-  The principled, citable route is a homeomorphic-embedding whistle (Leuschel 2002;
-  TbHEm for the C-domain) — see `docs/RELATED-WORK.md` §C5(i).
+- **G2 — quasi-termination (whole specializer total).** Largely closed. `BTAWiden`
+  gives BTA termination; the global-memo driver's **configuration**-set finiteness is
+  the M3c homeomorphic-embedding whistle (Leuschel 2002), whose generalization
+  termination is now **machine-checked** (`WhistleTerminates`: monotone-bounded — each
+  slot dynamicised at most once). Note the wqo route (Higman/Kruskal) is *inapplicable*
+  here — the embedding tests equality over unbounded static values, not a wqo — so the
+  monotone-bounded argument is the right one (see `docs/RELATED-WORK.md` §C5(i)).
+  *Remaining differential:* the straight-line `--online` unroll budget + generalization
+  fallback (`test-terminate`); modeling that would make "total" fully proven.
 - **G3 — generating extension (`--gen`) correctness.** Differential only.
 
 ## Relation to `rwhile-C-ocaml`
