@@ -655,6 +655,58 @@ let m3_run_block name (snap : (int, av) Hashtbl.t) (k0 : valT list) : unit =
    | _ -> ());
   Hashtbl.replace m3_blocks name { bname = name; bstmts = !rc; bxfer = xfer }
 
+(* ===== item-3 M3b: structured folding -> loop-free (no PC, no dispatch) =====
+ * When the block graph is the CANONICAL SINGLE REDUCIBLE NATURAL LOOP, reconstruct
+ * the subject's own `while` directly (ITEM3-DESIGN.md strategy (b)) instead of the
+ * pc-dispatch loop (strategy (a)).  Any other shape (nested/irreducible/multi-loop,
+ * or anything not matched exactly) returns false -> drive2 keeps the pc-dispatch
+ * fallback, so correctness is NEVER lost.
+ *
+ * The verified shape (int_loop, a single dynamic-while interpreter) is THREE blocks:
+ *   E (entry): Estmts ; TIf(g, B, X)             -- pre-loop test
+ *   B (body) : Bstmts ; TIf(g, B, X)             -- body + re-test (self back-edge)
+ *   X (exit) : Xstmts ; THalt
+ * with E, B, X distinct, B's continue-target = B (self-loop) and exit-target = X,
+ * E's continue-target = B and exit-target = X, and the SAME residual guard g in
+ * both heads.  Faithful reconstruction (E's test guards loop entry; B re-tests at
+ * the end of each iteration, so the flowchart is exactly):
+ *   Estmts ; while g do { Bstmts } ; Xstmts
+ * (here the head test carries no extra statements of its own beyond Estmts/Bstmts,
+ * so the general template `entryStmts; headStmts; while g {bodyStmts; headStmts};
+ * exitStmts` collapses to this).  Emitted as ONE programs-as-data 'semi tree set as
+ * `rc := [full]` (makeseq of a singleton is that term verbatim). *)
+
+(* fold a FORWARD list of residual commands [s1;...;sn] into the 'semi tree
+ * s1;(s2;(...;sn)); empty -> the no-op (var 1):=(var 1) (matching makeseq []). *)
+let seq_fwd (cmds : valT list) : valT =
+  match List.rev cmds with
+  | [] -> let v1 = mkvar 1 in l3 (a "'asgn") v1 v1
+  | rev -> makeseq rev
+
+let m3_reconstruct_structured (entry : int) : bool =
+  let nblocks = Hashtbl.length m3_blocks in
+  if nblocks <> 3 then false
+  else
+    match Hashtbl.find_opt m3_blocks entry with
+    | Some { bxfer = TIf (g, b, x); bstmts = e_stmts; _ }
+      when b <> entry && x <> entry && b <> x ->
+      (match Hashtbl.find_opt m3_blocks b, Hashtbl.find_opt m3_blocks x with
+       | Some { bxfer = TIf (g2, b2, x2); bstmts = body_stmts; _ },
+         Some { bxfer = THalt; bstmts = exit_stmts; _ }
+         when b2 = b && x2 = x && g2 = g ->
+           (* canonical single loop matched -- emit structured WHILE, NO pc var *)
+           let entry_seq = List.rev e_stmts in              (* exec order *)
+           let body_seq  = seq_fwd (List.rev body_stmts) in
+           let exit_seq  = List.rev exit_stmts in
+           let whileC = VCons (a "'while", l2 g body_seq) in
+           let full = seq_fwd (entry_seq @ [whileC] @ exit_seq) in
+           rc := [full];
+           if !out_var >= 0 then
+             Hashtbl.replace store !out_var (Dv (mkvar !out_var));
+           true
+       | _ -> false)
+    | _ -> false
+
 (* M3a entry point: build the block graph by worklist to fixpoint, then emit a
  * PC-dispatch loop into `rc`.  Raises M3Bail on any unhandled situation. *)
 let drive2 (body : valT) : unit =
@@ -665,6 +717,22 @@ let drive2 (body : valT) : unit =
     let (name, snap, k) = Queue.pop m3_pending in
     m3_run_block name snap k
   done;
+  (if (try Sys.getenv "COGEN_M3_DUMP" <> "" with Not_found -> false) then begin
+     Printf.eprintf "== M3 block graph (entry=%d) ==\n" entry;
+     let ns = List.sort compare (Hashtbl.fold (fun n _ acc -> n :: acc) m3_blocks []) in
+     List.iter (fun n ->
+       let b = Hashtbl.find m3_blocks n in
+       let xs = match b.bxfer with
+         | THalt -> "THalt"
+         | TGoto m -> Printf.sprintf "TGoto %d" m
+         | TIf (_, t, e) -> Printf.sprintf "TIf(_,%d,%d)" t e in
+       Printf.eprintf "  block %d: bstmts=%d xfer=%s\n" n (List.length b.bstmts) xs;
+       List.iteri (fun i s -> Printf.eprintf "      stmt[%d]=%s\n" i (showValT s)) (List.rev b.bstmts);
+       (match b.bxfer with TIf(g,_,_) -> Printf.eprintf "      guard=%s\n" (showValT g) | _ -> ())) ns
+   end);
+  (* M3b: try loop-free structured reconstruction first; fall back to pc-dispatch *)
+  let nostruct = (try Sys.getenv "COGEN_M3_NOSTRUCT" <> "" with Not_found -> false) in
+  if (not nostruct) && m3_reconstruct_structured entry then () else begin
   (* reconstruct: PC := entry; while PC do <dispatch>.  Dispatch is a right-nested
    * if-chain over the block names, in ascending name order (deterministic). *)
   let names = List.sort compare (Hashtbl.fold (fun n _ acc -> n :: acc) m3_blocks []) in
@@ -684,6 +752,7 @@ let drive2 (body : valT) : unit =
   rc := [loop; pc_init];
   (* force run_spec to emit makeseq !rc verbatim: the blocks already wrote out_var *)
   if !out_var >= 0 then Hashtbl.replace store !out_var (Dv (mkvar !out_var))
+  end
 
 let run_spec progpath spath =
   let prog = let ch = open_in progpath in let v = parseValT ch in close_in ch; v in

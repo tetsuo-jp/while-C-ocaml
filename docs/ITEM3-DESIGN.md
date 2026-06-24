@@ -153,12 +153,23 @@ place to introduce the Agda model of the memo loop.
       spine-preserving config never recurs; it hits `COGEN_M3_BUDGET` and falls back
       to `spec`. Folding control-bearing loops needs the homeomorphic-embedding
       whistle (M3c) so the growing config is **generalized** to a recurring one.
-  - **M3b — structured folding → loop-free.** Reconstruct the subject's own `while`
-    when the recurring config set is a single back-edge whose `pp` is a subject loop
-    head (interpreter code pointer static inside ⇒ dispatch unrolls, `#eq=0`); real
-    store merge for non-loop ifs; fall back to pc-dispatch (a) when structure can't be
-    recovered. *Witness:* `usi`×`rev` `#while=1, #eq=0` under `COGEN_M3` (match M2),
-    and `universal`×swap **`#while=0`** (the optimality goal M2 cannot reach).
+  - **M3b — structured folding → loop-free — DONE (single-loop shape).**
+    `m3_reconstruct_structured` (in `Cogen.ml`, called by `drive2` before the
+    pc-dispatch fallback) recognizes the **canonical single reducible natural loop**
+    — exactly three blocks `E: Estmts;TIf(g,B,X)`, `B: Bstmts;TIf(g,B,X)` (self
+    back-edge), `X: Xstmts;THalt` with the same residual guard `g` — and reconstructs
+    the subject's own `while` directly: `Estmts ; while g { Bstmts } ; Xstmts`, with
+    **no PC variable and no dispatch**. *Witness:* `int_loop` (a single dynamic-while
+    interpreter) under `COGEN_M3` is now **byte-identical to plain `spec`** (808 B,
+    `#while=1`, `#eq=0`) where M3a pc-dispatch was 2378 B / `#eq=1`; correctness
+    round-trips vs the oracle (`examples/desugar/test-item3-m3.sh`, M3b section).
+    Any other shape (≠3 blocks, nested like `int_nest`, irreducible, multi-loop, or
+    a guard/successor mismatch) returns `false` ⇒ pc-dispatch fallback (a),
+    correctness never lost. The diagnostic env `COGEN_M3_NOSTRUCT=1` forces the
+    pc-dispatch path (for size comparison); `COGEN_M3_DUMP=1` prints the block graph.
+    *Still to come:* real store merge for non-loop ifs and the
+    nested/multi-loop/control-bearing reconstructions (`usi`×`rev`, `universal`×swap)
+    — those need the M3c whistle for the config set to converge first.
   - **M3c — HEm-whistle generalization** for configuration finiteness (the item-2
     whistle, which only has teeth at the configuration level — see §"Termination /
     widening" above), replacing the crude `COGEN_MEMO_BUDGET`.

@@ -32,7 +32,7 @@ write Y
 EOF
 $DW --data-if examples/desugar/usi.while > "$tmp/usi.data"
 $DW --data    "$tmp/rev.while"           > "$tmp/rev.data"
-for p in int_min int_if int_nest; do $DW --data-if "examples/desugar/$p.while" > "$tmp/$p.data"; done
+for p in int_min int_if int_nest int_loop; do $DW --data-if "examples/desugar/$p.while" > "$tmp/$p.data"; done
 
 oracle () { printf "(%s . %s)" "$2" "$3" > "$tmp/o.val"; src/core/rundata "$tmp/$1.data" "$tmp/o.val"; }
 
@@ -67,5 +67,23 @@ URW=$(grep -c "'while" "$tmp/usirev.comp" || true)
 URE=$(grep -c "'eq"    "$tmp/usirev.comp" || true)
 echo "M3  usi*rev (COGEN_M3):  #while=$URW #eq=$URE   (baseline; M3b goal: #while=1=subject loop, #eq=0)"
 
-if [ $fail -eq 0 ]; then echo "item3-m3: PASS (foundation: COGEN_M3 path correct on int_if/int_nest/usi*rev; structured folding pending M3b)"
+# M3b: int_loop is a single dynamic-while interpreter -> structured folding must
+# reconstruct the subject's own `while` (loop-free, NO pc-dispatch var).
+echo "-- M3b int_loop (single-loop -> structured, no PC) --"
+for d in "nil" "('a . 'b)" "('x . ('y . 'z))" "('1 . ('2 . ('3 . nil)))"; do
+  chk_m3 int_loop "'k" "$d"
+done
+printf "'k" > "$tmp/ilk"
+COGEN_M3=1 src/core/cogen --online "$tmp/int_loop.data" "$tmp/ilk" > "$tmp/il.m3b" 2>/dev/null
+ILW=$(grep -c "'while" "$tmp/il.m3b" || true)
+ILE=$(grep -c "'eq" "$tmp/il.m3b" || true)
+# PC slot = max_var(int_loop)+1; int_loop uses vars up to ~5 so PC numeral nests deep.
+# Structured form must contain exactly the subject's ONE while and NO dispatch (#eq=0).
+if [ "$ILW" = "1" ] && [ "$ILE" = "0" ]; then
+  echo "ok   m3b int_loop structured: #while=1 #eq=0 (loop-free, no pc-dispatch)"
+else
+  echo "FAIL m3b int_loop NOT structured: #while=$ILW #eq=$ILE (expected 1/0)"; fail=1
+fi
+
+if [ $fail -eq 0 ]; then echo "item3-m3: PASS (COGEN_M3 correct on int_if/int_nest/usi*rev; M3b: int_loop single-loop folded to structured while, loop-free)"
 else echo "item3-m3: FAIL"; exit 1; fi
