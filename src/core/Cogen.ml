@@ -519,9 +519,45 @@ type m3_transfer =
   | TIf of valT * int * int        (* residual guard expr, then-name, else-name *)
 type m3_block = { bname : int; mutable bstmts : valT list; mutable bxfer : m3_transfer }
 
-(* block table + pending worklist (name, store-snapshot, continuation) *)
+(* ===== item-3 M3c: homeomorphic-embedding (HEm) WHISTLE on projections =====
+ * `emb a b` = projection term `a` homeomorphically embeds into `b`, treating 'D as
+ * the embedding-variable (bottom).  Used as the configuration-finiteness guard
+ * (Leuschel 2002, docs/RELATED-WORK.md C5(i)): when a new config embeds an ancestor
+ * at the SAME program point (continuation), the static slot is GROWING without bound
+ * (e.g. the subject accumulator's cons-spine in usi*rev) so we GENERALIZE it to
+ * dynamic, making the config recur and FOLD instead of allocating forever.
+ *
+ * Projection grammar: ('S . (v . nil)) | 'D | ('C . (p1 . (p2 . nil))). *)
+let proj_is_C = function
+  | VCons (VAtom (Atom "'C"), VCons (_, VCons (_, VNil))) -> true | _ -> false
+let proj_C_parts = function
+  | VCons (VAtom (Atom "'C"), VCons (p1, VCons (p2, VNil))) -> (p1, p2)
+  | _ -> failwith "proj_C_parts"
+let proj_is_D = function VAtom (Atom "'D") -> true | _ -> false
+let rec emb a b =
+  if proj_is_D a then true                              (* 'D embeds into anything *)
+  else if proj_is_C b then                              (* dive into / couple with 'C *)
+    let (b1, b2) = proj_C_parts b in
+    (match a with
+     | VCons (VAtom (Atom "'C"), VCons (a1, VCons (a2, VNil))) ->
+         (emb a1 b1 && emb a2 b2)                        (* coupling *)
+         || emb a b1 || emb a b2                         (* diving *)
+     | _ -> emb a b1 || emb a b2)                        (* 'S diving into 'C *)
+  else a = b                                             (* 'S=='S (same value), else false *)
+(* self-checks (cheap; run once at module load) *)
+let () =
+  let pS v = l2 (a "'S") v and pD = a "'D" in
+  let pC x y = l3 (a "'C") x y in
+  assert (emb (pC pD (pS VNil)) (pC pD (pC pD (pS VNil))));   (* grows => embeds *)
+  assert (emb pD (pC pD (pS VNil)));                          (* 'D embeds everything *)
+  assert (not (emb (pS (a "'a")) (pS (a "'b"))));             (* S a != S b *)
+  assert (emb (pS (a "'a")) (pS (a "'a")));                   (* S a == S a *)
+  assert (emb (pS VNil) (pC pD (pS VNil)));                   (* S dives into C *)
+  assert (not (emb (pC (pS (a "'x")) pD) (pS VNil)))          (* C cannot embed into S *)
+
+(* block table + pending worklist (name, store-snapshot, continuation, ancestors) *)
 let m3_blocks : (int, m3_block) Hashtbl.t = Hashtbl.create 64
-let m3_pending : (int * (int, av) Hashtbl.t * valT list) Queue.t = Queue.create ()
+let m3_pending : (int * (int, av) Hashtbl.t * valT list * cfg list) Queue.t = Queue.create ()
 (* config-set finiteness backstop: a configuration that keeps growing (no whistle
  * yet -- that is M3c) would spawn unbounded blocks; cap and fall back to spec. *)
 let m3_block_budget =
@@ -566,17 +602,69 @@ let proj_snapshot (snap : (int, av) Hashtbl.t) : (int * valT) list =
   Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) saved;
   p
 
+let m3_cfgtrace = (try Sys.getenv "COGEN_M3_CFGTRACE" <> "" with Not_found -> false)
+
+(* does config A store-embed config C?  Same continuation AND every variable's
+ * projection in A homeomorphically embeds C's (componentwise / Higman).  A is an
+ * ancestor on C's path; if so, C is "growing" relative to A -> whistle. *)
+let store_embeds (a_proj, a_k) (c_proj, c_k) =
+  c_k = a_k &&
+  (let amap = a_proj in
+   List.for_all (fun (var, cp) ->
+     match List.assoc_opt var amap with
+     | Some ap -> emb ap cp
+     | None -> false) c_proj)
+  && List.for_all (fun (var, _) -> List.mem_assoc var c_proj) a_proj
+
 (* specialize a configuration (snapshot, k): return its block name, enqueueing if
- * it is new.  The memo key is (static projection of snapshot, k). *)
-let m3_specialize (snap : (int, av) Hashtbl.t) (k : valT list) : int =
-  let key = (proj_snapshot snap, k) in
+ * it is new.  The memo key is (static projection of snapshot, k).  `ancestors` is
+ * the list of configurations on the current driving path (M3c whistle ancestry). *)
+let rec m3_specialize ?(ancestors=[]) (snap : (int, av) Hashtbl.t) (k : valT list) : int =
+  let cur_proj = proj_snapshot snap in
+  let key = (cur_proj, k) in
   match Hashtbl.find_opt m3_seen key with
   | Some n -> n
   | None ->
+      (* M3c WHISTLE: before allocating, see if some ancestor (same k) embeds this
+       * config -- i.e. a static slot is growing without bound.  If so, generalize
+       * the growing slots to dynamic so the config recurs and folds. *)
+      (match List.find_opt (fun a -> store_embeds a key) ancestors with
+       | Some (a_proj, _) when m3_on ->
+           (* slots where the projection differs -> dynamicize (generalize) *)
+           let grow = List.filter_map (fun (var, cp) ->
+             match List.assoc_opt var a_proj with
+             | Some ap when ap <> cp -> Some var
+             | _ -> None) cur_proj in
+           if grow = [] then m3_alloc ~ancestors snap k cur_proj   (* nothing to gen *)
+           else begin
+             (* generalized snapshot: dynamicize each growing slot *)
+             let gsnap = Hashtbl.copy snap in
+             List.iter (fun var -> Hashtbl.replace gsnap var (Dv (mkvar var))) grow;
+             (* the generalized config recurs (growing slots are now 'D, stable) *)
+             let gname = m3_specialize ~ancestors gsnap k in
+             (* Gfix block: materialize each growing slot's value into residual var
+              * (the proven dyn1/dynList step), then goto the generalized config. *)
+             let fixups = List.rev_map (fun var ->
+               l3 (a "'asgn") (mkvar var) (lift (Hashtbl.find snap var))) grow in
+             let fn = m3_fresh () in
+             if fn > m3_block_budget then raise M3Bail;
+             Hashtbl.replace m3_blocks fn { bname = fn; bstmts = fixups; bxfer = TGoto gname };
+             fn
+           end
+       | _ -> m3_alloc ~ancestors snap k cur_proj)
+
+and m3_alloc ~ancestors snap k cur_proj : int =
+      let key = (cur_proj, k) in
       let n = m3_fresh () in
       if n > m3_block_budget then raise M3Bail;   (* config set not converging *)
       Hashtbl.replace m3_seen key n;
-      Queue.add (n, Hashtbl.copy snap, k) m3_pending;
+      (if m3_cfgtrace then begin
+         let khash = Hashtbl.hash k and klen = List.length k in
+         Printf.eprintf "[cfg %d] khash=%d klen=%d\n" n khash klen;
+         List.iter (fun (var, p) ->
+           Printf.eprintf "    var %d -> %s\n" var (showValT p)) cur_proj
+       end);
+      Queue.add (n, Hashtbl.copy snap, k, key :: ancestors) m3_pending;
       n
 
 (* numeral VALUE used to tag block name n (>=1) and as PC content; halt = VNil.
@@ -596,7 +684,8 @@ let m3_setpc = function
 (* drive one block: restore its snapshot, run straight-line + STATIC control
  * inline (mirroring the M2 `drive` asgn/semi/static-if/static-while cases),
  * appending residual to `rc`, until a DYNAMIC-control point or []. *)
-let m3_run_block name (snap : (int, av) Hashtbl.t) (k0 : valT list) : unit =
+let m3_run_block name (snap : (int, av) Hashtbl.t) (k0 : valT list)
+                 (ancestors : cfg list) : unit =
   Hashtbl.reset store; Hashtbl.iter (Hashtbl.replace store) snap;
   rc := [];
   dyn_live := [];
@@ -628,8 +717,8 @@ let m3_run_block name (snap : (int, av) Hashtbl.t) (k0 : valT list) : unit =
                 List.iter (fun x -> Hashtbl.replace store x (Dv (mkvar x))) esc;
                 let gv = lift (spec_exp g) in
                 let snap2 = Hashtbl.copy store in
-                let nt = m3_specialize snap2 (c1 :: rest) in
-                let ne = m3_specialize snap2 (c2 :: rest) in
+                let nt = m3_specialize ~ancestors snap2 (c1 :: rest) in
+                let ne = m3_specialize ~ancestors snap2 (c2 :: rest) in
                 TIf (gv, nt, ne))
        | VCons (VAtom (Atom "'while"), VCons (g, VCons (b, VNil))) ->
            (match spec_exp g with
@@ -641,8 +730,8 @@ let m3_run_block name (snap : (int, av) Hashtbl.t) (k0 : valT list) : unit =
                 List.iter (fun x -> Hashtbl.replace store x (Dv (mkvar x))) esc;
                 let gv = lift (spec_exp g) in
                 let snap2 = Hashtbl.copy store in
-                let nt = m3_specialize snap2 (b :: c :: rest) in
-                let ne = m3_specialize snap2 rest in
+                let nt = m3_specialize ~ancestors snap2 (b :: c :: rest) in
+                let ne = m3_specialize ~ancestors snap2 rest in
                 TIf (gv, nt, ne))
        | _ -> raise M3Bail)
   in
@@ -712,10 +801,10 @@ let m3_reconstruct_structured (entry : int) : bool =
 let drive2 (body : valT) : unit =
   Hashtbl.reset m3_blocks; Queue.clear m3_pending;
   let init_snap = Hashtbl.copy store in
-  let entry = m3_specialize init_snap [body] in
+  let entry = m3_specialize ~ancestors:[] init_snap [body] in
   while not (Queue.is_empty m3_pending) do
-    let (name, snap, k) = Queue.pop m3_pending in
-    m3_run_block name snap k
+    let (name, snap, k, ancestors) = Queue.pop m3_pending in
+    m3_run_block name snap k ancestors
   done;
   (if (try Sys.getenv "COGEN_M3_DUMP" <> "" with Not_found -> false) then begin
      Printf.eprintf "== M3 block graph (entry=%d) ==\n" entry;

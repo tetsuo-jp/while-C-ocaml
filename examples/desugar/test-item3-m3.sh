@@ -65,7 +65,15 @@ chk_ur "nil" "nil"
 chk_ur "('a . nil)" "('a . nil)"
 URW=$(grep -c "'while" "$tmp/usirev.comp" || true)
 URE=$(grep -c "'eq"    "$tmp/usirev.comp" || true)
-echo "M3  usi*rev (COGEN_M3):  #while=$URW #eq=$URE   (baseline; M3b goal: #while=1=subject loop, #eq=0)"
+echo "M3  usi*rev (COGEN_M3):  #while=$URW #eq=$URE"
+# M3c: the HEm whistle must make usi*rev CONVERGE through the driver (not bail to
+# spec).  Detect by output differing from the plain --online (spec) residual.
+src/core/cogen --online "$tmp/usi.data" "$tmp/rev.data" > "$tmp/usirev.spec" 2>/dev/null
+if cmp -s "$tmp/usirev.comp" "$tmp/usirev.spec"; then
+  echo "FAIL m3c usi*rev BAILED to spec (whistle did not converge it)"; fail=1
+else
+  echo "ok   m3c usi*rev converges through the global-memo driver (whistle generalized the growing config)"
+fi
 
 # M3b: int_loop is a single dynamic-while interpreter -> structured folding must
 # reconstruct the subject's own `while` (loop-free, NO pc-dispatch var).
