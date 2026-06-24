@@ -6,8 +6,9 @@
 # (rundata --time).  The speedup = t_interp / t_comp.  This both documents the
 # quantitative optimality story and GUARDS it: the static-spine interpreters calc
 # (straight-line) and drain (looping) must stay Jones-optimal (no/one residual
-# while, zero dispatch, strictly faster).  universal is reported as the open case
-# (a residual store-walk loop survives -> ratio tracked, not asserted).
+# while, zero dispatch, strictly faster).  universal is reported as the binding-time
+# wall (case Cd,St of -> a residual store-walk loop survives, resolved by usi not the
+# memo driver -> ratio tracked, not asserted).
 set -e
 cd "$(dirname "$0")/../.."
 DW=src/desugar/DesugarWhile
@@ -70,8 +71,9 @@ row online drain "$tmp/drain.data" "('tl . nil)"          "('x . ('y . nil))"
 row online usi "$tmp/usi.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; USIB=$B; USIW=$W
 row online universal "$tmp/u.data" "$(cat "$tmp/swap.data")" "('a . 'b)"; UNIB=$B
 echo "   (usi: ALL interpreter loops unroll -> residual is LOOP-FREE (#while=$USIW) and"
-echo "    ~$((UNIB / USIB))x smaller than universal's; universal's main loop still"
-echo "    residualizes -- the open case for program-point memoization)"
+echo "    ~$((UNIB / USIB))x smaller than universal's; universal's main loop"
+echo "    residualizes -- the case Cd,St of binding-time wall, resolved by usi, not the"
+echo "    memo driver: a control-bearing subject (usi*rev) IS loop-free via COGEN_M3)"
 [ "$USIB" -lt "$((UNIB / 10))" ] || { echo "FAIL: usi residual not >10x smaller than universal ($USIB vs $UNIB)"; fail=1; }
 [ "$USIW" -eq 0 ] || { echo "FAIL: usi*swap residual not loop-free (#while=$USIW)"; fail=1; }
 

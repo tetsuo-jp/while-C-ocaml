@@ -195,7 +195,13 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
    informal); future work.
 9. Conclusion. Artifact appendix (repos, `test-*.sh`, Agda).
 
-## Key results table (fill with final numbers)
+## Key results table — self-application cost signature (C2/C3)
+
+Measured by the self-application suite (`examples/desugar/test-fp2.sh`, `SLOW=1`;
+fp3/`cogen` is the ~2 h optimizing run); reversible column from `rwhile-C-ocaml`
+(`FINDINGS §6`). Optimizing-`mix` and reversible sizes are the byte-verified
+self-application outputs.
+
 | projection | optimizing `mix` | trivial `mix_triv` | reversible `spec_av`(rwhile) |
 |---|---|---|---|
 | fp2 comp2 size | 22.6 MB | 5.5 KB (≈1×) | 812,515 nodes (≈1×) |
@@ -215,10 +221,14 @@ interpretation overhead loop.
 | `int_min` | offline (BTA) | 592 B | 0 | 0 | 1.6× | S-control unrolls |
 | `calc` | online | 582 B | 0 | 0 | 5.5× | static-spine, loop-free |
 | `drain` | online | 484 B | 1 | 0 | 4.1× | looping subj.; 1 outer loop, no dispatch |
-| `usi`×swap | online | ~10 KB | **0** | **0** | ~30× | **self-interpreter, loop-free (Jones-optimal control)** |
-| `usi`×rev | online+memo (`COGEN_M3`) | 69 KB | **1** | **0** | — | **control-bearing subject: residual = rev's OWN loop, interpreter dispatch unrolled inside it; via the correct global-memo driver (M3a/b/c), machine-checked (M4)** |
-| `usi`×rev (M2) | online+memo (`COGEN_MEMO`) | 28 KB | **1** | **0** | — | earlier ancestor-stack prototype (smaller, but wrong on non-loop/nested; superseded by `COGEN_M3`) |
-| `universal`×swap | online | ~211 KB | 1 | 1 | ~2× | book `case Cd,St of` binding-time wall: dispatch tests dynamic `St` ⇒ config diverges, bails to `spec`; resolved by the `case Cd of` reformulation `usi`, not the driver |
+| `usi`×swap | online | 9,987 B | **0** | **0** | 30.1× | **self-interpreter, loop-free (Jones-optimal control)** |
+| `usi`×rev | online+memo (`COGEN_M3`) | 68,943 B | **1** | **0** | — | **control-bearing subject: residual = rev's OWN loop, interpreter dispatch unrolled inside it; via the correct global-memo driver (M3a/b/c), machine-checked (M4)** |
+| `usi`×rev (M2) | online+memo (`COGEN_MEMO`) | 28,016 B | **1** | **0** | — | earlier ancestor-stack prototype (smaller, but wrong on non-loop/nested; superseded by `COGEN_M3`) |
+| `universal`×swap | online | 210,919 B | 1 | 1 | 2.1× | book `case Cd,St of` binding-time wall: dispatch tests dynamic `St` ⇒ config diverges, bails to `spec`; resolved by the `case Cd of` reformulation `usi`, not the driver |
+
+*Numbers reproduced 2026-06-25: `int_min`/`calc`/`drain`/`usi`/`universal` via
+`test-bench.sh`; `usi`×rev (`COGEN_M3`) via `test-item3-m3.sh`; the M2 row
+(`COGEN_MEMO`) via `test-item3-m1.sh`.*
 
 Headline: specializing the *static-spine self-interpreter* `usi` to a straight-line
 program yields a **loop-free** residual ~30× faster than interpretation — i.e. the
