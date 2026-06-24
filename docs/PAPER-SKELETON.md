@@ -54,6 +54,18 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   for `skip`/`asgn`/`semi`/`if`/`while` — straight-line by structural induction, `'if`
   by escaping-set merge, `'while` by tying the body congruence to the loop kernel
   `WhileCase`/`MemoFold.run-inv` through the loop-generalisation fixpoint), backing C5.
+  **The M3 global-memo driver itself is machine-checked (M4):** `MemoReconstruct` +
+  `MemoReconstructGen` (the structured reconstruction is semantics-preserving — the
+  emitted `sH; while g {body; sH}; exit` equals the header flowchart loop, for partial
+  bodies and exits, so nested loops compose), `WhistleTerminates` (the M3c whistle's
+  generalization terminates: a generalization strictly increases a dynamic-slot count
+  bounded by the slot count — the implementation's monotone-bounded argument, NOT a
+  full Higman/Kruskal wqo, which is inapplicable here since the embedding tests equality
+  over unbounded static values), and `MemoDriverSound` (memoization is transparent: a
+  consistent memo yields exactly the per-config specialization, so sharing configs adds
+  no semantic change — per-config soundness is the G1 stack, fold/reconstruct are
+  `MemoFold`/`MemoReconstructGen`). So `[cogen(p,s)](d)=[p]((s,d))` for the full language
+  AND the memoized driver's reconstruction/termination/transparency are all `--safe`.
 - **C5 (Jones-optimality, new).** A *value-driven polyvariant* online specializer
   (`src/core/Cogen.ml --online`) that decides static/dynamic from each construct's
   actual annotated value, not the monovariant BTA — so a statically-known loop the
@@ -70,15 +82,28 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   **loop-free** (no residual interpretation loop) and ~30× faster than interpreting
   through `usi` — **Jones-optimal control** for a self-interpreter
   (`test-usi.sh`, `test-bench.sh`). This directly addresses the "residuals not yet
-  Jones-optimal" limitation. **Extended (M2) to a *control-bearing* subject** by a
-  configuration-memoizing driver (`cogen --online --` `COGEN_MEMO`): it folds the
-  subject's loop into a residual `while` and keeps the interpreter's code pointer
-  static inside it, so `usi`×rev compiles to the subject's own loop with **zero**
-  interpreter dispatch (`#eq=0`), correct (`test-item3-m1.sh`). What remains (the
-  book's `case Cd,St of` universal; nested control) reduces to a single-pass
-  *global* configuration memo — a standard memoized supercompiler; the M2 trial-based
-  prototype is shown not to extend to it (`docs/ITEM3-M3-FINDINGS.md`), scoping the
-  next step precisely.
+  Jones-optimal" limitation. **Extended to a *control-bearing* subject** by a
+  single-pass **global-configuration-memo driver** (`cogen --online`, `COGEN_M3`):
+  it folds the subject's loop into a residual `while` and keeps the interpreter's code
+  pointer static inside it, so `usi`×rev compiles to the subject's own loop with
+  **zero** interpreter dispatch (`#while=1, #eq=0`), correct (`test-item3-m3.sh`). The
+  driver has three machine-checked-design parts: **M3a** a correct global memo
+  (a config is specialized once; a re-reached config folds to that block, fixing the
+  earlier ancestor-stack prototype that was wrong on non-loop/nested control,
+  `docs/ITEM3-M3-FINDINGS.md`); **M3b** structured reconstruction of a reducible loop
+  to the subject's own `while`; **M3c** a homeomorphic-embedding whistle that
+  generalizes a growing configuration so the config set stays finite. Its soundness and
+  termination are machine-checked (M4, below).
+  *The one remaining subject* is the book's literal `universal`: its `case Cd, St of`
+  conjoins the static code-stack test with a test on the **dynamic** value stack, so the
+  dispatch goes dynamic and the main loop residualizes wholesale — the store-index
+  **binding-time wall** (`docs/FUTAMURA.md`). This is **not** a driver gap (no store
+  projection recovers a finite config set while the dispatch tests dynamic `St`; the
+  config diverges, measured); it needs a **binding-time improvement** of the `St`
+  dispatch, orthogonal to the memo driver. The `case Cd of` self-interpreter `usi` is
+  precisely that reformulation, and a first guard-only BTI is shown necessary-but-
+  insufficient (`docs/ITEM3-DESIGN.md`), so `usi` (used above) is the project's
+  resolution of the wall.
   *Cross-repo validation:* the reversible sibling `rwhile-C-ocaml`
   (`analysis_store_bti.md`) independently hits the same store-index binding-time
   wall (125 residual store-walk loops in its self-applied `comp2`) and lists the
@@ -131,11 +156,14 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
    Danvy–López / Brown–Palsberg tag-elimination & Jones-optimality;
    Sørensen–Glück–Jones supercompilation); limitations (Jones-optimality reached for the value-driven
    online specializer on straight-line subjects via the static-spine self-
-   interpreter (C5), and on a *control-bearing* subject via configuration
-   memoization (M2: `usi`×rev loop-free-modulo-subject, `#eq=0`); the book's
-   `case Cd,St of` universal and nested control still residualize interpreter
-   overhead — reduces to a single-pass global-memo supercompiler (M3, future work,
-   precisely scoped in `docs/ITEM3-M3-FINDINGS.md`); trade-off "triangle" partly
+   interpreter (C5), and on a *control-bearing* subject via the single-pass
+   global-configuration-memo driver (M3: `usi`×rev loop-free-modulo-subject, `#eq=0`,
+   correct; the driver's soundness/termination machine-checked, M4); the book's
+   `case Cd,St of` universal still residualizes interpreter overhead, but this is a
+   **binding-time wall** (the dispatch tests the dynamic value stack), resolved by the
+   `case Cd of` reformulation `usi` (a binding-time improvement orthogonal to the
+   driver), not a driver gap — `docs/ITEM3-DESIGN.md` records the measured divergence
+   and a necessary-but-insufficient guard-only BTI; trade-off "triangle" partly
    informal); future work.
 9. Conclusion. Artifact appendix (repos, `test-*.sh`, Agda).
 
@@ -160,20 +188,26 @@ interpretation overhead loop.
 | `calc` | online | 582 B | 0 | 0 | 5.5× | static-spine, loop-free |
 | `drain` | online | 484 B | 1 | 0 | 4.1× | looping subj.; 1 outer loop, no dispatch |
 | `usi`×swap | online | ~10 KB | **0** | **0** | ~30× | **self-interpreter, loop-free (Jones-optimal control)** |
-| `usi`×rev (M2) | online+memo | 28 KB | **1** | **0** | — | **control-bearing subject: residual = rev's OWN loop, interpreter dispatch unrolled inside it** |
-| `universal`×swap | online | ~211 KB | 1 | 1 | ~2× | book `case Cd,St of`; main loop residualizes (global-memo open) |
+| `usi`×rev | online+memo (`COGEN_M3`) | 69 KB | **1** | **0** | — | **control-bearing subject: residual = rev's OWN loop, interpreter dispatch unrolled inside it; via the correct global-memo driver (M3a/b/c), machine-checked (M4)** |
+| `usi`×rev (M2) | online+memo (`COGEN_MEMO`) | 28 KB | **1** | **0** | — | earlier ancestor-stack prototype (smaller, but wrong on non-loop/nested; superseded by `COGEN_M3`) |
+| `universal`×swap | online | ~211 KB | 1 | 1 | ~2× | book `case Cd,St of` binding-time wall: dispatch tests dynamic `St` ⇒ config diverges, bails to `spec`; resolved by the `case Cd of` reformulation `usi`, not the driver |
 
 Headline: specializing the *static-spine self-interpreter* `usi` to a straight-line
 program yields a **loop-free** residual ~30× faster than interpretation — i.e. the
 first Futamura projection produces a genuinely *compiled* program with no residual
-interpreter overhead, the value-driven route to Jones-optimality.  **M2 extends this
-to a *control-bearing* subject**: a configuration-memoizing driver (`cogen --online`
-with `COGEN_MEMO`) folds the subject's loop and keeps the interpreter's code pointer
-static inside it, so `usi`×rev residualizes to `while X do { <compiled body> }` —
-the subject's own loop with **zero** interpreter dispatch (`#eq=0`), correct. The
-remaining open case (the book's `universal`, nested control) reduces to a single-pass
-*global* configuration memo (a standard memoized supercompiler); the M2 prototype's
-trial-based folding is proven not to extend to it (`docs/ITEM3-M3-FINDINGS.md`).
+interpreter overhead, the value-driven route to Jones-optimality.  This **extends to a
+*control-bearing* subject** via a single-pass **global-configuration-memo driver**
+(`cogen --online`, `COGEN_M3`): it folds the subject's loop and keeps the interpreter's
+code pointer static inside it, so `usi`×rev residualizes to `while X do { <compiled
+body> }` — the subject's own loop with **zero** interpreter dispatch (`#eq=0`), correct.
+The driver (M3a correct global memo, M3b structured loop reconstruction, M3c
+homeomorphic-embedding whistle) is correct on the non-loop/nested subjects where the
+earlier ancestor-stack prototype was wrong (`docs/ITEM3-M3-FINDINGS.md`), and its
+reconstruction/termination/transparency are machine-checked (M4). The one subject it
+does **not** crack is the book's literal `universal`: `case Cd, St of` makes the
+dispatch test the dynamic value stack, so the config set diverges and it bails to `spec`
+— the store-index **binding-time wall**, resolved by the `case Cd of` reformulation
+`usi` (a binding-time improvement orthogonal to the driver), not by more driving.
 
 ## §(b) Lower bound (Theorem A) vs measured garbage (rwhile §6)
 
