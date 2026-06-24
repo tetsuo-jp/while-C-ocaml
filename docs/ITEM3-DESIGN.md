@@ -5,13 +5,18 @@ Design spec for the one open Jones-optimality gap (`docs/FUTAMURA.md` "item 3";
 the architecture, milestones, and tests are fixed in advance (test-first).
 **M1a + M2 are implemented** (gated `COGEN_MEMO` in `Cogen.ml`); **M3 (universal/
 nested) is the single-pass global-memo driver** behind a separate gate `COGEN_M3`.
-**M3a (correct global-memo driver) + M3b (structured single-loop fold) + M3c (HEm-
-whistle generalization) are DONE** — the driver is correct on int_min/int_if/
-int_nest, folds a single loop to a loop-free `while` (int_loop), and converges
-control-bearing subjects (usi×rev, 8 blocks). The remaining step toward the
-`#while=0`/`#eq=0` Jones-optimality goal is the **multi-block M3b** reconstruction
-(fold usi×rev/universal's larger folded graph to the subject's own loop, not
-pc-dispatch). See Milestones below.
+**M3a (correct global-memo driver) + M3b (structured fold, incl. multi-block) + M3c
+(HEm-whistle generalization) are DONE** — the driver is correct on int_min/int_if/
+int_nest, folds single (int_loop) and multi-block reducible loops to loop-free
+`while`s, and converges control-bearing subjects. **`usi×rev` is now loop-free
+under `COGEN_M3`: `#while=1, #eq=0`** (the subject's own loop, interpreter dispatch
+unrolled) — Jones-optimal control matching M2's 28016B/1/0, but in the *correct*
+global-memo driver (M2 is wrong on int_if/int_nest). The one remaining subject is
+**`universal`**, which still does not *converge* under M3c (its store-walk over the
+object code stack `Cd` doesn't fold to a finite config set yet) → it bails to `spec`
+(correct, `#while=1`). Making `universal` converge (a stronger projection/whistle so
+the interpreter main loop recurs) is the last step to the `universal×swap #while=0`
+goal. See Milestones below.
 
 ## Goal
 
@@ -157,23 +162,27 @@ place to introduce the Agda model of the memo loop.
       spine grows every iteration, so without a whistle its config never recurs (it
       hit `COGEN_M3_BUDGET` → `spec`). The **M3c whistle** (below) now generalizes the
       growing slot, so `usi×rev` **converges** through the driver (8 blocks, correct).
-  - **M3b — structured folding → loop-free — DONE (single-loop shape).**
-    `m3_reconstruct_structured` (in `Cogen.ml`, called by `drive2` before the
-    pc-dispatch fallback) recognizes the **canonical single reducible natural loop**
-    — exactly three blocks `E: Estmts;TIf(g,B,X)`, `B: Bstmts;TIf(g,B,X)` (self
-    back-edge), `X: Xstmts;THalt` with the same residual guard `g` — and reconstructs
-    the subject's own `while` directly: `Estmts ; while g { Bstmts } ; Xstmts`, with
-    **no PC variable and no dispatch**. *Witness:* `int_loop` (a single dynamic-while
-    interpreter) under `COGEN_M3` is now **byte-identical to plain `spec`** (808 B,
-    `#while=1`, `#eq=0`) where M3a pc-dispatch was 2378 B / `#eq=1`; correctness
-    round-trips vs the oracle (`examples/desugar/test-item3-m3.sh`, M3b section).
-    Any other shape (≠3 blocks, nested like `int_nest`, irreducible, multi-loop, or
-    a guard/successor mismatch) returns `false` ⇒ pc-dispatch fallback (a),
-    correctness never lost. The diagnostic env `COGEN_M3_NOSTRUCT=1` forces the
-    pc-dispatch path (for size comparison); `COGEN_M3_DUMP=1` prints the block graph.
-    *Still to come:* real store merge for non-loop ifs and the
-    nested/multi-loop/control-bearing reconstructions (`usi`×`rev`, `universal`×swap)
-    — those need the M3c whistle for the config set to converge first.
+  - **M3b — structured folding → loop-free — DONE (single-loop + multi-block).**
+    Two reconstructors in `Cogen.ml`, tried by `drive2` before the pc-dispatch
+    fallback. (i) `m3_reconstruct_structured` — the fast path for the **canonical
+    3-block self-loop** (`E:TIf(g,B,X)`, `B:TIf(g,B,X)` self back-edge, `X:THalt`) →
+    `Estmts; while g {Bstmts}; Xstmts`. *Witness:* `int_loop` under `COGEN_M3` is
+    **byte-identical to plain `spec`** (808 B, `#while=1`, `#eq=0`) vs M3a pc-dispatch
+    2378 B/`#eq=1`. (ii) `m3_reconstruct_general` — a **general reducible-flowgraph →
+    structured-WHILE** reconstruction: iterative **dominators** → back-edges (`u→v`
+    with `v dom u`) → loop headers; a recursive region `emit` (forward `TGoto` inlines;
+    a back-edge stops; a `TIf` at a header emits `H.stmts; while g { emit(in-loop) ;
+    H.stmts }; emit(exit)`; a non-header `TIf` emits a residual `if`). Conservatively
+    **bails to pc-dispatch** (returns false) on irreducible graphs, headers with >1
+    back-edge, or any block with ≥2 forward in-edges (non-tree join). *Witness:*
+    `usi×rev` (a peeled-prologue + single natural loop, 8 blocks) folds to **loop-free
+    `#while=1, #eq=0`** (68943 B; control counts match M2's 28016B/1/0 — larger only
+    because the peeled prologue is inlined, not memo-shared) — Jones-optimal control
+    in the *correct* driver. Asserted in `examples/desugar/test-item3-m3.sh`.
+    Diagnostics: `COGEN_M3_NOSTRUCT=1` forces pc-dispatch; `COGEN_M3_DUMP=1` prints
+    the block graph. *Falls back to pc-dispatch:* `int_nest` (reconverging/join graph,
+    not a tree-prologue+single-loop) — correct via (a). *Out of reach until it
+    converges:* `universal` (see below).
   - **M3c — HEm-whistle generalization — DONE.** A homeomorphic-embedding whistle
     (`emb`/`store_embeds` in `Cogen.ml`, `'D` as the embedding-bottom: coupling +
     diving on the `'C` spine; self-checked) makes the configuration set finite. The
@@ -188,9 +197,15 @@ place to introduce the Agda model of the memo loop.
     (`'C ⋬ 'D`) — no regress; `COGEN_M3_BUDGET` remains the ultimate backstop.
     *Witness:* `usi×rev` now **converges** through the driver — config set finite at
     8 blocks (was diverging past 60), correct vs the oracle on every input, no `spec`
-    fallback. (It is pc-dispatch, not yet loop-free: the folded graph is larger than
-    M3b's 3-block shape; loop-free `usi×rev`/`universal` needs the **multi-block M3b**
-    reconstruction — the remaining item-3 step toward the `#while=0`/`#eq=0` goal.)
+    fallback — and the multi-block M3b reconstruction (above) folds it to **loop-free
+    `#while=1, #eq=0`**.
+  - **Remaining: `universal` convergence.** The book's `universal` (`case Cd,St of`)
+    still does **not** converge under M3c — it bails to `spec` (correct, `#while=1`).
+    Its store-walk over the object code stack `Cd` doesn't fold to a finite config set
+    with the current spine projection + whistle. Reaching the headline
+    `universal×swap #while=0` needs that to converge (a stronger `pp`/projection or a
+    whistle that fires on the `Cd` walk), after which the multi-block M3b above folds
+    it. This is the last open item-3 step.
 - **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template). The
   G1 stack is now complete for the structured `spec` (`SpecAssembly{,If,While}`);
   M4 lifts it to the memoized configuration loop (`MemoFold.run-inv` is the engine).

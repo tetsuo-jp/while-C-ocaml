@@ -796,6 +796,122 @@ let m3_reconstruct_structured (entry : int) : bool =
        | _ -> false)
     | _ -> false
 
+(* ===== item-3 M3b (multi-block): general reducible-flowgraph reconstruction =====
+ * Generalize the 3-block self-loop above to ANY reducible flowgraph whose loops are
+ * natural (single back-edge to a dominating header) and whose acyclic parts form a
+ * tree of forward edges (no joins).  This recovers the subject's own loops directly
+ * (no PC, no dispatch) for control-bearing subjects whose specialization converges to
+ * a peeled-prologue-into-natural-loop shape (e.g. usi*rev: an 8-block prologue feeding
+ * a single natural loop with header 6 and back-edge 9->6).
+ *
+ * Algorithm (ITEM3-DESIGN.md, multi-block M3b):
+ *   1. Dominators by iterative dataflow over m3_blocks from `entry`.
+ *      Edge u->v (v a successor of u via TGoto/TIf) is a BACK-EDGE iff v dom u.
+ *      A back-edge target is a LOOP HEADER.  Conservative reducibility checks:
+ *        - every back-edge target dominates its source (else IRREDUCIBLE -> bail);
+ *        - each header has exactly ONE back-edge (multi back-edge -> bail);
+ *        - no block has >=2 FORWARD in-edges (a join / multi-entry loop -> bail).
+ *   2. emit : name -> open-headers-stack -> forward residual-command list.
+ *      THalt           -> the block's stmts.
+ *      TGoto n         -> back-edge if n in stack (emit nothing); else inline emit n.
+ *      TIf(g,t,e), header H (TIf(g,C,X), C in-loop, X exit):
+ *          H.bstmts ; while g { emit(C, H::stack) ++ H.bstmts } ; emit(X, stack)
+ *      TIf(g,t,e), non-header:
+ *          if g then seq_fwd(emit t stack) else seq_fwd(emit e stack)
+ *   Returns false on anything it cannot confidently structure (-> pc-dispatch). *)
+let m3_reconstruct_general (entry : int) : bool =
+  let names = Hashtbl.fold (fun n _ acc -> n :: acc) m3_blocks [] in
+  let succs n = match (Hashtbl.find m3_blocks n).bxfer with
+    | THalt -> [] | TGoto m -> [m] | TIf (_, t, e) -> if t = e then [t] else [t; e] in
+  (* every successor must be a known block *)
+  let known m = Hashtbl.mem m3_blocks m in
+  if not (List.for_all (fun n -> List.for_all known (succs n)) names) then false
+  else begin
+    (* --- dominators: dom(entry)={entry}; dom(n)={n} U intersection over preds --- *)
+    let nset = List.sort compare names in
+    let module IS = Set.Make (Int) in
+    let all = List.fold_left (fun s n -> IS.add n s) IS.empty nset in
+    let dom : (int, IS.t) Hashtbl.t = Hashtbl.create 64 in
+    List.iter (fun n ->
+      Hashtbl.replace dom n (if n = entry then IS.singleton entry else all)) nset;
+    let preds n = List.filter (fun u -> List.mem n (succs u)) nset in
+    let changed = ref true in
+    while !changed do
+      changed := false;
+      List.iter (fun n ->
+        if n <> entry then begin
+          let ps = preds n in
+          let inter = match ps with
+            | [] -> IS.empty
+            | p0 :: rest ->
+                List.fold_left (fun acc p -> IS.inter acc (Hashtbl.find dom p))
+                  (Hashtbl.find dom p0) rest in
+          let nd = IS.add n inter in
+          if not (IS.equal nd (Hashtbl.find dom n)) then
+            (Hashtbl.replace dom n nd; changed := true)
+        end) nset
+    done;
+    let dominates a b = IS.mem a (Hashtbl.find dom b) in   (* a dom b *)
+    (* --- classify edges; collect back-edges and headers --- *)
+    let backedges = List.concat_map (fun u ->
+      List.filter_map (fun v -> if dominates v u then Some (u, v) else None) (succs u))
+      nset in
+    (* header -> list of back-edge sources *)
+    let hdr_srcs : (int, int list) Hashtbl.t = Hashtbl.create 16 in
+    List.iter (fun (u, v) ->
+      Hashtbl.replace hdr_srcs v (u :: (try Hashtbl.find hdr_srcs v with Not_found -> [])))
+      backedges;
+    let is_header n = Hashtbl.mem hdr_srcs n in
+    (* reducibility: each header has exactly one back-edge (target dominates source
+     * is guaranteed by construction of `backedges`) *)
+    let multi_be = Hashtbl.fold (fun _ ss acc -> acc || List.length ss > 1) hdr_srcs false in
+    (* forward edges = non-back-edges; no block may have >=2 forward in-edges (joins) *)
+    let fwd_indeg n =
+      List.length (List.filter (fun u -> List.mem n (succs u) && not (dominates n u)) nset) in
+    let has_join = List.exists (fun n -> fwd_indeg n >= 2) nset in
+    if multi_be || has_join then false
+    else begin
+      (* recursion-guard: emit must not re-expand a block outside loops twice.
+       * `emitting` tracks the forward call chain; the tree/no-join invariant above
+       * already guarantees this, but keep a hard cap as a backstop. *)
+      let steps = ref 0 in
+      let cap = 100000 in
+      let rec emit name stack : valT list =
+        incr steps; if !steps > cap then raise M3Bail;
+        let blk = Hashtbl.find m3_blocks name in
+        let stmts = List.rev blk.bstmts in            (* forward exec order *)
+        match blk.bxfer with
+        | THalt -> stmts
+        | TGoto n ->
+            if List.mem n stack then stmts            (* back-edge: stop here *)
+            else stmts @ emit n stack                 (* forward edge: inline *)
+        | TIf (g, t, e) ->
+            if is_header name then begin
+              (* in-loop successor C = the one from which the back-edge to `name`
+               * is reachable without leaving the loop; X = the other.  The unique
+               * back-edge source `src` is dominated by `name`; pick whichever of
+               * t/e dominates (or equals) `src`. *)
+              let src = List.hd (Hashtbl.find hdr_srcs name) in
+              let cont, exit_t =
+                if t = src || dominates t src then (t, e)
+                else if e = src || dominates e src then (e, t)
+                else raise M3Bail in
+              let body = emit cont (name :: stack) @ stmts in
+              let whileC = VCons (a "'while", l2 g (seq_fwd body)) in
+              stmts @ [whileC] @ emit exit_t stack
+            end else begin
+              let rt = seq_fwd (emit t stack) in
+              let et = seq_fwd (emit e stack) in
+              stmts @ [VCons (a "'if", l3 g rt et)]
+            end
+      in
+      let full = seq_fwd (emit entry []) in
+      rc := [full];
+      if !out_var >= 0 then Hashtbl.replace store !out_var (Dv (mkvar !out_var));
+      true
+    end
+  end
+
 (* M3a entry point: build the block graph by worklist to fixpoint, then emit a
  * PC-dispatch loop into `rc`.  Raises M3Bail on any unhandled situation. *)
 let drive2 (body : valT) : unit =
@@ -821,7 +937,9 @@ let drive2 (body : valT) : unit =
    end);
   (* M3b: try loop-free structured reconstruction first; fall back to pc-dispatch *)
   let nostruct = (try Sys.getenv "COGEN_M3_NOSTRUCT" <> "" with Not_found -> false) in
-  if (not nostruct) && m3_reconstruct_structured entry then () else begin
+  if (not nostruct)
+     && (m3_reconstruct_structured entry || m3_reconstruct_general entry)
+  then () else begin
   (* reconstruct: PC := entry; while PC do <dispatch>.  Dispatch is a right-nested
    * if-chain over the block names, in ascending name order (deterministic). *)
   let names = List.sort compare (Hashtbl.fold (fun n _ acc -> n :: acc) m3_blocks []) in

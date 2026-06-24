@@ -66,6 +66,14 @@ chk_ur "('a . nil)" "('a . nil)"
 URW=$(grep -c "'while" "$tmp/usirev.comp" || true)
 URE=$(grep -c "'eq"    "$tmp/usirev.comp" || true)
 echo "M3  usi*rev (COGEN_M3):  #while=$URW #eq=$URE"
+# multi-block M3b: the converged usi*rev graph (reducible single loop + peeled
+# prologue) must fold to the subject's OWN loop, loop-free: #while=1, #eq=0
+# (Jones-optimal control -- matches M2's 28016B/1/0 in the CORRECT global-memo driver).
+if [ "$URW" = "1" ] && [ "$URE" = "0" ]; then
+  echo "ok   m3b usi*rev loop-free: #while=1 #eq=0 (subject's own loop, dispatch unrolled)"
+else
+  echo "FAIL m3b usi*rev NOT loop-free: #while=$URW #eq=$URE (expected 1/0)"; fail=1
+fi
 # M3c: the HEm whistle must make usi*rev CONVERGE through the driver (not bail to
 # spec).  Detect by output differing from the plain --online (spec) residual.
 src/core/cogen --online "$tmp/usi.data" "$tmp/rev.data" > "$tmp/usirev.spec" 2>/dev/null
