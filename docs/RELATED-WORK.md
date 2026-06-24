@@ -5,7 +5,7 @@ of the project. It records, per existing result, **which component or open gap o
 this repo it connects to** — so the paper (`PAPER-SKELETON.md`) can cite a single
 place, and so the "classical vs novel" boundary stays explicit. Component/gap
 labels are from `docs/FUTAMURA.md`, `docs/PAPER-SKELETON.md` (contributions
-C1–C5), and `docs/AGDA_CORRESPONDENCE.md` (gaps G1–G3).
+C1–C6), and `docs/AGDA_CORRESPONDENCE.md` (gaps G1–G3).
 
 ## Foundations (already classical; we instantiate, not claim)
 
@@ -22,57 +22,79 @@ C1–C5), and `docs/AGDA_CORRESPONDENCE.md` (gaps G1–G3).
   definition of **Jones-optimality**. → BTA (`Bta.ml`), the offline `cogen`, and
   the open **item-3** (see below).
 
-## item-3 — program-point memoization (loop-free `universal` / control-bearing subjects)
+## item-3 — program-point memoization (control-bearing subjects) — DONE (M3a/b/c), machine-checked (M4)
 
-The headline open gap (`docs/FUTAMURA.md` "Item 2/3"): `cogen --online` makes the
-*static-spine* self-interpreter `usi` loop-free on straight-line subjects, but the
-book's `universal` and control-bearing subjects still residualize an interpreter
-loop. The fix is the classical polyvariant PP specialization, in its online form:
+`cogen --online` makes the *static-spine* self-interpreter `usi` loop-free on
+straight-line subjects; **item-3 extends this to a *control-bearing* subject** with a
+single-pass global-configuration-memo supercompiler driver (`Cogen.ml`, `COGEN_M3`),
+so `usi`×rev compiles to the subject's own loop with zero interpreter dispatch
+(`#while=1, #eq=0`). This is the classical polyvariant PP specialization in its online
+form, and is now **implemented and machine-checked** (the one subject it does not reach
+— the book's literal `universal` — is a binding-time wall, not a driver gap; see the
+Jones-optimality section):
 
 - **Glück 2012**, *A self-applicable online partial evaluator for recursive
   flowchart languages* (Software: Practice & Experience 42(6):649–673). **The
   closest existing work to our setting**: online × self-applicable × flowchart
-  (= WHILE). Shows that **recursive polyvariant specialization** lets an *online*
-  PE produce generating extensions as efficient as offline ones — directly
-  contradicting the assumption that online PE over-generalizes. → the design for
-  **item-3** (a global memo table over `(Cd-position, static-store projection)`,
-  each configuration residualized once) and a likely route to shrinking the large
-  fp2/fp3 residuals (`comp2` 22.6 MB, `cogen` 29.6 MB).
+  (= WHILE). **Recursive polyvariant specialization** lets an *online* PE produce
+  generating extensions as efficient as offline ones — directly contradicting the
+  assumption that online PE over-generalizes. → **realized in M3a**: the global memo
+  `m3_seen : (Cd-position, static-store projection) ⇀ name`, each configuration
+  specialized once, a re-reached config folding to its block. Its **memo transparency**
+  (sharing configs ≡ non-memoized per-config specialization) is machine-checked
+  (`MemoDriverSound.agda`).
 - **JGS 1993, ch. 4** — the offline antecedent of the same algorithm (memoized PP
-  specialization producing one residual block per reachable configuration).
+  specialization producing one residual block per reachable configuration). → the
+  worklist `drive2` and the pc-dispatch fallback emit (`ITEM3-DESIGN.md` strategy (a)).
 - **Sørensen, Glück, Jones 1996**, *A positive supercompiler* (JFP 6(6):811–838).
   Process-graph **folding**: a back-edge in the configuration graph becomes a loop
   in the residual. WHILE has no `goto`, so to emit a *loop-free-modulo-source*
-  residual the memo cycle must be re-expressed as the **subject's own** `while`/`if`
-  — this is the folding step item-3 needs for Jones-optimal *structured* output
-  (vs. a residual dispatch loop, which is not loop-free).
+  residual the memo cycle is re-expressed as the **subject's own** `while`/`if`. →
+  **realized in M3b** (`m3_reconstruct_general`: dominators → back-edges → recursive
+  region emit to structured WHILE). Its **reconstruction soundness** (the emitted
+  `sH; while g {body; sH}; exit` equals the header flowchart loop, for partial bodies
+  and exits, so nested loops compose) is machine-checked (`MemoReconstruct{,Gen}.agda`).
 - **Glück 2012b**, *Bootstrapping Compiler Generators from Partial Evaluators*
-  (PSI 2011, LNCS 7162). Relevant to fp3/`cogen` quality once item-3 lands.
+  (PSI 2011, LNCS 7162). Relevant to fp3/`cogen` quality.
 
-The concrete port of this algorithm to `Cogen.ml` (configuration key, memo table,
-emit strategies, milestones, tests) is specified in
-[`ITEM3-DESIGN.md`](ITEM3-DESIGN.md).
+The concrete realization in `Cogen.ml` (configuration key, memo table, emit strategies,
+milestones, tests) and the M4 machine-checking are in
+[`ITEM3-DESIGN.md`](ITEM3-DESIGN.md); the proven-vs-tested map is
+[`AGDA_CORRESPONDENCE.md`](AGDA_CORRESPONDENCE.md). This realized + verified driver is
+contribution **C6** (`PAPER-SKELETON.md`).
 
-## C5(i) — online termination (currently `BTAWiden` + ad-hoc unroll budget)
+## C5(i) — online termination (`BTAWiden` + the M3c homeomorphic-embedding whistle)
 
-`Cogen.ml` bounds unrolling with `COGEN_UNROLL_BUDGET` (a constant) plus a
-generalization fallback; only the BTA-widening half is machine-checked
-(`BTAWiden.agda`). The principled, citable replacement:
+`Cogen.ml` bounds straight-line unrolling with `COGEN_UNROLL_BUDGET` plus a
+generalization fallback (BTA-widening half machine-checked, `BTAWiden.agda`); the
+*configuration* set of the global-memo driver is kept finite by a **homeomorphic-
+embedding whistle** (M3c, `m3_specialize`):
 
 - **Leuschel 2002**, *Homeomorphic Embedding for Online Termination of Symbolic
   Methods* (Neil Jones Festschrift, LNCS 2566:379–403). The homeomorphic-embedding
-  **whistle** (a well-quasi-order): generalize when the new configuration embeds a
-  previous one. Stronger than well-founded orders, the standard online-PE / super-
-  compilation termination criterion. → replace the unroll budget; closes the
-  ad-hoc half of **G2**.
+  **whistle**: generalize when the new configuration embeds an ancestor. The standard
+  online-PE / supercompilation termination criterion. → **realized in M3c**: `emb` /
+  `store_embeds` on the store projection (with `'D` as the embedding-bottom); a config
+  that embeds an ancestor is generalized by dynamicizing the growing slots (an emitted
+  fixup block materializes each, the proven `dyn1`/`dynList` step). *This is exactly
+  where the whistle has teeth — over the program-point–indexed configurations `(pp,
+  σ_s)`, not the flat store tuple (`ITEM3-DESIGN.md`).*
+  - **Honest delta on the wqo.** Leuschel's HEm derives termination from the embedding
+    being a **well-quasi-order** (Higman/Kruskal). That route is **inapplicable here**:
+    our projection embedding tests `emb ('S u) ('S v) = (u ≡ v)` over the program's
+    *unbounded* static values, and equality on an infinite set is not a wqo (a sequence
+    of distinct `'S vᵢ` has no embedding pair). So we do **not** prove a wqo; instead we
+    machine-check the implementation's **monotone-bounded** termination argument
+    (`WhistleTerminates.agda`): a generalization dynamicizes ≥1 slot, a dynamicized slot
+    is `'D` = terminal (cannot re-embed/grow), so the generalization count is bounded by
+    the slot count. This closes the ad-hoc half of **G2** for the actual strategy, and
+    documents precisely where the classical wqo criterion does and does not transfer.
 - **Leuschel et al. 2008/09**, *Type-based Homeomorphic Embedding for Online
   Termination* (LOPSTR 2007, LNCS 4915; IPL 2009). TbHEm handles **infinite
   signatures** — the same problem our C-domain **widening** (`bt_maxdepth`,
-  infinite ascending chains) solves by depth-capping. Re-presenting `widen` as a
-  TbHEm instance grounds C5(i) in the literature. *Note (see `ITEM3-DESIGN.md`):
-  the whistle has teeth only over program-point–indexed configurations `(pp, σ_s)`,
-  not the flat store tuple — so it belongs inside item-3's memoization, not as a
-  separate change. The unroll budget stays the standalone backstop until then.*
+  infinite ascending chains) solves by depth-capping, and the same unbounded-static-
+  value issue the monotone-bounded argument sidesteps above. Re-presenting `widen` as a
+  TbHEm instance grounds C5(i) in the literature.
 
 ## C5(ii) — partially-static store (our "spine-preserving emit")
 
@@ -109,14 +131,29 @@ problem of Jones-optimal specialization:
 - *An investigation of Jones optimality and BTI-universal specializers.* Uses the
   **BTI** (binding-time improvement) framing that matches this repo's documented
   "store-index BTI wall" (`docs/FUTAMURA.md`, `rwhile-C-ocaml/analysis_store_bti.md`);
-  positions our independent rediscovery of that wall.
+  positions our independent rediscovery of that wall. **Confirmed empirically by M3**:
+  the book's `universal` (`case Cd, St of`) does not converge under the global-memo
+  driver because its dispatch conjoins the static code test with a *dynamic* value-stack
+  test, so the configuration set diverges (measured) — the tag/BTI wall, not a memo gap.
+  `usi` (`case Cd of`, dynamic stack read inside arms) is exactly the BTI that removes
+  the tag; a mechanical *guard-only* BTI (`transCaseBTI`, irrefutable secondary patterns)
+  is semantics-preserving but **necessary-yet-insufficient** — convergence also needs
+  `usi`'s value-stack threading (`docs/ITEM3-DESIGN.md`, reverted experiment). So `usi`
+  is the *whole* BTI, and "BTI-universal specialization" is the open route to making the
+  literal `universal` optimal without the hand reformulation.
 
-## G1 — end-to-end specializer correctness (in-house template, no external dep)
+## G1 — end-to-end specializer correctness — CLOSED (+ M4 driver verification)
 
-Closing G1 (`[cogen --online(p,s)](d) = [p]((s,d))` for the actual algorithm) does
-not need new external research: the sibling `rwhile-C-ocaml`'s
-`RWhileAVSound`/`RWhileAVSpec` (a congruence proof for its reversible AV
-specializer) is the template; G1 ports it to the classical AV specializer here.
+G1 (`[cogen(p,s)](d) = [p]((s,d))`) needed no new external research: the sibling
+`rwhile-C-ocaml`'s `RWhileAVSound`/`RWhileAVSpec` (a congruence proof for its
+reversible AV specializer) was the template, ported here to the classical AV
+specializer. It is now **closed for the full WHILE language** — `skip`/`asgn`/`semi`/
+`if`/`while` — built bottom-up (`AVExprSound` → `SpecExprStore` → `SpecCmdStore` →
+`SpecAssembly{,If,While}`, all `--safe`). On top of G1, **M4** machine-checks the
+global-memo driver itself (reconstruction `MemoReconstruct{,Gen}`, termination
+`WhistleTerminates`, memo transparency `MemoDriverSound`). Together G1 + M4 are the
+verification backing contribution **C6** (the end-to-end machine-checked specializer);
+the proven-vs-tested boundary is in `docs/AGDA_CORRESPONDENCE.md`.
 
 ## Reversible side (C1, Theorem A) — see the other docs
 
