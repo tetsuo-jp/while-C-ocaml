@@ -1,7 +1,7 @@
 # The three Futamura projections for WHILE
 
 Status (2026-06-19): **fp1 done & tested**; **fp2 (compiler generation) DONE &
-verified** — `comp2 = [mix]((⌜mix⌝ . ('S.⌜int_min⌝)))` terminates (22.6 MB,
+verified** — `comp2 = [mix]((⌜mix⌝ . ('S.⌜int_min⌝)))` terminates (9.36 MB,
 ~42 min, native) and `[comp2](('S.op)) == [mix]((int_min . ('S.op)))` byte-for-
 byte for `op ∈ {swap, id}`, end-to-end correct, and demonstrably *uses* `op`
 (swap-target ≠ id-target). Got there via: MKAV binding-time input, first-class
@@ -114,7 +114,7 @@ without `expandIf`; ProgToData.hs `progToDataIf`) emits `⌜mix⌝` with first-c
 ## fp2 — compiler generation, DONE & verified
 
 `comp2 = [mix]((⌜mix⌝ . ('S . ⌜int_min⌝)))` (with `--data-if` for `⌜mix⌝`),
-run with `while.opt`: **terminates** — 22.6 MB, ~42 min, peak RSS 1.29 GB.
+run with `while.opt`: **terminates** — 9.36 MB, ~42 min, peak RSS 1.29 GB.
 Verified with `src/core/rundata` (a native interpreter for the `⌜p⌝` form — the
 oracle for residuals too large to run via `universal.while`; rwhile's `d2p`
 analogue):
@@ -147,7 +147,7 @@ residualization** below. Now a dynamic `Cd` loop is *residualized* (the outer
 emits a residual `while` whose body re-runs the inner interpreter step), so
 specialization **terminates**, and the residual `comp2` re-does the
 `op`-dependent work at *its* run time — hence **correct**. This is exactly
-rwhile's outcome: a large *interpreting* compiler (theirs 3.3 MB, ours 22.6 MB),
+rwhile's outcome: a large *interpreting* compiler (theirs 3.3 MB, ours 9.36 MB),
 correct but not Jones-optimal. The over-static `('S.dyn)` read (`MixPatRead`)
 therefore costs **size/optimality, not correctness**; shrinking `comp2` to a
 small compiler is the PAT-READ-ITER / store-sizing work (gap #2/#3).
@@ -185,7 +185,7 @@ is tiny and instant, including self-application:
 
 | | optimizing `mix` | **trivial `mix_triv`** |
 |---|---|---|
-| fp2 `comp2` | 22.6 MB, ~42 min | **5.5 KB, ~0 s** |
+| fp2 `comp2` | 9.36 MB, ~42 min | **5.5 KB, ~0 s** |
 | fp3 `cogen`  | 29.6 MB, ~2 h   | **8.9 KB, ~0.01 s** |
 
 Verified by `examples/desugar/test-fp-triv.sh` (~0.1 s total): `[cogen]('S.⌜int_min⌝)`

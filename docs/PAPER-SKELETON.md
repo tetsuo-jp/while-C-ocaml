@@ -35,7 +35,8 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   instant). Verified with a native ⌜p⌝ interpreter `rundata` (no decoder needed).
 - **C3 (measurement).** The "self-application cost signature": trivial 1×/2×|spec|
   vs optimizing 12×|mix|; 46 GB allocation / 22k minor GCs for the optimizing
-  fp2; residual simplification −59%. Concrete non-injectivity witness for `mix`.
+  fp2; no-op-elimination −59% on `comp2` (22.6→9.36 MB, now folded into `mix` at the
+  source, so `simp` is a no-op on it). Concrete non-injectivity witness for `mix`.
 - **C4 (machine-checked design).** `--safe` Agda specs pinning the
   self-applicability invariants of the optimizing specializer (MKAV binding-time,
   emit-model soundness, PAT-READ condition, dynamic-if merge), guiding the
@@ -204,7 +205,7 @@ self-application outputs.
 
 | projection | optimizing `mix` | trivial `mix_triv` | reversible `spec_av`(rwhile) |
 |---|---|---|---|
-| fp2 comp2 size | 22.6 MB | 5.5 KB (≈1×) | 812,515 nodes (≈1×) |
+| fp2 comp2 size | 9.36 MB | 5.5 KB (≈1×) | 812,515 nodes (≈1×) |
 | fp3 cogen size | 29.6 MB (≈12×) | 8.9 KB (≈2×) | 1,630,121 nodes (≈2×) |
 | fp3 build time | ~2 h | ~0.01 s | ~18 s |
 | correctness | byte-verified | byte-verified | byte-verified (d2p) |

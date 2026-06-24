@@ -4,7 +4,7 @@
 #   comp2 = [mix]((⌜mix⌝ . ('S . ⌜int_min⌝)))        -- specialize mix to int_min
 #   [comp2](('S . op)) == [mix]((int_min . ('S . op)))  -- comp2 is int_min's compiler
 #
-# comp2 is large (~22 MB, a correct *interpreting* compiler), so it is run with
+# comp2 is large (~9.4 MB, a correct *interpreting* compiler), so it is run with
 # the native `rundata` (a ⌜p⌝ interpreter), not universal.while.  Needs while.opt
 # and rundata: `make -C src/core while.opt rundata`.
 set -e
