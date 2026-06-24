@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (14 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (15 modules).
 
 ## Correspondence table
 
@@ -19,6 +19,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (14 modules)
 | `Cogen.ml --online` emit-vs-fold under dynamic control (`dynamicize`, self-ref slot) | `MixEmitModel`: `emit-sound`, `fold-unsound`, `fold-tracks-new` | **proven (design spec)**; the OCaml emit path is the same principle, differential-tested |
 | `Cogen.ml --online` value-driven control (unroll on `Sv`/`Cv` guard) | — | **differential** (`test-poly`, `test-jones`, `test-usi`, `test-bench`) |
 | `Cogen.ml` **M2 memo fold** (`drive`/`drive_dyn_if`, `COGEN_MEMO`) | `MemoFold`: `fold-sound`/`while-cong` (folded `while` ≡ source loop when body preserves the step), `fold-unsound-witness` | **proven (kernel)**; the per-iteration "body ≡ source step" obligation is differential (the loop-level fold is the proven part) |
+| `Cogen.ml` **M3b structured reconstruction** (`m3_reconstruct_general`, `COGEN_M3`) | `MemoReconstruct`: `Recon.sound` (the single-natural-loop flowchart `H:sH;if g then B else X · B:sB;goto H · X:sX;halt` and the emitted `sH; while g {sB;sH}; sX` compute the same partial function) | **proven (kernel)**; M4 — the loop-RECONSTRUCT soundness, companion to `MemoFold`'s loop-FOLD soundness for the assembled M3 driver |
 | `Cogen.ml` **expression specializer** (`spec_exp`, `lift`, `av_hd`/`av_tl`) | `AVExprSound`: `lift-sound` (`eval (lift av) ≡ concretize av`), `hd-sound`/`tl-sound`/`cons-sound` (av ops commute with concretisation) | **proven** (the expression-level congruence — the base case of G1) |
 | `Cogen.ml` **`spec_exp` over a store** (`sget`-indexed eval) | `SpecExprStore`: `spec-exp-sound` (consistent store ⇒ `concretize (spec_exp e σ) ≡ eval e ss`) | **proven** (the expression-over-store congruence; the form the command level uses) |
 | `Cogen.ml` **command spec** (`spec` `'asgn` fold+emit, `'semi`, `'if`, `'while`) | `SpecCmdStore`: `asgn-fold-sound`, `asgn-emit-sound`, `seq-cong`, `SlotDepK`/`SelfRef`/`selfref-preserved`, `if-guard-agree`+`cond-cong`, `WhileCase.while-store-cong` (loop preserves consistency, via `MemoFold.run-inv`), `dyn1-sound`/`dynlist-sound` (the generalisation step — dynamicise a var / a list of vars with residual fixups — shared by the `'if` merge and `'while` loop-entry) | **proven** (all four command forms preserve store consistency) |
