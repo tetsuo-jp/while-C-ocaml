@@ -24,7 +24,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (14 modules)
 | `Cogen.ml` **command spec** (`spec` `'asgn` fold+emit, `'semi`, `'if`, `'while`) | `SpecCmdStore`: `asgn-fold-sound`, `asgn-emit-sound`, `seq-cong`, `SlotDepK`/`SelfRef`/`selfref-preserved`, `if-guard-agree`+`cond-cong`, `WhileCase.while-store-cong` (loop preserves consistency, via `MemoFold.run-inv`), `dyn1-sound`/`dynlist-sound` (the generalisation step — dynamicise a var / a list of vars with residual fixups — shared by the `'if` merge and `'while` loop-entry) | **proven** (all four command forms preserve store consistency) |
 | `Cogen.ml` **whole-spec congruence** (straight-line) | `SpecAssembly`: `spec-sound` — by structural induction `[spec c](residual) reproduces [c](source)`, preserving consistency, for `skip`/`asgn`/`semi`; `frame` (spec preserves the store off assigned vars) | **proven** (assembled `[cogen(p,s)](d)=[p]((s,d))` for the loop-free, if-free fragment) |
 | `Cogen.ml` **whole-spec congruence — `'if`** | `SpecAssemblyIf`: `spec-if-sound` — the conditional's result is consistent with the merged store `dynList esc σ`, via `frame`+`dynList-cong` (branches agree off the escaping set) + `dynlist-sound` (fixups) + `if-guard-agree`+`cond-cong` | **proven** (the `'if` case assembled) |
-| `Cogen.ml` **whole-spec congruence — `'while`** | `SpecAssemblyWhile`: `spec-while-entry` (loop entry: generalising the assigned set makes the entry stores consistent with σloop — corollary of `dynlist-sound`) + `spec-while-sound` (given σloop is a fixpoint of the body specialiser, the loop preserves consistency — `spec-sound` rewritten along the fixpoint, fed to `WhileCase.while-store-cong` = `MemoFold.run-inv`) | **proven** (the `'while` case assembled — ties body congruence to the loop kernel; G1 now covers all command forms) |
+| `Cogen.ml` **whole-spec congruence — `'while`** | `SpecAssemblyWhile`: `spec-while-entry` (loop entry: generalising the assigned set makes the entry stores consistent with σloop — corollary of `dynlist-sound`) + `spec-while-sound` (given σloop is a fixpoint of the body specialiser, the loop preserves consistency — `spec-sound` rewritten along the fixpoint, fed to `WhileCase.while-store-cong` = `MemoFold.run-inv`); `example-while-sound` discharges the fixpoint hypothesis by computation on a concrete loop (non-vacuity) | **proven** (the `'while` case assembled — ties body congruence to the loop kernel; G1 now covers all command forms) |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
@@ -51,7 +51,10 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (14 modules)
   (`skip`/`asgn`/`semi`/`if`/`while`). The `'while` case carries one explicit
   hypothesis — σloop is a **generalisation fixpoint** of the body specialiser — which
   is exactly the loop-store well-formedness Cogen.ml's iterate-to-fixpoint
-  establishes (so the residual loop folds). The earlier pieces (`MixEmitModel`,
+  establishes (so the residual loop folds) — and `example-while-sound` shows it is
+  **non-vacuous**, discharging it by computation on a concrete decrementing loop
+  (`while x₀ do x₀ := tl x₀`, all-dynamic σ⋆), so the `'while` soundness fires with
+  nothing assumed. The earlier pieces (`MixEmitModel`,
   `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual decisions;
   whole-spec correctness for the full language is also differential-tested
   (`run-all.sh`). (cf. rwhile's `RWhileAVSound`/`RWhileAVSpec`.)

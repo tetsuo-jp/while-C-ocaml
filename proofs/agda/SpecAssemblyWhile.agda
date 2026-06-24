@@ -27,13 +27,16 @@
 module SpecAssemblyWhile where
 
 open import Data.Nat using (ℕ)
+open import Data.Nat.Properties using (_≟_)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Relation.Nullary using (yes; no)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-open import AVExprSound using (Val; Expr; AV)
+open import AVExprSound using (Val; Expr; var; tl; AV; Dv)
 open import SpecExprStore using (Consistent)
-open import SpecCmdStore using (SelfRef; dynList; dynListRS; dynlist-sound; module WhileCase)
-open import SpecAssembly using (Cmd; cexec; spec; spec-sound; assigned)
+open import SpecCmdStore
+  using (SelfRef; selfref-dep; dynList; dynListRS; dynlist-sound; module WhileCase)
+open import SpecAssembly using (Cmd; asgn; cexec; spec; spec-sound; assigned)
 open import SpecAssemblyIf using (consistent-cong)
 
 ----------------------------------------------------------------------
@@ -67,3 +70,34 @@ spec-while-sound g c σloop fix self n ss rs cons =
                        (proj₁ (spec-sound c σloop ss′ rs′ c′ self)))
     n ss rs cons
   where open WhileCase g σloop (cexec c) (cexec (proj₁ (spec c σloop)))
+
+----------------------------------------------------------------------
+-- NON-VACUITY: the fixpoint hypothesis of `spec-while-sound` IS satisfiable on a
+-- real loop, with NOTHING assumed.  Take the decrementing loop
+--   while x₀ do x₀ := tl x₀
+-- and the all-dynamic loop store σ⋆ = λk. Dv (var k).  The body's RHS READS the
+-- dynamic var x₀, so the assignment EMITS and the slot stays `Dv (var 0)` -- hence
+-- σ⋆ is a genuine generalisation fixpoint (`fix⋆`, by computation).  (A static
+-- RHS like `x₀ := 'nil` would FOLD the slot back to `Sv vnil`, breaking the
+-- fixpoint -- which is exactly why the general statement needs the hypothesis.)
+-- So `spec-while-sound` fires here with no open assumption: a fully closed,
+-- end-to-end `'while` soundness instance.
+c⋆ : Cmd
+c⋆ = asgn 0 (tl (var 0))
+
+σ⋆ : ℕ → AV
+σ⋆ k = Dv (var k)
+
+fix⋆ : ∀ j → proj₂ (spec c⋆ σ⋆) j ≡ σ⋆ j
+fix⋆ j with 0 ≟ j
+... | yes refl = refl
+... | no  _    = refl
+
+self⋆ : SelfRef σ⋆
+self⋆ = selfref-dep
+
+example-while-sound :
+  ∀ n ss rs → Consistent σ⋆ ss rs
+  → let open WhileCase (var 0) σ⋆ (cexec c⋆) (cexec (proj₁ (spec c⋆ σ⋆)))
+    in MaybeInv Inv (run pstep n (ss , rs))
+example-while-sound = spec-while-sound (var 0) c⋆ σ⋆ fix⋆ self⋆
