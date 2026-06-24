@@ -222,7 +222,12 @@ place to introduce the Agda model of the memo loop.
     recovers a finite, recurring config set while the dispatch tests dynamic `St`.
     `usi` (`case Cd of` — guard on `Cd` alone, `St` read via hd/tl inside arms) is the
     project's *deliberate reformulation* that removes the wall, and the M3 driver makes
-    `usi`×control-bearing loop-free (above). So reaching `universal×swap #while=0`
+    `usi`×control-bearing loop-free (above). *Measured (2026-06-25):* `universal×swap`
+    bails to `spec` at **every** budget (`COGEN_M3_BUDGET` 50/200/800 all give the same
+    210919 B == `spec`), and the config trace shows the program point recurs (3 distinct
+    continuations) while the store projection never does (30 fresh configs and counting)
+    — i.e. divergence is store-driven, not a budget shortfall. So reaching
+    `universal×swap #while=0`
     requires a **binding-time improvement** of the `St` dispatch ("The Trick" / bounded
     static variation / arity-raising the value stack), which is **orthogonal to the
     global-memo driver** — a distinct research line, not a continuation of M3a/b/c.
