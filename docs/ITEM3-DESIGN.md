@@ -251,9 +251,24 @@ place to introduce the Agda model of the memo loop.
     `usi` embodies), on top of the guard BTI — confirming that `usi` is the *whole*
     resolution, not just its `case Cd of` guard. The experiment is in git history
     (reverted); reconstruct from this note if pursuing the St-threading step.
-- **M4 — G1 congruence** for the memoized specializer (Agda, rwhile template). The
-  G1 stack is now complete for the structured `spec` (`SpecAssembly{,If,While}`);
-  M4 lifts it to the memoized configuration loop (`MemoFold.run-inv` is the engine).
+- **M4 — proof-driven soundness/termination of the memo driver — DONE (design specs).**
+  The M3 driver is now machine-checked (`--safe`), not only differential-tested, via
+  three modules added on top of the G1 stack + `MemoFold`:
+  - **(1) reconstruction (general/nested):** `MemoReconstructGen.Recon.loop-sound` — the
+    header flowchart loop ≡ the emitted `sH; while g {body; sH}; sX` for a **partial**
+    body (`S → Maybe S`), so nested loops compose; `branch-sound`/`seq-sound` cover the
+    if/forward-edge rules. (Generalises the single-loop `MemoReconstruct` kernel.)
+  - **(2) whistle termination:** `WhistleTerminates` — a generalization strictly
+    increases the dynamic-slot count (`gen-strict`), bounded by the slot count
+    (`trues-bound`), so it fires finitely often (`gen-bound`). The implementation's
+    monotone-bounded argument (a dynamicised slot is terminal), not a full Higman wqo.
+  - **(3) global-memo loop:** `MemoDriverSound.Driver.drive-transparent` — memoization
+    is transparent (a consistent memo ≡ re-specializing each config) + `store-preserves`
+    (the worklist keeps the memo consistent). So sharing configs adds no semantic
+    change; per-config soundness is G1, fold/reconstruct are `MemoFold`/`MemoReconstructGen`.
+  Together these close the proven-vs-tested gap for the M3 driver's principles (the
+  exact OCaml remains differential-tested; these are faithful design specs, the
+  project's established style).
 
 ## Risks / fallbacks
 
