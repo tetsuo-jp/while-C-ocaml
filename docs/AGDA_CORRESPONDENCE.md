@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (18 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (19 modules).
 
 ## Correspondence table
 
@@ -29,6 +29,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (18 modules)
 | `Cogen.ml` **whole-spec congruence** (straight-line) | `SpecAssembly`: `spec-sound` — by structural induction `[spec c](residual) reproduces [c](source)`, preserving consistency, for `skip`/`asgn`/`semi`; `frame` (spec preserves the store off assigned vars) | **proven** (assembled `[cogen(p,s)](d)=[p]((s,d))` for the loop-free, if-free fragment) |
 | `Cogen.ml` **whole-spec congruence — `'if`** | `SpecAssemblyIf`: `spec-if-sound` — the conditional's result is consistent with the merged store `dynList esc σ`, via `frame`+`dynList-cong` (branches agree off the escaping set) + `dynlist-sound` (fixups) + `if-guard-agree`+`cond-cong` | **proven** (the `'if` case assembled) |
 | `Cogen.ml` **whole-spec congruence — `'while`** | `SpecAssemblyWhile`: `spec-while-entry` (loop entry: generalising the assigned set makes the entry stores consistent with σloop — corollary of `dynlist-sound`) + `spec-while-sound` (given σloop is a fixpoint of the body specialiser, the loop preserves consistency — `spec-sound` rewritten along the fixpoint, fed to `WhileCase.while-store-cong` = `MemoFold.run-inv`); `example-while-sound` discharges the fixpoint hypothesis by computation on a concrete loop (non-vacuity) | **proven** (the `'while` case assembled — ties body congruence to the loop kernel; G1 now covers all command forms) |
+| **Futamura projections as a meta-theorem** (the three projections of `mix`/`Cogen.ml`) | `FutamuraProjections`: from a single `MixModel.mix-eq` (`[ [mix](p,s) ](d) ≡ [p](s,d)`) derive `fp1`/`fp2`/`fp3` (each an instance of `mix-eq` at args `(int,source)`/`(mix,int)`/`(mix,mix)`) + `fp2-correct`/`fp3-correct` (the composed chain: cogen ▸ compiler ▸ target ≡ int); `Witness.model` is a faithful non-degenerate self-applicable specializer discharging `mix-eq` by `refl` | **proven (meta)**; reduces all three projections to the spec equation — whose operational content is G1 (`SpecAssembly*`), the hypothesis this module consumes |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
@@ -61,7 +62,11 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (18 modules)
   nothing assumed. The earlier pieces (`MixEmitModel`,
   `SpinePreservingEmit`, `BTAWiden`, `MixMerge`) pin the individual decisions;
   whole-spec correctness for the full language is also differential-tested
-  (`run-all.sh`). (cf. rwhile's `RWhileAVSound`/`RWhileAVSpec`.)
+  (`run-all.sh`). (cf. rwhile's `RWhileAVSound`/`RWhileAVSpec`.) **Consumed by the
+  meta-theorem `FutamuraProjections`:** G1 *is* the operational content of the
+  abstract `mix-eq`, from which `fp1`/`fp2`/`fp3` and their composed correctness
+  are derived as instances — so "all three projections are correct" is reduced,
+  machine-checked, to this one congruence.
 - **G2 — quasi-termination (whole specializer total).** Largely closed. `BTAWiden`
   gives BTA termination; the global-memo driver's **configuration**-set finiteness is
   the M3c homeomorphic-embedding whistle (Leuschel 2002), whose generalization
