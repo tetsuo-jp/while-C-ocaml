@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (20 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (21 modules).
 
 ## Correspondence table
 
@@ -30,6 +30,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (20 modules)
 | `Cogen.ml` **whole-spec congruence — `'if`** | `SpecAssemblyIf`: `spec-if-sound` — the conditional's result is consistent with the merged store `dynList esc σ`, via `frame`+`dynList-cong` (branches agree off the escaping set) + `dynlist-sound` (fixups) + `if-guard-agree`+`cond-cong` | **proven** (the `'if` case assembled) |
 | `Cogen.ml` **whole-spec congruence — `'while`** | `SpecAssemblyWhile`: `spec-while-entry` (loop entry: generalising the assigned set makes the entry stores consistent with σloop — corollary of `dynlist-sound`) + `spec-while-sound` (given σloop is a fixpoint of the body specialiser, the loop preserves consistency — `spec-sound` rewritten along the fixpoint, fed to `WhileCase.while-store-cong` = `MemoFold.run-inv`); `example-while-sound` discharges the fixpoint hypothesis by computation on a concrete loop (non-vacuity) | **proven** (the `'while` case assembled — ties body congruence to the loop kernel; G1 now covers all command forms) |
 | **Futamura projections as a meta-theorem** (the three projections of `mix`/`Cogen.ml`) | `FutamuraProjections`: from a single `MixModel.mix-eq` (`[ [mix](p,s) ](d) ≡ [p](s,d)`) derive `fp1`/`fp2`/`fp3` (each an instance of `mix-eq` at args `(int,source)`/`(mix,int)`/`(mix,mix)`) + `fp2-correct`/`fp3-correct` (the composed chain: cogen ▸ compiler ▸ target ≡ int); `Witness.model` is a faithful non-degenerate self-applicable specializer discharging `mix-eq` by `refl` | **proven (meta)**; reduces all three projections to the spec equation — whose operational content is G1 (`SpecAssembly*`), the hypothesis this module consumes |
+| **Universal interpreter** (the partial `run ⌜p⌝ d` for a Turing-complete object language) | `UniversalInterp`: a fuel-indexed evaluator `eval : ℕ → Exp → V → Maybe V` for a minimal Turing-complete first-order recursive S-expression language (total in Agda, partial as a semantics); `mono`/`add-fuel` (more fuel never changes a defined result); concrete `refl` runs of a genuine `reverse` program (it computes `[a,b,c] ↦ [c,b,a]` inside Agda, and is `nothing` under-fuelled) | **proven (machinery)**; supplies the partial `run` G4 needs — the in-Agda counterpart of `universal.while` / `DesugarWhile --data` |
 | **Concrete s-m-n witness** (a real specializer instantiating the meta-theorem) | `FutamuraSmn`: a one-input straight-line term language (`Tm`, `ev1`) + a genuine specializer `spec t sv = sub t (kcons (lit sv) inp)` with `sub-correct` (substitution lemma) ⇒ `spec-correct` (`[spec t sv](d) ≡ [t](sv,d)` — static input *constant-folded*, not deferred); `model : MixModel` discharges `mix-eq` BY `spec-correct` for first-order programs (closure law for the mix-on-mix case), with concrete `refl` checks that fp1's target runs on the dynamic input ALONE and recovers the folded static value | **proven (concrete)**; the finite, in-Agda analogue of G1 with a genuine binding-time split. *The wall:* full self-application (mix folding mix itself) needs the object language to express its own specializer (universality/recursion) — scoped as the universal-WHILE-interpreter milestone (G4 below) |
 | `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | — | **differential** (`test-cogen`, `test-genext`) |
@@ -79,17 +80,23 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (20 modules)
   fallback (`test-terminate`); modeling that would make "total" fully proven.
 - **G3 — generating extension (`--gen`) correctness.** Differential only.
 - **G4 — genuine specialization through self-application (the s-m-n wall).**
-  `FutamuraSmn` instantiates the meta-theorem with a real specializer (`spec`,
-  `spec-correct`: the static input is *constant-folded*), so the **first**
-  projection's specialization is now concrete and machine-checked. But its
-  straight-line object language cannot express its own specializer, so fp2/fp3's
-  mix-on-mix self-application routes through the closure law (sound, not folding).
-  Closing G4 = formalising a **universal WHILE interpreter over ⌜p⌝** in Agda
-  (`run ⌜p⌝ d ≡ [p] d`), so `mix` is object-language data and folding survives
-  self-application — i.e. the in-Agda counterpart of `universal.while` /
-  `DesugarWhile --data`. This is the Kleene s-m-n step at full strength; the
-  abstract `mix-eq` and the concrete first-order discharge bracket exactly what it
-  must supply.
+  *In progress.* `FutamuraSmn` instantiates the meta-theorem with a real
+  specializer (`spec`, `spec-correct`: the static input is *constant-folded*), so
+  the **first** projection's specialization is concrete and machine-checked; but
+  its straight-line object language cannot express its own specializer, so
+  fp2/fp3's mix-on-mix self-application routes through the closure law (sound, not
+  folding). **Step 1 done — `UniversalInterp`** builds the missing machinery: a
+  fuel-indexed universal interpreter (`eval`/`run`) for a Turing-complete
+  first-order recursive S-expression language, with fuel-monotonicity (`mono`,
+  `add-fuel`) and concrete `refl` runs of a real `reverse` program — the in-Agda
+  counterpart of `universal.while` / `DesugarWhile --data`, and the partial `run`
+  a self-applicable `mix` requires. **Remaining** — write the specializer `mix`
+  AS an `Exp` program (it is now expressible: the language has the recursion to
+  walk ⌜p⌝) and prove `run ⌜mix⌝ (⌜p⌝ , s) ≡ just ⌜spec p s⌝`; then fp2/fp3 fold
+  genuinely through self-application. Because `run` is partial, this also wants a
+  `Maybe`/fuel-relative generalisation of `FutamuraProjections.mix-eq` (the
+  abstract meta-theorem currently assumes a total `run`). The abstract `mix-eq`
+  and the concrete first-order discharge bracket exactly what this supplies.
 
 ## Relation to `rwhile-C-ocaml`
 
