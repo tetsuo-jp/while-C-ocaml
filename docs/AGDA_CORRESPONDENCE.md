@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (27 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (28 modules).
 
 ## Correspondence table
 
@@ -31,6 +31,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (27 modules)
 | `Cogen.ml` **whole-spec congruence — `'while`** | `SpecAssemblyWhile`: `spec-while-entry` (loop entry: generalising the assigned set makes the entry stores consistent with σloop — corollary of `dynlist-sound`) + `spec-while-sound` (given σloop is a fixpoint of the body specialiser, the loop preserves consistency — `spec-sound` rewritten along the fixpoint, fed to `WhileCase.while-store-cong` = `MemoFold.run-inv`); `example-while-sound` discharges the fixpoint hypothesis by computation on a concrete loop (non-vacuity) | **proven** (the `'while` case assembled — ties body congruence to the loop kernel; G1 now covers all command forms) |
 | **Futamura projections as a meta-theorem** (the three projections of `mix`/`Cogen.ml`) | `FutamuraProjections`: from a single `MixModel.mix-eq` (`[ [mix](p,s) ](d) ≡ [p](s,d)`) derive `fp1`/`fp2`/`fp3` (each an instance of `mix-eq` at args `(int,source)`/`(mix,int)`/`(mix,mix)`) + `fp2-correct`/`fp3-correct` (the composed chain: cogen ▸ compiler ▸ target ≡ int); `Witness.model` is a faithful non-degenerate self-applicable specializer discharging `mix-eq` by `refl` | **proven (meta)**; reduces all three projections to the spec equation — whose operational content is G1 (`SpecAssembly*`), the hypothesis this module consumes |
 | **Futamura meta-theorem for a PARTIAL `run`** (the Turing-complete setting) | `FutamuraPartial`: `PartialMixModel` has `run : Data → Data → Maybe Data`, `mix-runs` (mix terminates → residual) + `mix-eq` (residual correct as Maybe-values); derives `fp1`/`fp2`/`fp3` in Maybe form (compiler/cogen *run* — `≡ just …` — to the next stage) + `fp2-correct`/`fp3-correct` (whatever they return is a correct target/compiler, via just-injectivity); `Witness.model` is genuinely partial (data-as-program ⇒ `nothing`) | **proven (meta)**; the `Maybe`-relative generalisation of `FutamuraProjections`, the form `UniversalInterp`'s partial `run` instantiates once `mix` is an `Exp` |
+| **Universal `run` over encoded programs** (the `PartialMixModel.run` substrate) | `G4Run`: `run : ℕ → V → V → Maybe V` = `decode` then `Interp.run` (interpret a program given as data ⌜p⌝); `run-encode` (`run n ⌜p⌝ inp ≡ [p](inp)` — the data representation is semantically free) + concrete checks | **proven (machinery)**; composes `ProgEncoding` + `UniversalInterp` into the `run : V → V → Maybe V` that a concrete `FutamuraPartial.PartialMixModel` consumes (Data := V) |
 | **Programs-as-data** for the universal interpreter (⌜p⌝ encoding) | `ProgEncoding`: a tagged encoding `⌜_⌝ : Exp → V` (tags = unary numerals; a code is `(tag . args)`) and a partial `decode : V → Maybe Exp`, with `decode-⌜⌝` (decode is a left inverse: `decode ⌜e⌝ ≡ just e`) + concrete round-trips | **proven (machinery)**; the in-Agda counterpart of `DesugarWhile --data`'s ⌜p⌝ — the form a self-interpreter / `mix` written in `Exp` consumes |
 | **Universal interpreter** (the partial `run ⌜p⌝ d` for a Turing-complete object language) | `UniversalInterp`: a fuel-indexed evaluator `eval : ℕ → Exp → V → Maybe V` for a minimal Turing-complete first-order recursive S-expression language (total in Agda, partial as a semantics); `mono`/`add-fuel` (more fuel never changes a defined result); concrete `refl` runs of a genuine `reverse` program (it computes `[a,b,c] ↦ [c,b,a]` inside Agda, and is `nothing` under-fuelled) | **proven (machinery)**; supplies the partial `run` G4 needs — the in-Agda counterpart of `universal.while` / `DesugarWhile --data` |
 | **Concrete s-m-n witness** (a real specializer instantiating the meta-theorem) | `FutamuraSmn`: a one-input straight-line term language (`Tm`, `ev1`) + a genuine specializer `spec t sv = sub t (kcons (lit sv) inp)` with `sub-correct` (substitution lemma) ⇒ `spec-correct` (`[spec t sv](d) ≡ [t](sv,d)` — static input *constant-folded*, not deferred); `model : MixModel` discharges `mix-eq` BY `spec-correct` for first-order programs (closure law for the mix-on-mix case), with concrete `refl` checks that fp1's target runs on the dynamic input ALONE and recovers the folded static value | **proven (concrete)**; the finite, in-Agda analogue of G1 with a genuine binding-time split. *The wall:* full self-application (mix folding mix itself) needs the object language to express its own specializer (universality/recursion) — scoped as the universal-WHILE-interpreter milestone (G4 below) |
@@ -101,15 +102,19 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (27 modules)
   counterpart of `universal.while` / `DesugarWhile --data`, and the partial `run`
   a self-applicable `mix` requires. **Step 2 done — `FutamuraPartial`** supplies the
   `Maybe`-relative meta-theorem (`PartialMixModel`: `run : Data → Data → Maybe
-  Data`, `mix-runs` + `mix-eq`; fp1/fp2/fp3 + composed correctness derived), the
-  exact interface `UniversalInterp`'s partial `run` instantiates. **Remaining
-  (the last piece)** — write the specializer `mix` AS an `Exp` program (now
-  expressible: the language has the recursion to walk ⌜p⌝) and prove `run ⌜mix⌝
-  (⌜p⌝ , s) ≡ just ⌜spec p s⌝`, discharging `PartialMixModel` concretely; then
-  fp2/fp3 fold genuinely through self-application. The abstract `mix-eq`, the
-  concrete first-order discharge (`FutamuraSmn`), the partial interface
-  (`FutamuraPartial`), and the universal `run` (`UniversalInterp`) now bracket
-  exactly that one remaining construction.
+  Data`, `mix-runs` + `mix-eq`; fp1/fp2/fp3 + composed correctness derived).
+  **Step 3 done — `G4Run`** composes `ProgEncoding` + `UniversalInterp` into the
+  concrete `run : ℕ → V → V → Maybe V` over programs-as-data (`run-encode`:
+  `run n ⌜p⌝ inp ≡ [p](inp)`), exactly the `PartialMixModel.run` carrier (Data :=
+  V). So the abstract `mix-eq`, the concrete first-order discharge (`FutamuraSmn`),
+  the partial interface (`FutamuraPartial`), the universal interpreter
+  (`UniversalInterp`), the ⌜p⌝ encoding (`ProgEncoding`), and now the encoded-run
+  substrate (`G4Run`) are all in place. **Remaining (the last, hard piece)** —
+  write the specializer `mix` AS an `Exp` program (a self-interpreter-grade
+  metaprogram that walks ⌜p⌝) and prove `run F mix (pair ⌜p⌝ s) ≡ just (spec p s)`,
+  discharging a concrete `PartialMixModel`; then fp2/fp3 fold genuinely through
+  self-application. This is the Agda counterpart of `universal.while` and is a
+  multi-step construction in its own right.
 
 ## Relation to `rwhile-C-ocaml`
 
