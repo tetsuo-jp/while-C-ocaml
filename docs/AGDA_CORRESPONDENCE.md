@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (24 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (25 modules).
 
 ## Correspondence table
 
@@ -34,7 +34,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (24 modules)
 | **Programs-as-data** for the universal interpreter (⌜p⌝ encoding) | `ProgEncoding`: a tagged encoding `⌜_⌝ : Exp → V` (tags = unary numerals; a code is `(tag . args)`) and a partial `decode : V → Maybe Exp`, with `decode-⌜⌝` (decode is a left inverse: `decode ⌜e⌝ ≡ just e`) + concrete round-trips | **proven (machinery)**; the in-Agda counterpart of `DesugarWhile --data`'s ⌜p⌝ — the form a self-interpreter / `mix` written in `Exp` consumes |
 | **Universal interpreter** (the partial `run ⌜p⌝ d` for a Turing-complete object language) | `UniversalInterp`: a fuel-indexed evaluator `eval : ℕ → Exp → V → Maybe V` for a minimal Turing-complete first-order recursive S-expression language (total in Agda, partial as a semantics); `mono`/`add-fuel` (more fuel never changes a defined result); concrete `refl` runs of a genuine `reverse` program (it computes `[a,b,c] ↦ [c,b,a]` inside Agda, and is `nothing` under-fuelled) | **proven (machinery)**; supplies the partial `run` G4 needs — the in-Agda counterpart of `universal.while` / `DesugarWhile --data` |
 | **Concrete s-m-n witness** (a real specializer instantiating the meta-theorem) | `FutamuraSmn`: a one-input straight-line term language (`Tm`, `ev1`) + a genuine specializer `spec t sv = sub t (kcons (lit sv) inp)` with `sub-correct` (substitution lemma) ⇒ `spec-correct` (`[spec t sv](d) ≡ [t](sv,d)` — static input *constant-folded*, not deferred); `model : MixModel` discharges `mix-eq` BY `spec-correct` for first-order programs (closure law for the mix-on-mix case), with concrete `refl` checks that fp1's target runs on the dynamic input ALONE and recovers the folded static value | **proven (concrete)**; the finite, in-Agda analogue of G1 with a genuine binding-time split. *The wall:* full self-application (mix folding mix itself) needs the object language to express its own specializer (universality/recursion) — scoped as the universal-WHILE-interpreter milestone (G4 below) |
-| `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; the unroll-budget/generalization half: — | **partial**: widening **proven**; generalization **differential** (`test-terminate`) |
+| `Cogen.ml --online` **online-termination** (bounded unroll + generalization) | widening half: `BTAWiden`; unroll-budget/generalization half: `OnlineTerminate` — `drive` (state `(static, budget)`) is TOTAL by the lex measure `(s,b)` (= termination), `gens-count` (exactly `s` generalizations, independent of budget), `drive-bound` (≤ `b + s·(1+B0)` steps) | **proven**: both halves — widening (`BTAWiden`) and the unroll+generalize fallback (`OnlineTerminate`) |
 | `Cogen.ml` offline cogen / `--gen` generating extension | `GenextSound`: `genext : ATm → Val → RTm` emits a SEPARATE target language from an annotated two-input source; `genext-sound` (`rev (genext at sv) dv ≡ aev at sv dv` — the emitted target run on the dynamic input reproduces the source on `(sv,dv)`); static structure folds at genext time via `rcons'`/`rhd'`/`rtl'` (the offline optimisation, soundness preserved) | **proven (design spec)**; the generating-extension shape (source→static→target-code), complementary to `FutamuraSmn` (residual in the source language). Residual *size*/minimality stays differential (`test-cogen`, `test-genext`) |
 | `Cogen.ml` / `rundata` ⌜p⌝ oracle agreement | — | **differential** (`test-oracle`) |
 | `mix.while` MKAV binding-time test (`if =? BT 'S`) | `MixBindingTime`: `fp1-ok`, `fp2-mistags`, `correct-uses-input`, `buggy-ignores-input` | **proven (design spec)** |
@@ -78,8 +78,11 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (24 modules)
   slot dynamicised at most once). Note the wqo route (Higman/Kruskal) is *inapplicable*
   here — the embedding tests equality over unbounded static values, not a wqo — so the
   monotone-bounded argument is the right one (see `docs/RELATED-WORK.md` §C5(i)).
-  *Remaining differential:* the straight-line `--online` unroll budget + generalization
-  fallback (`test-terminate`); modeling that would make "total" fully proven.
+  The straight-line `--online` unroll budget + generalization fallback is now also
+  **machine-checked** (`OnlineTerminate`: the driver over `(static, budget)` is
+  total by the lex measure, does exactly `s` generalizations, and runs ≤
+  `b + s·(1+B0)` steps), so "total" is proven for both the widening and the
+  unroll/generalize halves.
 - **G3 — generating extension (`--gen`) correctness.** Correctness now **proven
   (design spec)** — `GenextSound.genext-sound` machine-checks that the emitted
   target reproduces the source on `(static, dynamic)`, with offline constant
