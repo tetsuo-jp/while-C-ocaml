@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (25 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (26 modules).
 
 ## Correspondence table
 
@@ -17,7 +17,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (25 modules)
 | `Cogen.ml` BTA **widening** (`widen`, `bt_maxdepth`) | `BTAWiden`: `widen-sound` (`t ⊑ widen d t`), `depth-widen` (`≤ d`) | **proven** (sound over-approximation + finite domain ⇒ fixpoint terminates) |
 | `Cogen.ml --online` **spine-preserving emit** (self-ref slot) | `SpinePreservingEmit`: `readback` (faithful), `stable` (sound under re-materialisation), `cross-unsound` | **proven** (the C5 enabler; spine case of the emit model) |
 | `Cogen.ml --online` emit-vs-fold under dynamic control (`dynamicize`, self-ref slot) | `MixEmitModel`: `emit-sound`, `fold-unsound`, `fold-tracks-new` | **proven (design spec)**; the OCaml emit path is the same principle, differential-tested |
-| `Cogen.ml --online` value-driven control (unroll on `Sv`/`Cv` guard) | — | **differential** (`test-poly`, `test-jones`, `test-usi`, `test-bench`) |
+| `Cogen.ml --online` value-driven control (unroll on `Sv`/`Cv` guard) | `ValueDriven`: source with static (`aifS`, guard over the static input) vs dynamic (`aifD`) conditionals; `spec` resolves a static guard at spec time (returns the chosen branch's residual, no `rif`) and residualizes a dynamic guard; `spec-correct` (both kinds compute the source meaning) + `static-resolves` (a static-guard residual is literally one branch's residual — control resolved at spec time, residualizing nothing) | **proven (design spec)**; the value-driven select/unroll decision. Branch-coverage/size stays differential (`test-poly`/`test-jones`/`test-usi`/`test-bench`) |
 | `Cogen.ml` **M2 memo fold** (`drive`/`drive_dyn_if`, `COGEN_MEMO`) | `MemoFold`: `fold-sound`/`while-cong` (folded `while` ≡ source loop when body preserves the step), `fold-unsound-witness` | **proven (kernel)**; the per-iteration "body ≡ source step" obligation is differential (the loop-level fold is the proven part) |
 | `Cogen.ml` **M3b structured reconstruction** (`m3_reconstruct_general`, `COGEN_M3`) | `MemoReconstruct`: `Recon.sound` (the single-natural-loop flowchart `H:sH;if g then B else X · B:sB;goto H · X:sX;halt` and the emitted `sH; while g {sB;sH}; sX` compute the same partial function) | **proven (kernel)**; M4 — the loop-RECONSTRUCT soundness, companion to `MemoFold`'s loop-FOLD soundness for the assembled M3 driver |
 | `Cogen.ml` **M3b reconstruction — general/nested** (`m3_reconstruct_general`) | `MemoReconstructGen`: `Recon.loop-sound` (the header flowchart loop ≡ the emitted `sH; while g {body; sH}; exit` for a **partial body AND partial exit** `S → Maybe S`, so loops nest in bodies AND compose with arbitrary — incl. looping — continuations) + `branch-sound`/`seq-sound` (the if-branch and forward-edge rules) | **proven (M4)**; generalises the single-loop kernel to nested/partial bodies+exits — every reconstruction rule is semantics-preserving |
