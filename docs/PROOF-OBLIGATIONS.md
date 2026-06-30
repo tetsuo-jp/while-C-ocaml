@@ -19,11 +19,19 @@ Size legend: **S** small (one session) · **M** medium · **L** large (multi-ses
 
 - A fuel-relative structural induction over the interpreted expression, with a
   fuel bound `F(p, inp)`; the `call` case recurses with the same `⌜p⌝`.  **L.**
-- Prerequisite lemmas:
-  - `quote`-style fuel bounds for the dispatch (cf. `MixQuote.quote-ok`). **S.**
-  - a substitution / `ireq` lemma: `run sint F (⌜p⌝ ∙ (⌜e⌝ ∙ env)) ≡ ⟦e⟧_p env`
-    relating one interpreter step to one object step (the heart). **M–L.**
-  - fuel monotonicity is already available (`UniversalInterp.Mono`).
+- **Started: `proofs/agda/SelfInterpCorrect.agda`** — the target semantics `ev0`,
+  the `CallFree` fragment, the G1 statement, and the BASE cases (`sint-var`,
+  `sint-knil`, by `refl`).
+- Prerequisite lemmas (the remaining recursive cases):
+  - a `sint`-step / `ireq` lemma exposing the sub-request: for a sub-expression
+    `sub` of `e`, `run sint F (⌜p⌝.(⌜e⌝.env))` reduces (through the dispatch) to a
+    combinator of `run sint Fₑ (⌜p⌝.(⌜sub⌝.env))`.  **NB: a probe showed the inner
+    fuel is NOT a constant offset `D + Fₑ`, so this needs an explicit unfolding of
+    the nested-`kifnil` dispatch + `Mono.add-fuel` to lift the IH, not a one-line
+    `rewrite`.** **M–L.**
+  - the `kifnil` case adds a split on the condition value; the `call` case adds an
+    induction on the OBJECT eval fuel (re-interpreting `⌜p⌝`).
+  - fuel monotonicity is already available (`UniversalInterp.Mono.add-fuel`).
 
 **Everything in §2 below depends on G1** (it is what turns the abstract
 hypotheses into concrete facts about `Exp`).
