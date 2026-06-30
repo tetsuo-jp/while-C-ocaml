@@ -51,8 +51,8 @@ These four form one coherent arc; each builds on the row above.
 | Book | Statement | Size |
 |---|---|---|
 | Prop 3.7.4 `prop:many-one-var` | **prove** the WHILE → I (`--onevar`) translation correct (currently differential-tested) | ○ medium |
-| Prop 8.2.1 / 8.2.2 `prop-wtog` / `prop-gtow` | **WHILE ≡ GOTO** (Böhm–Jacopini: one while-loop suffices) | ○ medium |
-| **Thm 8.7.2 / Cor 8.7.3** `thm-2CM-universal` / `cor-2CM-universal` | **two-counter-machine universality** + 2CM halting undecidable | ○ medium–large (the canonical single-theorem Turing-completeness witness) |
+| Prop 8.2.1 / 8.2.2 `prop-wtog` / `prop-gtow` | **WHILE ≡ GOTO** (Böhm–Jacopini: one while-loop suffices) | ○ medium. **Framework done** — `proofs/agda/Compilation.agda` (the compilation preorder `_⟶_` + equivalence `_≃_`); remaining = the concrete GOTO↔WHILE compilers |
+| **Thm 8.7.2 / Cor 8.7.3** `thm-2CM-universal` / `cor-2CM-universal` | **two-counter-machine universality** + 2CM halting undecidable | ○ medium–large. Cor 8.7.3's logical form = `ReductionUndecidable`; the framework is `Compilation`; remaining = the concrete 2-counter Gödel-coding simulation (the canonical single-theorem Turing-completeness witness) |
 | Thm 13.4.3 `thm-normal-form` | Kleene Normal Form for WHILE | △ medium–large |
 
 ---
