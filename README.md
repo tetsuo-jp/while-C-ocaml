@@ -205,6 +205,14 @@ Construction "translate `tt` to one-variable I code"). It still meets the
 timed boundary; `examples/desugar/test-efficient-tu.sh` verifies both the
 one-variable property and `⟦tu_I⟧((⌜p⌝.d).nil^n)` at `n = time_p(d) ∓ 1`.
 
+**Why one variable is no restriction (machine-checked).** The single variable
+holds an *unbounded tree*, so it packs unboundedly many independent registers —
+`proofs/agda/OneVarTuring.agda` proves the array axioms (`get-set-eq`,
+`get-set-neq`) for a ℕ-indexed register file in one value. Together with `call`
+(unbounded recursion) and the universal one-variable self-interpreter
+`proofs/agda/SelfInterp.agda`, this makes the I language Turing-complete despite
+having a single variable. See [docs/I-LANGUAGE.md](docs/I-LANGUAGE.md).
+
 ### Partial evaluation and the Futamura projections
 
 `examples/desugar/mix.while` is a partial evaluator (specializer) over
