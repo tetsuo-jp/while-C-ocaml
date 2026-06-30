@@ -40,8 +40,8 @@ These four form one coherent arc; each builds on the row above.
 | **Thm 5.3.1** `thm-halt-undecidable` (+ Prop 1.4.4 `prop-halting-problem`) | **the halting problem for WHILE is undecidable** | **✓ DONE** — `proofs/agda/HaltingUndecidable.agda` (abstract + constructive diagonal; concrete WHILE/I instance documented) | ✓ |
 | **Thm 14.2.1** `thm-kleenes-2-recursion` | **Kleene's 2nd recursion theorem**: `∃q. ⟦q⟧(d) = ⟦p⟧(⌜q⌝.d)` | **✓ DONE** — `proofs/agda/RecursionTheorem.agda` (fixpoint `q = spec e ⌜e⌝` from our s-m-n) | ✓ |
 | **Thm 5.4.2** `thm-rice` | **Rice's theorem**: every non-trivial extensional property is undecidable | **✓ DONE** — `proofs/agda/RiceTheorem.agda` (constructive recursion-theorem reduction) | ✓ |
-| **Thm 5.6.1 / Cor 5.6.2** `thm-halt-semi` / `cor-halt-not-semidecidable` | HALT is semi-decidable; its complement is not | run-with-increasing-fuel = semi-decision (`UniversalInterp`'s fuel) + 5.3.1 | ○ medium |
-| **Thm 5.5.1 / 5.5.2** | closure of decidable / semi-decidable sets | straightforward set constructions | ○ small–medium |
+| **Thm 5.6.1 / Cor 5.6.2** `thm-halt-semi` / `cor-halt-not-semidecidable` | HALT is semi-decidable; its complement is not | **✓ DONE** — `proofs/agda/SemiDecidable.agda` (Post's lemma + undecidability ⇒ `∁`self-halting not semi-decidable) | ✓ |
+| **Thm 5.5.1 / 5.5.2** | closure of decidable / semi-decidable sets | **✓ DONE (decidable part)** — `proofs/agda/DecidableClosure.agda` (`∩`/`∪`/complement) | ✓ |
 | general **Thm 4.2.1** (∀-version) | `⟦sint⟧(⌜p⌝.d) = ⟦p⟧(d)` for *all* `p` | currently concrete-only; the pending "G4 4c general theorem" — a fuel-relative induction over `sint`'s behaviour on arbitrary ⌜p⌝ | ◎ medium–large |
 
 ---
