@@ -24,8 +24,12 @@
 
 module LevinBudget where
 
-open import Data.Nat using (ℕ; zero; suc; _+_; _<_)
-open import Data.Nat.Properties using (≤-refl; +-suc)
+open import Data.Nat using (ℕ; zero; suc; _+_; _≤_; _<_; s≤s; z≤n)
+open import Data.Nat.Properties
+  using (≤-refl; ≤-trans; +-suc; +-mono-≤; m≤n+m; m≤n⇒m≤1+n; <⇒≱; <-cmp)
+open import Data.Product using (Σ; _×_; _,_)
+open import Data.Empty using (⊥-elim)
+open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
 open import Relation.Binary.PropositionalEquality
   using (_≡_; refl; cong; sym; trans; subst)
 
@@ -59,6 +63,37 @@ gsum-eq (suc k) =
 
 gsum<2last : ∀ k → gsum k < pow2 (suc k)
 gsum<2last k = subst (λ m → gsum k < m) (gsum-eq k) ≤-refl
+
+------------------------------------------------------------------------
+-- THE OVERSHOOT (companion): the least power of two ≥ N is ≤ 2·N, so the phase
+-- whose budget first covers the optimal solver `q` overshoots `q`'s need by at
+-- most a factor 2.  Together with `gsum<2last` this gives Levin's constant `a_q`.
+------------------------------------------------------------------------
+
+private
+  sm≤ssm : ∀ m → suc m ≤ suc (suc m)
+  sm≤ssm m = m≤n⇒m≤1+n ≤-refl
+
+  dbl-mono : ∀ {a b} → a ≤ b → a + a ≤ b + b
+  dbl-mono a≤b = +-mono-≤ a≤b a≤b
+
+  ssm≤dbl : ∀ m → suc (suc m) ≤ suc m + suc m
+  ssm≤dbl m = s≤s (m≤n+m (suc m) m)
+
+-- for N = suc n ≥ 1, some power of two lies in [N , 2·N].
+overshoot : ∀ n → Σ ℕ (λ k → (suc n ≤ pow2 k) × (pow2 k ≤ suc n + suc n))
+overshoot zero = zero , (s≤s z≤n , s≤s z≤n)
+overshoot (suc m) with overshoot m
+... | k' , sm≤pk , pk≤2sm with <-cmp (suc m) (pow2 k')
+...   | tri< sm<pk _ _ = k' , sm<pk , ≤-trans pk≤2sm (dbl-mono (sm≤ssm m))
+...   | tri> _ _ pk<sm = ⊥-elim (<⇒≱ pk<sm sm≤pk)
+...   | tri≈ _ sm≡pk _ = suc k' , g1 , g2
+        where
+          g1 : suc (suc m) ≤ pow2 k' + pow2 k'
+          g1 = subst (λ z → suc (suc m) ≤ z + z) sm≡pk (ssm≤dbl m)
+          g2 : pow2 k' + pow2 k' ≤ suc (suc m) + suc (suc m)
+          g2 = subst (λ z → z + z ≤ suc (suc m) + suc (suc m)) sm≡pk
+                     (dbl-mono (sm≤ssm m))
 
 ------------------------------------------------------------------------
 -- Concrete check: phases 0..3 cost 1+2+4+8 = 15 = 2^4 − 1 < 16.
