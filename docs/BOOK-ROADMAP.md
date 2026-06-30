@@ -65,7 +65,7 @@ These four form one coherent arc; each builds on the row above.
 | Thm 19.5.3 / 19.5.4 | time-constructible / asymptotic time hierarchy | △ large |
 | Thm 18.3.3 `thm-goto-equiv-while` | WHILE ≡ I ≡ GOTO ≡ F up to linear-time | △ large (constant-factor simulations) |
 | Thm 18.4.2 `thm-tm-speedup` | TM constant-factor speedup | △ large |
-| Thm 20.1.2 / 20.3.1 / 20.4.1 | Levin / Blum speedup / Gap theorems | △ research-scale |
+| Thm 20.1.2 / 20.3.1 / 20.4.1 | Levin / Blum speedup / Gap theorems | △ research-scale. **Levin's budget-doubling CORE is done** — `proofs/agda/LevinBudget.agda` (`gsum<2last`: the dovetailed search over phases `0..k` costs `< 2·2^k`, the quantitative heart of the constant `a_q`). Remaining for full 20.1.2: the overshoot bound, the efficient interpreter's cost theorem (Thm 19.1.3 — the I self-interpreter `SelfInterp` is the intended efficient interpreter), program enumeration, and the assembly |
 
 ---
 
