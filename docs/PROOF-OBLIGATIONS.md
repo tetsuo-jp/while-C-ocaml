@@ -19,19 +19,18 @@ Size legend: **S** small (one session) · **M** medium · **L** large (multi-ses
 
 - A fuel-relative structural induction over the interpreted expression, with a
   fuel bound `F(p, inp)`; the `call` case recurses with the same `⌜p⌝`.  **L.**
-- **Started: `proofs/agda/SelfInterpCorrect.agda`** — the target semantics `ev0`,
-  the `CallFree` fragment, the G1 statement, and the BASE cases (`sint-var`,
-  `sint-knil`, by `refl`).
-- Prerequisite lemmas (the remaining recursive cases):
-  - a `sint`-step / `ireq` lemma exposing the sub-request: for a sub-expression
-    `sub` of `e`, `run sint F (⌜p⌝.(⌜e⌝.env))` reduces (through the dispatch) to a
-    combinator of `run sint Fₑ (⌜p⌝.(⌜sub⌝.env))`.  **NB: a probe showed the inner
-    fuel is NOT a constant offset `D + Fₑ`, so this needs an explicit unfolding of
-    the nested-`kifnil` dispatch + `Mono.add-fuel` to lift the IH, not a one-line
-    `rewrite`.** **M–L.**
-  - the `kifnil` case adds a split on the condition value; the `call` case adds an
-    induction on the OBJECT eval fuel (re-interpreting `⌜p⌝`).
-  - fuel monotonicity is already available (`UniversalInterp.Mono.add-fuel`).
+- **Call-free fragment DONE: `proofs/agda/SelfInterpCorrect.agda`** — `sim` proves
+  G1 for the whole call-free fragment (var/knil/khd/ktl/kcons/kifnil) for all
+  `p`, `env`.  The decomposition that worked: each recursive case = a per-
+  constructor DISPATCH LEMMA (by `refl`; the dispatch keeps `J + F` fuel in the
+  inner phase, constants `D,J` found by a fuel grid search, e.g. khd `12/6`, ktl
+  `13/6`, kcons `12/7`, kifnil `16/8`) + `add-fuel`/`mono-≤` to lift the IH to the
+  common inner fuel + `trans`/`cong` (kcons: two sub-requests; kifnil: `ifnil-just`
+  + a 3-way bump).
+- **Remaining: the `call` case** — re-interpret `⌜p⌝` with `env := ⟦e⟧`; needs an
+  induction on the OBJECT eval fuel (the meaning is then partial / fuel-indexed,
+  no longer the total `ev0`).  This closes G1 for the full language.  **M–L.**
+- fuel monotonicity is available (`UniversalInterp.Mono.add-fuel`; `mono-≤` here).
 
 **Everything in §2 below depends on G1** (it is what turns the abstract
 hypotheses into concrete facts about `Exp`).
