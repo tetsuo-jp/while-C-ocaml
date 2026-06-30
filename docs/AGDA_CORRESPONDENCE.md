@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (31 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (32 modules).
 
 ## Correspondence table
 
@@ -31,6 +31,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (31 modules)
 | `Cogen.ml` **whole-spec congruence — `'while`** | `SpecAssemblyWhile`: `spec-while-entry` (loop entry: generalising the assigned set makes the entry stores consistent with σloop — corollary of `dynlist-sound`) + `spec-while-sound` (given σloop is a fixpoint of the body specialiser, the loop preserves consistency — `spec-sound` rewritten along the fixpoint, fed to `WhileCase.while-store-cong` = `MemoFold.run-inv`); `example-while-sound` discharges the fixpoint hypothesis by computation on a concrete loop (non-vacuity) | **proven** (the `'while` case assembled — ties body congruence to the loop kernel; G1 now covers all command forms) |
 | **Futamura projections as a meta-theorem** (the three projections of `mix`/`Cogen.ml`) | `FutamuraProjections`: from a single `MixModel.mix-eq` (`[ [mix](p,s) ](d) ≡ [p](s,d)`) derive `fp1`/`fp2`/`fp3` (each an instance of `mix-eq` at args `(int,source)`/`(mix,int)`/`(mix,mix)`) + `fp2-correct`/`fp3-correct` (the composed chain: cogen ▸ compiler ▸ target ≡ int); `Witness.model` is a faithful non-degenerate self-applicable specializer discharging `mix-eq` by `refl` | **proven (meta)**; reduces all three projections to the spec equation — whose operational content is G1 (`SpecAssembly*`), the hypothesis this module consumes |
 | **Futamura meta-theorem for a PARTIAL `run`** (the Turing-complete setting) | `FutamuraPartial`: `PartialMixModel` has `run : Data → Data → Maybe Data`, `mix-runs` (mix terminates → residual) + `mix-eq` (residual correct as Maybe-values); derives `fp1`/`fp2`/`fp3` in Maybe form (compiler/cogen *run* — `≡ just …` — to the next stage) + `fp2-correct`/`fp3-correct` (whatever they return is a correct target/compiler, via just-injectivity); `Witness.model` is genuinely partial (data-as-program ⇒ `nothing`) | **proven (meta)**; the `Maybe`-relative generalisation of `FutamuraProjections`, the form `UniversalInterp`'s partial `run` instantiates once `mix` is an `Exp` |
+| **FULL self-interpreter in `Exp`** (G4 step 4c, universal.while in Agda) | `SelfInterp`: `sint : Exp` interprets an encoded program over the WHOLE language (var/knil/kcons/khd/ktl/kifnil/call) from the triple `(⌜p⌝ . (⌜e⌝ . env))` — 7-way dispatch on the tag (walked by `ktl`), sub-expressions via the interpreter's own `call` (`ireq` rebuilds the triple), `call e` re-interprets ⌜p⌝ with `env := ⟦e⟧`; verified on concrete programs for every constructor INCLUDING recursion (a `drain` loop computes by refl) | **proven (concrete)**; the metaprogram a self-applicable `mix` carries — running `sint` on ⌜p⌝ runs `p` standalone, so specialization survives self-application. General fuel-bounded theorem + 4d (assemble `PartialMixModel`) remain |
 | **self-interpreter in `Exp`** (G4 step 4c, first brick) | `SelfInterpConst`: `sintC : Exp` interprets an ENCODED constant expression ⌜e⌝ by dispatching on its constructor tag (`khd var`, distinguished by the tag's tail) and recursively interpreting the arguments via the interpreter's own `call`; run with itself as global (`Interp sintC`) it computes ⟦e⟧ — verified on concrete encoded programs incl. nested recursion | **proven (concrete)**; the dispatch-and-recurse-over-⌜p⌝ pattern of `universal.while`, on the constant fragment. Full language + general fuel-bounded theorem remain |
 | **spec equation for an `Exp` residual** (G4 step 4b) | `MixSpec`: under `Interp p`, the residual `call (kcons (quoteV sv) var)` reconstructs `(sv . d)` and delegates to `p`; `specE-sound` (fuel-relative `eval (residual) d ≡ eval p (sv ∙ d)` = the spec equation, via `pair-ok` + `MixQuote.quote-ok`) | **proven (machinery)**; the spec equation in the program-loaded model. Standalone (Jones self-global) residuals for recursive `p` need the self-interpreter (4c) — this lemma isolates exactly that gap |
 | **`quote` into object code** (G4 step 4a, brick of `mix`-as-`Exp`) | `MixQuote`: `quoteV : V → Exp` lifts a static value into a CLOSED expression (the `Exp` has no literal, so a specializer needs this to fold static input); `quote-ok` (`eval (suc (sz v)) (quoteV v) x ≡ just v` — evaluates to the value under any program, with a node-count fuel bound, via `Mono.add-fuel`) | **proven (machinery)**; the first brick of the remaining `mix : Exp` construction (4b `specE`, 4c `mixProg`, 4d assemble) |
@@ -120,13 +121,15 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (31 modules)
   construction itself, decomposed as: **4a `MixQuote`** (done — `quoteV`: lift a
   static value into closed `Exp` code, since `Exp` has no literal) → **4b `MixSpec`**
   (done — the spec equation `eval (residual) d ≡ eval p (sv∙d)` for the residual
-  `call (kcons (quoteV sv) var)` under `Interp p`) → **4c `mixProg : Exp`** (in progress — a
-  self-interpreter carrying ⌜p⌝; `SelfInterpConst` lands its first brick: a
-  working self-interpreter `sintC` for the constant fragment, verified on
-  concrete encoded programs, establishing the dispatch-on-tag + recurse-via-`call`
-  pattern; remaining: extend to `var`/`khd`/`ktl`/`kifnil`/`call` with a general
-  fuel-bounded correctness theorem) → 4d assemble the concrete `PartialMixModel`
-  over `V`.
+  `call (kcons (quoteV sv) var)` under `Interp p`) → **4c `mixProg : Exp`** (the self-interpreter
+  carrying ⌜p⌝ — DONE as a working program: `SelfInterpConst` (constant fragment)
+  then **`SelfInterp`**, a FULL self-interpreter `sint` over the whole language,
+  verified by refl on concrete programs for every constructor including recursion;
+  what remains is the general fuel-bounded correctness theorem `∀ p inp → run sint
+  F (⌜p⌝,(⌜p⌝,inp)) ≡ ⟦p⟧(inp)`) → **4d** assemble the concrete `PartialMixModel`
+  over `V` (mix = a residual carrying ⌜p⌝ to `sint`). The self-interpreter — the
+  classic hard core, `universal.while` in Agda — now exists and runs; 4c's
+  remaining work is its general proof, and 4d the final assembly.
 
 ## Relation to `rwhile-C-ocaml`
 
