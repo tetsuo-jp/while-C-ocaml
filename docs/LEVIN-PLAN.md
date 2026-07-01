@@ -7,6 +7,31 @@ interpreter, program enumeration) as **explicit hypotheses**, then discharge the
 concretely for the I language — exactly how halting / recursion / the Futamura
 meta-theorem were handled.
 
+## Claimable scope (current state — read before writing any paper)
+
+Machine-checked so far (`--safe`), and what may honestly be claimed:
+
+- **DONE.** The combinatorial core (`LevinBudget`: `gsum<2last`, `overshoot`); the
+  optimality inequality `gsum k < a_q·(T_q+T_r)`, `a_q = 4·a·2^j` (`LevinOptimal`,
+  Layer A) — but **relative to** two abstract record fields, the interpreter overhead
+  `a` (`overhead`) and q's index `j` (`idx`); program countability (`ProgramEnum`,
+  B2a); and a total step-counting cost model (`StepCount`, B1.1).
+- **NOT done.** `int-efficient` (`time_sint ≤ a·time_p`, B1.2 — the fact that makes
+  `a` a real constant rather than an assumption); the surjective decoder (B2b); the
+  operational `opt` and `time_opt = gsum k` (B3).
+
+**Therefore, at present, the *only* honest claim is:** "we machine-check Levin's
+optimality *conditionally* — the optimality bound follows, in Agda `--safe`, from a
+linear-overhead self-interpreter and an effective program numbering; the
+combinatorial heart is fully verified, and the numbering is discharged." The bound's
+hypotheses `a, j, T_q, T_r` are abstract naturals, **not yet grounded in a concrete
+`opt` program**, so the statement is a *verified skeleton*, not a theorem about
+running WHILE/I programs. Do **not** claim "Levin's theorem is mechanized". A genuine
+secondary contribution IS claimable: the **negative methodological finding** that the
+`refl`-dispatch technique which mechanizes self-interpreter *correctness* (`simF`)
+does not transfer to *cost* (the step count is trapped in a stuck sub-term), so
+verifying interpreter *efficiency* needs a big-step cost relation — see B1.2.
+
 ## The theorem (informal, Jones §20.1)
 
 For a semi-decidable search problem checked by a program `r` (given `x`, is `y` a
@@ -125,6 +150,66 @@ sub-costs while its depth-fuel does not grow), so B1 genuinely needs `evalT`.
   path; the refl route is a dead end.
 - Fallback: if the full bound stalls, `LevinOptimal` (Layer A) already gives Levin
   optimality *relative to* the overhead `a`; B1 remains the one open hypothesis.
+
+#### B1.2 resolution plan (big-step cost relation) — detailed
+
+The design that dodges the reduction obstacle: reason about a **derivation tree**, not
+a reducing term. A sub-computation enters as an *opaque premise* (a proof), never as
+an expression that Agda tries (and fails) to reduce under a symbolic argument.
+
+New module `CostRelation.agda` (over `module _ (prog : Exp)`), then `IntEfficient.agda`.
+
+**Phase 1 — the cost relation and its adequacy vs `evalT`.  [M, self-contained]**
+- `data _⊢_⇓_#_ : Exp → V → V → ℕ → Set` (read `prog ⊢ e , env ⇓ v # c`), one rule per
+  constructor mirroring `StepCount.evalT`'s counts:
+  `⇓var : prog ⊢ var , env ⇓ env # 1`; `⇓khd : prog ⊢ e,env ⇓ v # c → prog ⊢ khd e,env
+  ⇓ hd v # suc c`; `⇓kcons` sums `suc (ca+cb)`; `⇓kifnil-then/-else` pick a branch and
+  add `suc (cc+cbranch)`; `⇓call : prog ⊢ e,env ⇓ arg # ca → prog ⊢ prog,arg ⇓ v # cv →
+  prog ⊢ call e,env ⇓ v # suc (ca+cv)`.
+- `complete : evalT prog G e env ≡ just (v,c) → prog ⊢ e,env ⇓ v # c` (induction on `G`,
+  same `with … in` shape as `evalT⇒eval`).
+- `sound : prog ⊢ e,env ⇓ v # c → Σ G, evalT prog G e env ≡ just (v,c)` (induction on the
+  derivation; combine sub-fuels with `Mono.add-fuel`/`mono-≤`, take `G = 1 + max`).
+- Result: `⇓` is the fuel-free characterisation of `time`, and derivations *compose*.
+
+**Phase 2 — per-object-node sint dispatch cost, RELATIONALLY.  [L, the crux]**
+- For each object constructor a lemma taking sint's sub-derivation(s) to sint's
+  derivation for the whole node, with an explicit constant, e.g.
+  `sint-khd : sint ⊢ (⌜p⌝∙(⌜e⌝∙env)) ⇓ v # cₑ → sint ⊢ (⌜p⌝∙(⌜khd e⌝∙env)) ⇓ hd v #
+  (Kₖₕ𝒹 + cₑ)`.
+- Proof = *construct* sint's derivation tree over its own dispatch code
+  (`tagE`-walk on the CONCRETE tag `⌜khd e⌝` ⇒ pick the right `⇓kifnil` branch ⇒
+  `ireq` builds the request `(⌜p⌝∙(⌜e⌝∙env))` by `⇓kcons`… ⇒ sint's `call` plugs in the
+  premise `cₑ` via `⇓call` ⇒ `⇓khd` applies `hd`). `Kₙₒ𝒹ₑ` = the node count of that fixed
+  tree (incl. the constant request-building cost; `⌜p⌝`/`env` are reached by projection,
+  O(1) nodes, so `K` does not depend on program size).
+- **De-risking:** do `khd` end-to-end FIRST to fix the technique and read off `Kₖₕ𝒹`;
+  then `ktl`/`kcons`/`kifnil`/`call` by the same recipe. Semi-automation option: obtain
+  the *concrete-tag prefix* of each derivation from `complete` run on the tag-walk
+  (which is a closed computation), and glue the one symbolic sub-derivation with a small
+  `⇓`-composition lemma — cuts the hand-built tree to just the `ireq`/`call` splice.
+- Set `a = suc (max Kₙₒ𝒹ₑ)` (the `suc` covers the object node's own `+1`).
+
+**Phase 3 — the linear bound, by induction on the object derivation.  [M]**
+- `int-efficient : prog=p ⊢ e,env ⇓ v # c → Σ c', (sint ⊢ (⌜p⌝∙(⌜e⌝∙env)) ⇓ v # c') ×
+  (c' ≤ a * c)`. Induct on the object derivation; each case applies the Phase-2 lemma to
+  the IH sub-result(s), then the node inequality `K + Σ a·cᵢ ≤ a·(1 + Σ cᵢ)` — needs
+  `K ≤ a` and `*`/`+` monotonicity (`*-distribˡ-+`, `+-mono-≤`, all in stdlib).
+- Corollary `time_sint(⌜p⌝.d) ≤ a · time_p(d)` by `sound`/`complete` (Phase 1) at
+  `e := p`, `env := d`.
+
+**Phase 4 — discharge Layer A's hypothesis.  [S]**
+- Build a `LevinOptimal.LevinSearch` for a concrete `q` with `overhead := a` supplied by
+  `int-efficient` (and `idx := ProgramEnum.index q`), so the optimality bound no longer
+  *assumes* the overhead — it is `a`. This is the payoff: Levin optimality for concrete
+  I programs, `--safe`, end-to-end (still modulo B3's actual `opt` construction).
+
+**Risk & effort.** Phase 1 is M and independently valuable (a fuel-free cost semantics).
+Phase 2 is the L crux (hand-built derivations); the semi-automation via `complete` on the
+concrete prefix is the key lever to keep it bounded. If Phase 2's exact `K` is painful,
+a *generous* per-node bound (`K ≤ someLiteral`, proved by a coarser derivation count)
+still yields linearity — exactness is not needed, only `K ≤ a`. Total: **L+**, but each
+phase commits green on its own.
 
 ### B2. Program enumeration
 
