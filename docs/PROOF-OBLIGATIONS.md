@@ -88,7 +88,11 @@ their fields, so the abstract theorems fire on the real language.
 ## 4. Levin's theorem (Thm 20.1.2) — beyond the budget core
 
 `LevinBudget` proves the two quantitative halves (`gsum<2last`, `overshoot`).
-Remaining:
+**Layer A DONE** — `LevinOptimal.levin-optimal` assembles them into the optimality
+inequality `gsum k < a_q·(T_q+T_r)`, `a_q = 4·a·2^j`, with the interpreter overhead
+`a` (`overhead`) and q's index `j` (`idx`) as explicit hypotheses (abstract-record
+pattern; see `docs/LEVIN-PLAN.md`). Remaining = discharge those two for the I
+language (Layer B):
 
 - **`int-efficient` (Thm 19.1.3)** — the I self-interpreter `sint` has linear
   overhead: `time_sint(⌜p⌝.d) ≤ a · time_p(d)` for a constant `a`. A cost
@@ -96,9 +100,11 @@ Remaining:
   prerequisite Levin "exploits". **L.**
 - **program enumeration** — an effective enumeration `nat→Exp` (or over `⌜p⌝ : V`)
   so the search can dovetail all programs. **S–M.**
-- **`opt` and `levin-optimal`** — assemble: build `opt` (dovetail + run via `sint`
-  under doubling budgets + check with `r`), and prove `time_opt(x) ≤ a_q·(time_q(x)
-  + time_r(x.f(x)))` from `gsum<2last` + `overshoot` + `int-efficient`. **L.**
+- **`opt` and `levin-optimal`** — the inequality itself is **DONE** abstractly
+  (`LevinOptimal.levin-optimal`, Layer A). Remaining (Layer B3): build `opt` as an
+  actual `Exp` program (dovetail + run via `sint` under doubling budgets + check
+  with `r`) and prove `time_opt(x) = gsum k`, tying the concrete program's running
+  time to Layer A's abstract `gsum`. **L.**
 
 ## 5. C-tier robustness results (Jones ch.7–8)
 
