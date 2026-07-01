@@ -28,14 +28,15 @@
 
 module SelfInterpCorrect where
 
-open import Data.Nat using (ℕ; _+_; _∸_; _≤_)
+open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _≤_)
 open import Data.Nat.Properties using (+-comm; ≤-trans; m≤m+n; m≤n+m; m∸n+n≡m)
 open import Data.Product using (Σ; _,_)
+open import Data.Empty using (⊥; ⊥-elim)
 open import Relation.Binary.PropositionalEquality
   using (_≡_; refl; cong; cong₂; trans; subst)
 open import UniversalInterp
   using (V; ⟨⟩; _∙_; hd; tl; ifnil; Exp; var; knil; kcons; khd; ktl; kifnil; call;
-         just; _>>=_; module Interp; module Mono)
+         nothing; just; _>>=_; module Interp; module Mono)
 open import ProgEncoding using (⌜_⌝)
 open import SelfInterp using (sint)
 
@@ -108,6 +109,117 @@ kifnil-case : ∀ p env c t e F →
 kifnil-case p env c t e F hc ht he
   rewrite kifnil-dispatch p env c t e F | hc | ht | he =
     ifnil-just (ev0 c env) (ev0 t env) (ev0 e env)
+
+------------------------------------------------------------------------
+-- The `call` case (object recursion).  `call e` re-interprets the program `cp`
+-- with env = ⟦e⟧.  The dispatch builds the request `(cp . (cp . ⟦e⟧))` via TWO
+-- `kcons` (a 3-level nested bind, found by fuel grid search: 18 / 8 / 11).  Once
+-- the inner self-interp of `e` resolves to `arg`, the binds collapse and the
+-- outer self-interp re-runs the whole program on `arg`.
+------------------------------------------------------------------------
+
+call-dispatch : ∀ cp env e F →
+  run (18 + F) (cp ∙ (⌜ call e ⌝ ∙ env)) ≡
+    ((run (8 + F) (cp ∙ (⌜ e ⌝ ∙ env)) >>= λ iv → just (cp ∙ iv))
+        >>= λ vy → just (cp ∙ vy))
+      >>= λ req → run (11 + F) req
+call-dispatch cp env e F = refl
+
+call-case : ∀ cp env e F {arg v} →
+  run (8 + F) (cp ∙ (⌜ e ⌝ ∙ env)) ≡ just arg →
+  run (11 + F) (cp ∙ (cp ∙ arg)) ≡ just v →
+  run (18 + F) (cp ∙ (⌜ call e ⌝ ∙ env)) ≡ just v
+call-case cp env e F he hp
+  rewrite call-dispatch cp env e F | he = hp
+
+------------------------------------------------------------------------
+-- FULL G1 (Thm 4.2.1, ∀ form).  Per-constructor "case" combinators take the
+-- sub-results (at the dispatch's inner fuel) to the constructor's result; the
+-- conditional now picks ONLY the taken branch (`-then`/`-else`), as the direct
+-- interpreter does.  Then `simF` is an induction on the OBJECT eval fuel `G`.
+------------------------------------------------------------------------
+
+khd-caseF : ∀ cp env e F {ve} →
+  run (6 + F) (cp ∙ (⌜ e ⌝ ∙ env)) ≡ just ve →
+  run (12 + F) (cp ∙ (⌜ khd e ⌝ ∙ env)) ≡ just (hd ve)
+khd-caseF cp env e F he rewrite khd-dispatch cp env e F | he = refl
+
+ktl-caseF : ∀ cp env e F {ve} →
+  run (6 + F) (cp ∙ (⌜ e ⌝ ∙ env)) ≡ just ve →
+  run (13 + F) (cp ∙ (⌜ ktl e ⌝ ∙ env)) ≡ just (tl ve)
+ktl-caseF cp env e F he rewrite ktl-dispatch cp env e F | he = refl
+
+kcons-caseF : ∀ cp env a b F {va vb} →
+  run (7 + F) (cp ∙ (⌜ a ⌝ ∙ env)) ≡ just va →
+  run (7 + F) (cp ∙ (⌜ b ⌝ ∙ env)) ≡ just vb →
+  run (12 + F) (cp ∙ (⌜ kcons a b ⌝ ∙ env)) ≡ just (va ∙ vb)
+kcons-caseF cp env a b F ha hb rewrite kcons-dispatch cp env a b F | ha | hb = refl
+
+kifnil-thenF : ∀ cp env c t e F {v} →
+  run (8 + F) (cp ∙ (⌜ c ⌝ ∙ env)) ≡ just ⟨⟩ →
+  run (8 + F) (cp ∙ (⌜ t ⌝ ∙ env)) ≡ just v →
+  run (16 + F) (cp ∙ (⌜ kifnil c t e ⌝ ∙ env)) ≡ just v
+kifnil-thenF cp env c t e F hc ht rewrite kifnil-dispatch cp env c t e F | hc | ht = refl
+
+kifnil-elseF : ∀ cp env c t e F {vh vt v} →
+  run (8 + F) (cp ∙ (⌜ c ⌝ ∙ env)) ≡ just (vh ∙ vt) →
+  run (8 + F) (cp ∙ (⌜ e ⌝ ∙ env)) ≡ just v →
+  run (16 + F) (cp ∙ (⌜ kifnil c t e ⌝ ∙ env)) ≡ just v
+kifnil-elseF cp env c t e F hc he rewrite kifnil-dispatch cp env c t e F | hc | he = refl
+
+-- nothing ≠ just (the under-fuel / divergent sub-eval branches are absurd).
+n≢j : ∀ {x : V} → nothing ≡ just x → ⊥
+n≢j ()
+
+-- common ≤ facts for the fuel bumps.
+private
+  ≤sum-l : ∀ k a b → a ≤ k + (a + b)
+  ≤sum-l k a b = ≤-trans (m≤m+n a b) (m≤n+m (a + b) k)
+  ≤sum-r : ∀ k a b → b ≤ k + (a + b)
+  ≤sum-r k a b = ≤-trans (m≤n+m b a) (m≤n+m (a + b) k)
+
+-- THE FULL G1: whenever the direct interpreter (program p, fuel G) computes `v`
+-- on `e` in `env`, the self-interpreter computes the same value.
+simF : ∀ G e {p env v} → Interp.eval p G e env ≡ just v →
+       Σ ℕ (λ F → run F (⌜ p ⌝ ∙ (⌜ e ⌝ ∙ env)) ≡ just v)
+simF zero    e        ()
+simF (suc g) var       h = 8 , h
+simF (suc g) knil      h = 8 , h
+simF (suc g) (khd e) {p} {env} h with Interp.eval p g e env in eqe
+... | nothing  = ⊥-elim (n≢j h)
+... | just ve with simF g e eqe
+...   | Fe , ihe = 12 + Fe ,
+        trans (khd-caseF ⌜ p ⌝ env e Fe (mono-≤ (m≤n+m Fe 6) ihe)) h
+simF (suc g) (ktl e) {p} {env} h with Interp.eval p g e env in eqe
+... | nothing  = ⊥-elim (n≢j h)
+... | just ve with simF g e eqe
+...   | Fe , ihe = 13 + Fe ,
+        trans (ktl-caseF ⌜ p ⌝ env e Fe (mono-≤ (m≤n+m Fe 6) ihe)) h
+simF (suc g) (kcons a b) {p} {env} h with Interp.eval p g a env in eqa
+... | nothing = ⊥-elim (n≢j h)
+... | just va with Interp.eval p g b env in eqb
+...   | nothing = ⊥-elim (n≢j h)
+...   | just vb with simF g a eqa | simF g b eqb
+...     | Fa , iha | Fb , ihb = 12 + (Fa + Fb) ,
+          trans (kcons-caseF ⌜ p ⌝ env a b (Fa + Fb)
+                   (mono-≤ (≤sum-l 7 Fa Fb) iha)
+                   (mono-≤ (≤sum-r 7 Fa Fb) ihb)) h
+simF (suc g) (kifnil c t e) {p} {env} h with Interp.eval p g c env in eqc
+simF (suc g) (kifnil c t e) {p} {env} h | nothing = ⊥-elim (n≢j h)
+simF (suc g) (kifnil c t e) {p} {env} h | just ⟨⟩ with simF g c eqc | simF g t h
+... | Fc , ihc | Ft , iht = 16 + (Fc + Ft) ,
+      kifnil-thenF ⌜ p ⌝ env c t e (Fc + Ft)
+        (mono-≤ (≤sum-l 8 Fc Ft) ihc) (mono-≤ (≤sum-r 8 Fc Ft) iht)
+simF (suc g) (kifnil c t e) {p} {env} h | just (vh ∙ vt) with simF g c eqc | simF g e h
+... | Fc , ihc | Fe , ihe = 16 + (Fc + Fe) ,
+      kifnil-elseF ⌜ p ⌝ env c t e (Fc + Fe)
+        (mono-≤ (≤sum-l 8 Fc Fe) ihc) (mono-≤ (≤sum-r 8 Fc Fe) ihe)
+simF (suc g) (call e) {p} {env} h with Interp.eval p g e env in eqe
+... | nothing = ⊥-elim (n≢j h)
+... | just arg with simF g e eqe | simF g p h
+...   | Fe , ihe | Fp , ihp = 18 + (Fe + Fp) ,
+        call-case ⌜ p ⌝ env e (Fe + Fp)
+          (mono-≤ (≤sum-l 8 Fe Fp) ihe) (mono-≤ (≤sum-r 11 Fe Fp) ihp)
 
 ------------------------------------------------------------------------
 -- G1 for the head/tail fragment: sint correctly interprets every such program,

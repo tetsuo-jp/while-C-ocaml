@@ -11,11 +11,23 @@ Size legend: **S** small (one session) · **M** medium · **L** large (multi-ses
 
 ---
 
-## G1. General self-interpreter correctness — the keystone
+## G1. General self-interpreter correctness — **DONE (keystone closed)**
 
-> **`sint-correct` : `∀ p inp → Σ ℕ (λ F → run sint F (⌜p⌝ ∙ (⌜p⌝ ∙ inp)) ≡ ⟦p⟧ inp)`**
-> (the ∀-quantified Thm 4.2.1; currently `SelfInterp` verifies it only on
-> concrete programs by `refl`).
+> **`SelfInterpCorrect.simF`** : `∀ G e {p env v} → Interp.eval p G e env ≡ just v
+> → Σ F, run sint F (⌜p⌝.(⌜e⌝.env)) ≡ just v` — the self-interpreter matches the
+> direct interpreter for EVERY program (incl. `call`/recursion) and input,
+> whenever the direct interpreter terminates.  The ∀-quantified Thm 4.2.1, proved
+> by induction on the object eval fuel `G`.
+
+**Done** via the small-problems decomposition: per-constructor dispatch lemmas
+(by `refl`; `call` is a 3-level nested bind `18/8/11`, found by fuel grid search),
+`mono-≤` to lift the IH, `trans`/rewrite to combine.  The remaining §2 items below
+that said "needs G1" are now unblocked.
+
+<details><summary>(historical: the original obligation)</summary>
+
+> the ∀-quantified Thm 4.2.1; `SelfInterp` verifies it only on concrete programs
+> by `refl` — now generalised by `simF`.</details>
 
 - A fuel-relative structural induction over the interpreted expression, with a
   fuel bound `F(p, inp)`; the `call` case recurses with the same `⌜p⌝`.  **L.**
