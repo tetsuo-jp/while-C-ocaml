@@ -95,9 +95,13 @@ pattern; see `docs/LEVIN-PLAN.md`). Remaining = discharge those two for the I
 language (Layer B):
 
 - **`int-efficient` (Thm 19.1.3)** — the I self-interpreter `sint` has linear
-  overhead: `time_sint(⌜p⌝.d) ≤ a · time_p(d)` for a constant `a`. A cost
-  analysis of `sint` in the fuel model (fuel = steps). This is the real
-  prerequisite Levin "exploits". **L.**
+  overhead: `time_sint(⌜p⌝.d) ≤ a · time_p(d)` for a constant `a`.
+  **B1.1 DONE**: `StepCount.evalT`/`time` — a total-step-counting semantics (the
+  reference `eval`'s fuel is only a DEPTH bound, so a new instrumented interpreter
+  summing both branches was needed), with `evalT⇒eval` (same value) + concrete
+  counts. **B1.2 remaining**: the bound `time_sint ≤ a · time_p` itself — a
+  step-accounting refinement of `SelfInterpCorrect.simF` (each object node costs a
+  bounded number of sint steps; `a = max` per-constructor dispatch cost). **L.**
 - **program enumeration** — **B2a DONE**: injective Gödel numbering
   `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
   solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:

@@ -86,6 +86,17 @@ the same shape as `FutamuraProjections` (relative to `mix-eq`) or
 `time_sint(⌜p⌝.d) ≤ a · time_p(d)` for a constant `a`: the one-variable self-
 interpreter `sint` simulates any program with only constant per-step overhead.
 
+**B1.1 DONE — the step-counting semantics (`StepCount.agda`).** The reference
+`eval`'s fuel is only a DEPTH bound (both branches share fuel `n`, so a depth-`d`
+tree runs in fuel `d` but has up to `2^d` nodes), NOT the unit-cost `time_p`.
+`evalT : ℕ → Exp → V → Maybe (V × ℕ)` threads a step counter, one per node SUMMED
+over sub-evaluations, so `time` is the genuine total step count; `evalT⇒eval` ties
+it to the reference value. This is the model `int-efficient` must be stated in --
+and the reason `F ≤ a·G` on `simF`'s depth-fuel `G` is *false* (a `kcons` sums both
+sub-costs while its depth-fuel does not grow), so B1 genuinely needs `evalT`.
+
+**B1.2 remaining — the bound.**
+
 - **Handle we already have:** `SelfInterpCorrect.simF` returns the sint-fuel `F` as
   an *additive* function of the object computation, with **bounded per-constructor
   constants** (khd `12`, ktl `13`, kcons `12`, kifnil `16`, call `18` + sub-costs).
