@@ -113,8 +113,10 @@ Remaining:
 
 - `EvalWhile.ml` core semantics — an Agda model of the *full* WHILE semantics
   (the current `Exp` is the I fragment). **L.**
-- `rundata` ⌜p⌝ oracle agreement — follows from G1 once `run` (`G4Run`) is the
-  oracle. **M** (given G1).
+- `rundata` ⌜p⌝ oracle agreement — **DONE**: `UniversalCorrect.universal-correct`
+  proves `run F ⌜sint⌝ (⌜p⌝.(⌜p⌝.inp)) ≡ ⟦p⟧(inp)` for EVERY terminating program
+  `p` (`simF` ∘ `G4Run.run-encode`). The ∀-quantified universal-program correctness
+  (`SelfInterpRun` had only concrete instances).
 
 ---
 
