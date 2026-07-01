@@ -67,10 +67,12 @@ hypothesis; build X as an actual `Exp` program and discharge it.
   execution by interleaving fuel). **M–L.**
 - **`SemiDec SH`** (self-halting is semi-decidable, Thm 5.6.1) — `sint` halts on
   `(⌜p⌝.(⌜p⌝.⌜p⌝))` iff `p` halts on `⌜p⌝`. Needs G1. **S–M** (given G1).
-- **`MixSpec` standalone residual for recursive `p`** — the `call`-based residual
-  delegates to the ambient program; the standalone (self-global) residual for a
-  recursive `p` is `sint` carrying `⌜p⌝`. Restate `specE-sound` via `G4Run.run`
-  using `sint`. Needs G1. **M.**
+- **`MixSpec` standalone residual for recursive `p`** — **DONE**:
+  `MixSpecStandalone.standalone-spec` gives `[residual](d) = [p]((sv,d))` for the
+  standalone residual `run ⌜sint⌝` carrying `⌜p⌝` (recursion served by `sint`, no
+  ambient `p`), for every terminating incl. recursive `p`. It is `universal-correct`
+  specialised to a partially-static input `(sv . d)`, extending `MixSpec.specE-sound`
+  (which delegated recursion to the ambient program) past its "honest scope".
 
 ## 3. Concrete model instantiations
 
