@@ -99,16 +99,24 @@ interpreter `sint` simulates any program with only constant per-step overhead.
 - Sub-steps: (a) define `a` explicitly; (b) per-constructor `≤` lemmas mirroring the
   dispatch lemmas; (c) assemble by induction. **M–L** given `simF`.
 
-### B2. Program enumeration `enum : ℕ → Exp` (or over `⌜p⌝ : V`)  **[S–M]**
+### B2. Program enumeration
 
-An effective, surjective enumeration so the dovetail covers every program, and each
-`q` gets a concrete index `j`.
+An effective enumeration so each `q` gets a concrete index `j`, and (for the
+dovetail) every program is reachable. Split into two halves; the estimate was
+optimistic — only B2a is `S–M`, B2b is well-founded and harder.
 
-- V is a countable tree type; `⌜_⌝ : Exp → V` is injective (`ProgEncoding`).
-- **Task:** a surjection `ℕ → V` (or a bijection `ℕ ↔ V` by pairing) restricted to
-  well-formed `⌜Exp⌝`, giving `index : Exp → ℕ` with `enum (index p) ≡ p`. Standard
-  Gödel/pairing construction; `--safe`, no choice needed.
-- Feeds Layer A's `j := index q`.
+**B2a. Injective Gödel numbering `index : Exp → ℕ` — DONE.**
+`ProgramEnum.index-injective` (+ `NatPairing.pair-inj`). Route `Exp --⌜_⌝--> V
+--vnat--> ℕ`, both legs injective: `⌜_⌝` via `ProgEncoding.decode-⌜⌝` (left
+inverse), `vnat` via the Cantor pairing `NatPairing.pair` on the two subtrees of
+`V` (`pair-inj` proved by recovering the diagonal from the interval
+`[tri d, tri (d+1))`). Gives `j := index q`, the constant `LevinOptimal.idx`
+ranges over. Programs are countable. **DONE.**
+
+**B2b. Total surjective decoder `enum : ℕ → Exp` with `enum (index p) ≡ p`.**
+The operational dovetail (B3) needs `enum` total and surjective — a well-founded
+inversion of `vnat`/`pair` (`unpair`, decreasing on the pair value). **M–L** (the
+round-trip + termination), heavier than first estimated; fold into B3.
 
 ### B3. Build `opt` as an actual `Exp` program + tie its cost to `gsum`  **[L]**
 

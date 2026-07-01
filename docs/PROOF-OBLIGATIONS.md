@@ -98,8 +98,12 @@ language (Layer B):
   overhead: `time_sint(⌜p⌝.d) ≤ a · time_p(d)` for a constant `a`. A cost
   analysis of `sint` in the fuel model (fuel = steps). This is the real
   prerequisite Levin "exploits". **L.**
-- **program enumeration** — an effective enumeration `nat→Exp` (or over `⌜p⌝ : V`)
-  so the search can dovetail all programs. **S–M.**
+- **program enumeration** — **B2a DONE**: injective Gödel numbering
+  `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
+  solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:
+  the total surjective decoder `enum : ℕ → Exp` with `enum (index p) ≡ p` (well-founded
+  inversion of the pairing) for the operational dovetail. **M–L** (heavier than first
+  estimated; folded into B3).
 - **`opt` and `levin-optimal`** — the inequality itself is **DONE** abstractly
   (`LevinOptimal.levin-optimal`, Layer A). Remaining (Layer B3): build `opt` as an
   actual `Exp` program (dovetail + run via `sint` under doubling budgets + check
