@@ -97,18 +97,34 @@ sub-costs while its depth-fuel does not grow), so B1 genuinely needs `evalT`.
 
 **B1.2 remaining — the bound.**
 
-- **Handle we already have:** `SelfInterpCorrect.simF` returns the sint-fuel `F` as
-  an *additive* function of the object computation, with **bounded per-constructor
-  constants** (khd `12`, ktl `13`, kcons `12`, kifnil `16`, call `18` + sub-costs).
-  Those constants ARE the per-step overhead.
-- **Task:** strengthen `simF` (or prove a companion `simF-cost`) to return, together
-  with `F`, a proof `F ≤ a · G` where `G` is the object fuel and `a = max` of the
-  per-constructor constants (plus the fixed dispatch walk). Induction on `G`, same
-  case split as `simF`; each case adds a bounded constant, so the bound is linear.
-- **Prereq:** agree that fuel = unit-cost steps (already the model). No new
-  semantics needed; reuse `Mono.add-fuel`.
-- Sub-steps: (a) define `a` explicitly; (b) per-constructor `≤` lemmas mirroring the
-  dispatch lemmas; (c) assemble by induction. **M–L** given `simF`.
+> **FINDING (probe, 2026-07-02): `simF`'s refl-dispatch technique does NOT transfer
+> to the step-counting model.** The `evalT` binds were made projection-based
+> (eta-reducing, so a `just <symbolic pair>` no longer blocks) — a real improvement,
+> committed — but the cost dispatch still will not close by `refl`. Reading the
+> normal form of `time (12+F) (⌜khd e⌝-triple)` shows it stuck at sint's INNER
+> self-interpretation of the *symbolic* `e`, wrapped in the step accounting
+> (`bump`/`suc (ta+tr)`/nested `kifnil` on `SelfInterp.tagE`). Unlike the value-only
+> `simF` (where the stuck sub-run `run (6+F) (e-triple)` appears verbatim on both
+> sides and matches), the sub-run's step COUNT is trapped inside that stuck term, so
+> the accounting cannot be rearranged into a closed `run (J+F)(e-triple) >>= λ r →
+> just (hd (proj₁ r), C + proj₂ r)` form. The residual around the stuck sub-run is
+> `bump`/nested, not a single `>>=`. So per-constructor `refl` cost-dispatch lemmas
+> (the thing that made `simF` work) are unavailable here.
+
+- **Consequence:** `simF-cost` cannot be a step-accounting *rewrite* of `simF`.
+  A different structure is needed — the counts must be reasoned about with `≤` while
+  a sub-run is still symbolic, which `refl`/`rewrite` cannot do.
+- **Recommended strategy — a big-step COST RELATION.** Define inductive relations
+  `⇓p : Exp → V → V → ℕ → Set` ("object `e` on `env` yields `v` in `c` steps") and
+  the analogous sint-run relation, prove they agree with `evalT` (soundness/
+  completeness vs the fuel), then prove `time_sint ≤ a · time_p` by induction on the
+  object derivation: each object node contributes one step and a *bounded* block of
+  sint steps, and `const + Σ a·cᵢ ≤ a·(1 + Σ cᵢ)` iff `const ≤ a`. The induction is
+  on the relation (structural), so no sub-run ever needs to reduce under a symbolic
+  argument. **L+** (build the relations + agreement + the bound). This is the honest
+  path; the refl route is a dead end.
+- Fallback: if the full bound stalls, `LevinOptimal` (Layer A) already gives Levin
+  optimality *relative to* the overhead `a`; B1 remains the one open hypothesis.
 
 ### B2. Program enumeration
 

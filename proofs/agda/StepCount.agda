@@ -20,7 +20,7 @@
 module StepCount where
 
 open import Data.Nat using (ℕ; zero; suc; _+_)
-open import Data.Product using (_×_; _,_)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.Empty using (⊥-elim)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong)
 
@@ -33,28 +33,32 @@ module StepCount (prog : Exp) where
   open Interp prog using (eval)
 
   -- add `c` steps (and one for the current node) to an optional sub-result.
+  -- Projection-based (eta-reducing) so it does not block reduction when the
+  -- sub-result is a stuck `just <symbolic pair>` -- essential for the cost proof.
   bump : ℕ → Maybe (V × ℕ) → Maybe (V × ℕ)
-  bump c nothing         = nothing
-  bump c (just (v , t))  = just (v , suc (c + t))
+  bump c nothing   = nothing
+  bump c (just r)  = just (proj₁ r , suc (c + proj₂ r))
 
   -- instrumented evaluation: value paired with total unit-cost step count.
+  -- All binds use projections (not pattern-matching lambdas) so a partially-known
+  -- sub-result reduces, exposing the sub-run's step count for the B1.2 cost proof.
   evalT : ℕ → Exp → V → Maybe (V × ℕ)
   evalT zero    _              x = nothing
   evalT (suc n) var            x = just (x , 1)
   evalT (suc n) knil           x = just (⟨⟩ , 1)
-  evalT (suc n) (kcons a b)    x = evalT n a x >>= λ { (va , ta) →
-                                   evalT n b x >>= λ { (vb , tb) →
-                                   just (va ∙ vb , suc (ta + tb)) } }
-  evalT (suc n) (khd e)        x = evalT n e x >>= λ { (v , t) →
-                                   just (hd v , suc t) }
-  evalT (suc n) (ktl e)        x = evalT n e x >>= λ { (v , t) →
-                                   just (tl v , suc t) }
-  evalT (suc n) (kifnil c t e) x = evalT n c x >>= λ { (vc , tc) →
-                                   ifnil vc (bump tc (evalT n t x))
-                                            (bump tc (evalT n e x)) }
-  evalT (suc n) (call e)       x = evalT n e x >>= λ { (arg , ta) →
-                                   evalT n prog arg >>= λ { (r , tr) →
-                                   just (r , suc (ta + tr)) } }
+  evalT (suc n) (kcons a b)    x = evalT n a x >>= λ ra →
+                                   evalT n b x >>= λ rb →
+                                   just (proj₁ ra ∙ proj₁ rb , suc (proj₂ ra + proj₂ rb))
+  evalT (suc n) (khd e)        x = evalT n e x >>= λ r →
+                                   just (hd (proj₁ r) , suc (proj₂ r))
+  evalT (suc n) (ktl e)        x = evalT n e x >>= λ r →
+                                   just (tl (proj₁ r) , suc (proj₂ r))
+  evalT (suc n) (kifnil c t e) x = evalT n c x >>= λ rc →
+                                   ifnil (proj₁ rc) (bump (proj₂ rc) (evalT n t x))
+                                                    (bump (proj₂ rc) (evalT n e x))
+  evalT (suc n) (call e)       x = evalT n e x >>= λ ra →
+                                   evalT n prog (proj₁ ra) >>= λ rr →
+                                   just (proj₁ rr , suc (proj₂ ra + proj₂ rr))
 
   -- the program's running time on input `x` (the value is discarded).
   time : ℕ → V → Maybe (V × ℕ)
