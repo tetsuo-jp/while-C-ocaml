@@ -27,7 +27,12 @@ Machine-checked so far (`--safe`), and what may honestly be claimed:
 - **Programs effectively enumerable (B2b, `ProgramDecode`).** The surjective decoder
   `enum : ℕ → Exp` with `enum-index : enum (index p) ≡ p` — `index` a section, `enum` a
   retraction. Both numbering directions are now machine-checked.
-- **NOT done.** Only the operational `opt` and `time_opt = gsum k` (B3).
+- **Operational search cost skeleton + end-to-end (B3a/B3c, `LevinDovetail`/
+  `LevinComplete`).** `time_opt = gsum k` (batch model) and, at the finishing phase,
+  `time_opt < aq·S` (Levin-optimal, `a = 73` a theorem) — *relative to the phase oracle*.
+  Both Layer-A constants grounded (`search-solver`: `overhead := 73`, `idx := index q`).
+- **NOT done.** Only B3b: discharge the phase oracle operationally (and B3d stretch:
+  literal `opt ∈ Exp`).
 
 **Therefore the honest claim now is:** "we machine-check, in Agda `--safe`, that (i)
 the combinatorial heart of Levin's optimal search holds; (ii) programs are countable;
@@ -259,13 +264,24 @@ the effective numbering the B3 dovetail runs over. **DONE.**
 
 ### B3. Build `opt` + tie its cost to `gsum`  **[L]** — detailed plan in `docs/LEVIN-B3-DESIGN.md`
 
-Design locked: phase-cost model **(A) batch** (each phase `i` costs exactly `pow2 i`,
-so `time_opt = gsum k` reuses `LevinBudget`/`LevinOptimal`/`LevinGrounded` unchanged);
-B3b (oracle correctness) **left as an explicit hypothesis first** (abstract-record
-pattern); `opt` a **fuel-indexed Agda driver**, literal `Exp` version is stretch (B3d).
-Order: B3a (`LevinDovetail`, cost skeleton, green) → B3c (`LevinComplete`, end-to-end
-modulo oracle, green) → B3b (discharge oracle via `enum`/`unpair`/`sint`/`int-efficient`)
-→ B3d (document). See the design doc for module/signature sketches.
+Design locked (`docs/LEVIN-B3-DESIGN.md`): phase-cost model **(A) batch**; B3b oracle
+correctness **left as a hypothesis first**; `opt` a **fuel-indexed Agda driver**.
+
+- **B3a DONE** (`LevinDovetail`): the cost skeleton. `Search (done : ℕ → Bool)` — `find`
+  scans phases for the first success; `time-opt k = gsum k` by the batch model;
+  `time-opt-eq` proves the search finishes exactly at the least success phase `k` with
+  cost `gsum k`. Concrete oracle (succeeds at phase 3) checks `find 8 0 ≡ just 3`.
+- **B3c DONE** (`LevinComplete.levin-complete`): end-to-end. At the finishing phase `k`
+  the operational search halts, real cost `time-opt k = gsum k < aq·S` (via
+  `levin-grounded`, `a = 73` a theorem) — `time_opt(x) < 4·73·2^j·(Tq+Tr)`. Concrete
+  instance (solver j=0,Tq=3,Tr=1; oracle finishing at phase 9) fires the whole chain
+  non-vacuously (halts at 9, cost `gsum 9 = 1023 < 1168`).
+- Also `LevinGrounded.search-solver` now grounds **both** Layer-A constants
+  (`overhead := 73`, `idx := index q`).
+- **B3b REMAINING** (the grind): discharge the oracle `done` operationally
+  (`unpair i → (j,t)`, run `enum j` via `sint` for ≤ t steps, check `r`; finishing at
+  the budget-covering phase via `overshoot`/`int-efficient`/`enum-index`).
+- **B3d stretch**: literal `opt ∈ Exp` step-counted via `StepCount`.
 
 The operational specializer-free construction: `opt` = dovetail (`enum`) × budget
 doubling (`pow2`) × run-via-`sint` × check-with-`r`, halting at the first verified
@@ -297,7 +313,9 @@ LevinBudget (DONE) ──► [A] LevinOptimal (abstract inequality)      ← do 
 2. **B2 (enum)** — ✅ DONE (`ProgramEnum` B2a + `ProgramDecode` B2b); `index`/`enum`.
 3. **B1 (int-efficient)** — ✅ DONE (`IntEfficient`, Thm 19.1.3, `a = 73`), the keystone,
    linked into Layer A by `LevinGrounded` (Phase 4).
-4. **B3 (opt)** — the remaining long tail: build `opt` in `Exp`, prove `time_opt = gsum k`.
+4. **B3 (opt)** — B3a (`LevinDovetail`, cost skeleton) ✅ + B3c (`LevinComplete`,
+   end-to-end modulo oracle) ✅. Remaining: **B3b** (discharge the phase oracle
+   operationally) and **B3d** (stretch: literal `opt ∈ Exp`).
 
 ## Notes / guardrails
 

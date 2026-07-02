@@ -125,10 +125,18 @@ language (Layer B):
   machinery) and `ProgEncoding.decode`. So `index` is a section, `enum` a retraction:
   programs are effectively enumerable both directions, as the Layer B3 dovetail needs.
 - **`opt` and `levin-optimal`** — the inequality itself is **DONE** abstractly
-  (`LevinOptimal.levin-optimal`, Layer A). Remaining (Layer B3): build `opt` as an
-  actual `Exp` program (dovetail + run via `sint` under doubling budgets + check
-  with `r`) and prove `time_opt(x) = gsum k`, tying the concrete program's running
-  time to Layer A's abstract `gsum`. **L.**
+  (`LevinOptimal.levin-optimal`, Layer A), and both operational constants are now
+  grounded (`LevinGrounded.search-solver`: `overhead := 73` from B1, `idx := index q`
+  from B2a). **B3a DONE** (`LevinDovetail`): the dovetail cost skeleton — `time_opt k =
+  gsum k` by the batch cost model, `time-opt-eq` proving the search finishes exactly at
+  the least success phase `k`. **B3c DONE** (`LevinComplete.levin-complete`): end-to-end
+  — at the finishing phase the operational search halts with real cost `gsum k < aq·S`
+  (Levin-optimal, `a = 73` a theorem), fired non-vacuously by a concrete instance. Both
+  are **relative to the phase oracle** `done` finishing least at `k`. **Remaining (Layer
+  B3b): discharge that oracle** — define `done` operationally (`unpair i → (j,t)`, run
+  `enum j` via `sint` for ≤ t steps, check `r`) and prove it finishes at the
+  budget-covering phase; and (B3d, stretch) build `opt` as a literal `Exp` program with
+  `time_opt` via `StepCount`. See `docs/LEVIN-B3-DESIGN.md`. **M–L.**
 
 ## 5. C-tier robustness results (Jones ch.7–8)
 
