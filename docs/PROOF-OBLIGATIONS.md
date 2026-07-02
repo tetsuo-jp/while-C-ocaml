@@ -99,9 +99,13 @@ language (Layer B):
   **B1.1 DONE**: `StepCount.evalT`/`time` — a total-step-counting semantics (the
   reference `eval`'s fuel is only a DEPTH bound, so a new instrumented interpreter
   summing both branches was needed), with `evalT⇒eval` (same value) + concrete
-  counts. **B1.2 remaining**: the bound `time_sint ≤ a · time_p` itself — a
-  step-accounting refinement of `SelfInterpCorrect.simF` (each object node costs a
-  bounded number of sint steps; `a = max` per-constructor dispatch cost). **L.**
+  counts. **B1.2 Phase 1 DONE**: `CostRelation` — a big-step cost relation
+  `_,_⇓_#_` (fuel-free, one rule per constructor) with both adequacy directions vs
+  `evalT` (`complete`, `sound` via `evalT-mono`/`-≤`); a sub-run enters a rule as an
+  opaque premise, dodging the refl-dispatch dead end. **B1.2 Phases 2–4 remaining**:
+  the per-node sint dispatch cost (derivation-tree construction), the linear bound by
+  induction on the derivation, and discharging Layer A's `overhead`. **L+** (see
+  `docs/LEVIN-PLAN.md`, B1.2 resolution plan).
 - **program enumeration** — **B2a DONE**: injective Gödel numbering
   `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
   solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:
