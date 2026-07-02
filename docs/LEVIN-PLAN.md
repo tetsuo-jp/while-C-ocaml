@@ -257,7 +257,15 @@ ranges over. Programs are countable. **DONE.**
 Composed: `enum-index : enum (index p) ≡ p`. `index` is a section, `enum` a retraction —
 the effective numbering the B3 dovetail runs over. **DONE.**
 
-### B3. Build `opt` as an actual `Exp` program + tie its cost to `gsum`  **[L]**
+### B3. Build `opt` + tie its cost to `gsum`  **[L]** — detailed plan in `docs/LEVIN-B3-DESIGN.md`
+
+Design locked: phase-cost model **(A) batch** (each phase `i` costs exactly `pow2 i`,
+so `time_opt = gsum k` reuses `LevinBudget`/`LevinOptimal`/`LevinGrounded` unchanged);
+B3b (oracle correctness) **left as an explicit hypothesis first** (abstract-record
+pattern); `opt` a **fuel-indexed Agda driver**, literal `Exp` version is stretch (B3d).
+Order: B3a (`LevinDovetail`, cost skeleton, green) → B3c (`LevinComplete`, end-to-end
+modulo oracle, green) → B3b (discharge oracle via `enum`/`unpair`/`sint`/`int-efficient`)
+→ B3d (document). See the design doc for module/signature sketches.
 
 The operational specializer-free construction: `opt` = dovetail (`enum`) × budget
 doubling (`pow2`) × run-via-`sint` × check-with-`r`, halting at the first verified
