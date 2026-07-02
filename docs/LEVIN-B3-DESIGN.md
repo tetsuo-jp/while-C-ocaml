@@ -1,7 +1,9 @@
 # Levin B3 — design for the operational `opt` and `time_opt = gsum k`
 
-Status: **B3a + B3c DONE and green** (`LevinDovetail`, `LevinComplete`); **B3b design
-refined below, not yet implemented**; B3d stretch. This is the last piece of Jones Thm
+Status: **B3a + B3c DONE and green** (`LevinDovetail`, `LevinComplete`); **B3b
+sub-phase 1 DONE** (`gsum-mono`, `find-finish`, `levin-operational` — the `≤` machinery);
+**B3b obligations (1) soundness + (2) finishing lemma remain** (the operational `done` +
+`runFor`-within-budget grind); B3d stretch. This is the last piece of Jones Thm
 20.1.2. Layers A (`LevinOptimal`), B1 (`IntEfficient`, `a = 73`), B2a/B2b
 (`ProgramEnum`/`ProgramDecode`, `index`/`enum`) are DONE and green; Phase 4
 (`LevinGrounded`, `search-solver`) grounds both `a = 73` and `idx = index q` into Layer
@@ -157,23 +159,31 @@ the paper; it is standard for Levin bounds ("optimal up to a constant `a_q`").
    pow2 j · pow2 d` + monotonicity; the operational core is the `runFor`-succeeds-within-
    budget lemma (int-efficient ∘ StepCount).
 
-3. **Operational finish is `≤ k`, not `= k`** ⇒ **a required B3c refinement.** Levin does
+3. **Operational finish is `≤ k`, not `= k`** — **DONE (sub-phase 1, green).** Levin does
    NOT claim `q` is the *first* program found — a faster program may verify at an earlier
    stage `k_op < k`, which is *even better* (`gsum k_op < gsum k < a_q·S`). So the
-   operational least-success stage `k_op` satisfies only `k_op ≤ k`. Add:
+   operational finish `k_op` satisfies only `k_op ≤ k`. Implemented (cleaner than the
+   first `least-upto` + `levin-complete-≤` sketch):
    ```agda
-   gsum-mono : ∀ {m n} → m ≤ n → gsum m ≤ gsum n          -- from pow2 monotonicity  [S]
-   least-upto : ∀ k → done k ≡ true                        -- extract least success ≤ k  [S]
-     → Σ ℕ (λ kop → kop ≤ k × done kop ≡ true × (∀ i → i < kop → done i ≡ false))
-   levin-complete-≤ : … kop ≤ k → gsum k < aq·S → done kop ≡ true → (∀ i<kop, done i ≡ false)
-     → … × (gsum kop < aq·S)                               -- via ≤-<-trans (gsum-mono kop≤k) bnd
+   -- LevinBudget:
+   gsum-mono : ∀ {m n} → m ≤ n → gsum m ≤ gsum n            -- via pow2-mono / 1≤gsum
+   -- LevinDovetail.Search (characterises the ACTUAL find):
+   find-complete : ∀ f i k → i ≤ k → done k ≡ true → suc k ≤ i + f
+     → Σ k' , (find f i ≡ just k') × (k' ≤ k) × (done k' ≡ true)   -- first success, k' ≤ k
+   find-finish : ∀ k → done k ≡ true
+     → Σ kop , (Σ f , find f 0 ≡ just kop) × (kop ≤ k) × (done kop ≡ true)
+   -- LevinComplete (supersedes the fixed-k `levin-complete`):
+   levin-operational : ∀ j Tq Tr {k} → gsum k < aq·S → done k ≡ true
+     → Σ kop , (Σ f , find f 0 ≡ just kop) × (time-opt kop ≡ gsum kop) × (gsum kop < aq·S)
    ```
-   `levin-complete-≤` supersedes the current `levin-complete` (which fixed `k_op = k`);
-   keep the latter as the special case. **[S]**
+   `find-complete` bundles the bound `k_op ≤ k` (so no separate leastness extraction is
+   needed); `levin-operational` takes only `done k ≡ true` + the Layer-A bound at `k` —
+   exactly what B3b's finishing lemma produces. Concrete instance fires it. **DONE.**
 
-**Discharge chain:** `q` solves `x` → (2) `done k ≡ true` with `gsum k < a_q·S` →
-(3) `least-upto` gives `k_op ≤ k` least → `levin-complete-≤` → `time_opt = gsum k_op <
-a_q·S`, fully operational, `a = 73` a theorem.
+**Discharge chain:** `q` solves `x` → (2) `done k ≡ true` with `gsum k < a_q·S` [B3b
+finishing lemma, the remaining grind] → (3, done) `levin-operational` → `time_opt =
+gsum k_op < a_q·S`, fully operational, `a = 73` a theorem. **So B3b is reduced to
+obligations (1) soundness and (2) the finishing lemma alone.**
 
 **Residual risks:** the `runFor`-within-budget lemma (aligning `int-efficient-time`'s
 `≤ 73·Tq` with `evalT`'s fuel-as-depth vs steps-returned — reuse the `evalT-mono`/`sound`

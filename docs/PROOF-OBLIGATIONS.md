@@ -132,11 +132,16 @@ language (Layer B):
   the least success phase `k`. **B3c DONE** (`LevinComplete.levin-complete`): end-to-end
   — at the finishing phase the operational search halts with real cost `gsum k < aq·S`
   (Levin-optimal, `a = 73` a theorem), fired non-vacuously by a concrete instance. Both
-  are **relative to the phase oracle** `done` finishing least at `k`. **Remaining (Layer
-  B3b): discharge that oracle** — define `done` operationally (`unpair i → (j,t)`, run
-  `enum j` via `sint` for ≤ t steps, check `r`) and prove it finishes at the
-  budget-covering phase; and (B3d, stretch) build `opt` as a literal `Exp` program with
-  `time_opt` via `StepCount`. See `docs/LEVIN-B3-DESIGN.md`. **M–L.**
+  are **relative to the phase oracle** `done` finishing least at `k`. **B3b sub-phase 1
+  DONE**: `LevinBudget.gsum-mono`, `LevinDovetail.find-finish`, and
+  `LevinComplete.levin-operational` — the operational finish `kop` need only be `≤` the
+  abstract bound `k` (a faster program may verify earlier, still optimal), so
+  `levin-operational` takes just `done k ≡ true` + the bound at `k`. **Remaining (Layer
+  B3b): the oracle proper** — define `done` operationally (Jones STAGE model: stage `i`
+  runs programs `0..i`, program `m` for `pow2 (i∸m)` `sint`-steps on `(⌜p⌝ . (⌜p⌝ . x))`),
+  prove soundness + the finishing lemma (`overshoot` on `73·Tq`, `int-efficient`,
+  `enum-index`); and (B3d, stretch) literal `opt ∈ Exp` via `StepCount`. See
+  `docs/LEVIN-B3-DESIGN.md`. **M–L.**
 
 ## 5. C-tier robustness results (Jones ch.7–8)
 
