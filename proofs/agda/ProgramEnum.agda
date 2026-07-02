@@ -14,8 +14,8 @@
 -- `LevinOptimal`'s `idx` field ranges over.
 --
 -- (The total surjective decoder `enum : ℕ → Exp` with `enum (index p) ≡ p`, needed
--- by the operational dovetail in Layer B3, is a well-founded inversion of `vnat`/
--- `pair` and is left to B3.)
+-- by the operational dovetail in Layer B3, is now DONE in `ProgramDecode` -- a
+-- fuel-driven inversion of `vnat` composed with `NatPairing.unpair` and `decode`.)
 ------------------------------------------------------------------------
 
 module ProgramEnum where

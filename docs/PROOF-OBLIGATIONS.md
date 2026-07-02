@@ -112,15 +112,18 @@ language (Layer B):
   theorem, not an assumption). **Phase 4 DONE — Layer A ∘ B1 linked** (`LevinGrounded`):
   `overhead-grounded : LinearOverhead 73 = int-efficient` witnesses the constant Layer A
   ranges over is the proven interpreter bound; `levin-grounded` is Levin optimality
-  (`gsum k < 4·73·2^j·(T_q+T_r)`) with `a` now a theorem. **Remaining for full Levin**:
-  B2b (surjective decoder) and B3 (build `opt`, `time_opt = gsum k`); see
-  `docs/LEVIN-PLAN.md`.
+  (`gsum k < 4·73·2^j·(T_q+T_r)`) with `a` now a theorem. **B2b DONE** (`ProgramDecode`,
+  surjective decoder `enum`, below). **Remaining for full Levin**: B3 (build `opt`,
+  `time_opt = gsum k`); see `docs/LEVIN-PLAN.md`.
 - **program enumeration** — **B2a DONE**: injective Gödel numbering
   `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
-  solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:
-  the total surjective decoder `enum : ℕ → Exp` with `enum (index p) ≡ p` (well-founded
-  inversion of the pairing) for the operational dovetail. **M–L** (heavier than first
-  estimated; folded into B3).
+  solver `q` has a unique index `j := index q` (programs countable). **B2b DONE**:
+  `ProgramDecode.enum : ℕ → Exp` with `enum-index : enum (index p) ≡ p` — a fuel-driven
+  inversion of `vnat` (fuel `= vnat v` always suffices, via the `pair-fst/snd-≤` bounds)
+  composed with `NatPairing.unpair` (a *structural* diagonal-walk inverse of the Cantor
+  pairing — the successor recursions `pair-suc-l`/`pair-0-suc` sidestep well-founded
+  machinery) and `ProgEncoding.decode`. So `index` is a section, `enum` a retraction:
+  programs are effectively enumerable both directions, as the Layer B3 dovetail needs.
 - **`opt` and `levin-optimal`** — the inequality itself is **DONE** abstractly
   (`LevinOptimal.levin-optimal`, Layer A). Remaining (Layer B3): build `opt` as an
   actual `Exp` program (dovetail + run via `sint` under doubling budgets + check

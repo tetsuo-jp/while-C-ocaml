@@ -24,8 +24,10 @@ Machine-checked so far (`--safe`), and what may honestly be claimed:
   abstract record: `levin-grounded` is the optimality bound `gsum k < 4·73·2^j·(T_q+T_r)`
   with `overhead` no longer a hypothesis (`overhead-grounded : LinearOverhead 73 =
   int-efficient`).
-- **NOT done.** The surjective decoder (B2b); the operational `opt` and
-  `time_opt = gsum k` (B3).
+- **Programs effectively enumerable (B2b, `ProgramDecode`).** The surjective decoder
+  `enum : ℕ → Exp` with `enum-index : enum (index p) ≡ p` — `index` a section, `enum` a
+  retraction. Both numbering directions are now machine-checked.
+- **NOT done.** Only the operational `opt` and `time_opt = gsum k` (B3).
 
 **Therefore the honest claim now is:** "we machine-check, in Agda `--safe`, that (i)
 the combinatorial heart of Levin's optimal search holds; (ii) programs are countable;
@@ -226,8 +228,10 @@ phase commits green on its own.
 ### B2. Program enumeration
 
 An effective enumeration so each `q` gets a concrete index `j`, and (for the
-dovetail) every program is reachable. Split into two halves; the estimate was
-optimistic — only B2a is `S–M`, B2b is well-founded and harder.
+dovetail) every program is reachable. Split into two halves — **both now DONE**.
+(B2b turned out *easier* than the "well-founded and harder" first estimate: the
+Cantor inverse `unpair` is structurally recursive via the diagonal-walk successor
+recursions, so only `vunnat` needed a fuel argument.)
 
 **B2a. Injective Gödel numbering `index : Exp → ℕ` — DONE.**
 `ProgramEnum.index-injective` (+ `NatPairing.pair-inj`). Route `Exp --⌜_⌝--> V
@@ -237,10 +241,21 @@ inverse), `vnat` via the Cantor pairing `NatPairing.pair` on the two subtrees of
 `[tri d, tri (d+1))`). Gives `j := index q`, the constant `LevinOptimal.idx`
 ranges over. Programs are countable. **DONE.**
 
-**B2b. Total surjective decoder `enum : ℕ → Exp` with `enum (index p) ≡ p`.**
-The operational dovetail (B3) needs `enum` total and surjective — a well-founded
-inversion of `vnat`/`pair` (`unpair`, decreasing on the pair value). **M–L** (the
-round-trip + termination), heavier than first estimated; fold into B3.
+**B2b. Total surjective decoder `enum : ℕ → Exp` with `enum (index p) ≡ p` — DONE
+(`ProgramDecode`).** Invert the three legs of `index = vnat ∘ ⌜_⌝`:
+- `NatPairing.unpair` — the inverse of the Cantor pairing. Turned out *structurally*
+  recursive on ℕ (not well-founded on the pair value, as first feared): the pairing
+  obeys the "diagonal walk" successor recursions `pair (suc x) y ≡ suc (pair x (suc y))`
+  (`pair-suc-l`) and `pair 0 (suc x) ≡ suc (pair x 0)` (`pair-0-suc`), so `unpair (suc n)
+  = unpair-step (unpair n)`. Round-trip `unpair-pair` via `unpair-correct` (pair ∘ unpair
+  = id) + `pair-inj`.
+- `vunnat` — inverse of `vnat`. Here `unpair n` is only *bounded* by `n`, so recursion is
+  fuel-driven (`vunnat′ f`, `vunnat n = vunnat′ n n`); `vunnat′-vnat` shows `vnat v` fuel
+  always suffices, using the component bounds `pair-fst-≤`/`pair-snd-≤`.
+- `ProgEncoding.decode` — already the left inverse of `⌜_⌝` (`decode-⌜⌝`); out-of-range
+  numbers default to `var`.
+Composed: `enum-index : enum (index p) ≡ p`. `index` is a section, `enum` a retraction —
+the effective numbering the B3 dovetail runs over. **DONE.**
 
 ### B3. Build `opt` as an actual `Exp` program + tie its cost to `gsum`  **[L]**
 
@@ -270,13 +285,11 @@ LevinBudget (DONE) ──► [A] LevinOptimal (abstract inequality)      ← do 
                        fully-concrete Levin (Thm 20.1.2)
 ```
 
-1. **Layer A now** — immediate green, captures the whole theorem modulo two named
-   constants (`a`, `j`). High value / low risk, and it fixes the exact interfaces
-   B1/B2 must meet.
-2. **B2 (enum)** — smallest concrete piece; gives `j` and a warm-up.
-3. **B1 (int-efficient)** — the keystone; leverages `simF`'s per-constructor
-   constants. Unlocks the real `a` and is independently citable (Thm 19.1.3).
-4. **B3 (opt)** — assemble; the long tail.
+1. **Layer A** — ✅ DONE (`LevinOptimal`), whole theorem modulo two named constants.
+2. **B2 (enum)** — ✅ DONE (`ProgramEnum` B2a + `ProgramDecode` B2b); `index`/`enum`.
+3. **B1 (int-efficient)** — ✅ DONE (`IntEfficient`, Thm 19.1.3, `a = 73`), the keystone,
+   linked into Layer A by `LevinGrounded` (Phase 4).
+4. **B3 (opt)** — the remaining long tail: build `opt` in `Exp`, prove `time_opt = gsum k`.
 
 ## Notes / guardrails
 
