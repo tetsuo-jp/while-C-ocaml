@@ -192,3 +192,28 @@ module Rel (prog : Exp) where
       hp' = evalT-mono-≤ (m≤n+m Gp Ge) prog arg hp
       eqn : evalT (suc (Ge + Gp)) (call e) env ≡ just (v , suc (ca + cv))
       eqn rewrite he' | hp' = refl
+
+  ------------------------------------------------------------------------
+  -- CANONICAL FUEL: fuel = the exact step count `c` already suffices to reproduce a
+  -- derivation's run (each node spends ≥ 1 step, so depth ≤ count).  By induction on
+  -- the derivation; two-premise rules lift each sub-run from its own count to the sum.
+  -- (Levin B3b: lets the self-interpreter run be replayed at fuel = its step budget.)
+  ------------------------------------------------------------------------
+
+  evalT-count : ∀ {e env v c} → e , env ⇓ v # c → evalT c e env ≡ just (v , c)
+  evalT-count ⇓var  = refl
+  evalT-count ⇓knil = refl
+  evalT-count (⇓khd d) rewrite evalT-count d = refl
+  evalT-count (⇓ktl d) rewrite evalT-count d = refl
+  evalT-count (⇓kcons {ca = ca} {cb = cb} da db)
+    rewrite evalT-mono-≤ (m≤m+n ca cb) _ _ (evalT-count da)
+          | evalT-mono-≤ (m≤n+m cb ca) _ _ (evalT-count db) = refl
+  evalT-count (⇓then {cg = cg} {ct = ct} dg dt)
+    rewrite evalT-mono-≤ (m≤m+n cg ct) _ _ (evalT-count dg)
+          | evalT-mono-≤ (m≤n+m ct cg) _ _ (evalT-count dt) = refl
+  evalT-count (⇓else {cg = cg} {ce = ce} dg de)
+    rewrite evalT-mono-≤ (m≤m+n cg ce) _ _ (evalT-count dg)
+          | evalT-mono-≤ (m≤n+m ce cg) _ _ (evalT-count de) = refl
+  evalT-count (⇓call {ca = ca} {cv = cv} de dp)
+    rewrite evalT-mono-≤ (m≤m+n ca cv) _ _ (evalT-count de)
+          | evalT-mono-≤ (m≤n+m cv ca) _ _ (evalT-count dp) = refl
