@@ -21,15 +21,19 @@ module LevinDovetail where
 
 open import Data.Nat using (ℕ; zero; suc; _+_; _≤_; _<_; s≤s; z≤n; _≤ᵇ_)
 open import Data.Nat.Properties
-  using (≤-refl; ≤-trans; +-suc; +-identityʳ; <⇒≤; <⇒≱; 1+n≰n; <-cmp)
+  using (≤-refl; ≤-trans; +-suc; +-identityʳ; <⇒≤; <⇒≱; 1+n≰n; <-cmp; ≤∧≢⇒<)
 open import Data.Bool using (Bool; true; false; if_then_else_)
 open import Data.Maybe using (Maybe; just; nothing)
 open import Data.Product using (Σ; _×_; _,_)
-open import Data.Empty using (⊥-elim)
+open import Data.Empty using (⊥; ⊥-elim)
 open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; trans; subst)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; cong; trans; subst)
 
 open import LevinBudget using (gsum)
+
+private
+  t≢f : true ≡ false → ⊥
+  t≢f ()
 
 ------------------------------------------------------------------------
 -- The dovetail driver, over an abstract phase oracle.
@@ -72,6 +76,26 @@ module Search (done : ℕ → Bool) where
   time-opt-eq : ∀ {k} → done k ≡ true → (∀ i → i < k → done i ≡ false)
               → Σ ℕ (λ f → find f 0 ≡ just k) × (time-opt k ≡ gsum k)
   time-opt-eq {k} dk allf = (suc k , find-least k dk allf) , refl
+
+  -- Converse extraction: from ANY successful phase `k` (not necessarily least), the
+  -- fuelled search returns the FIRST success `k'`, which is `≤ k` and itself a success.
+  -- (Levin B3: the operational finish is `≤` the abstract bound stage.)
+  find-complete : ∀ f i k → i ≤ k → done k ≡ true → suc k ≤ i + f
+    → Σ ℕ (λ k' → (find f i ≡ just k') × (k' ≤ k) × (done k' ≡ true))
+  find-complete zero i k i≤k dk fuel =
+    ⊥-elim (1+n≰n (≤-trans (subst (suc k ≤_) (+-identityʳ i) fuel) i≤k))
+  find-complete (suc f) i k i≤k dk fuel with done i in di
+  ... | true  = i , refl , i≤k , di
+  ... | false =
+        let i<k = ≤∧≢⇒< i≤k (λ i≡k → t≢f (trans (sym dk) (trans (sym (cong done i≡k)) di)))
+        in find-complete f (suc i) k i<k dk (subst (suc k ≤_) (+-suc i f) fuel)
+
+  -- the operational finish: given a successful phase `k`, the search halts at the least
+  -- success `kop ≤ k`.
+  find-finish : ∀ k → done k ≡ true
+    → Σ ℕ (λ kop → (Σ ℕ λ f → find f 0 ≡ just kop) × (kop ≤ k) × (done kop ≡ true))
+  find-finish k dk with find-complete (suc k) 0 k z≤n dk ≤-refl
+  ... | kop , eq , kop≤k , dkop = kop , (suc k , eq) , kop≤k , dkop
 
 ------------------------------------------------------------------------
 -- Concrete non-vacuous instance: an oracle that first succeeds at phase 3.

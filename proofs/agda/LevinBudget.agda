@@ -26,7 +26,7 @@ module LevinBudget where
 
 open import Data.Nat using (ℕ; zero; suc; _+_; _≤_; _<_; s≤s; z≤n)
 open import Data.Nat.Properties
-  using (≤-refl; ≤-trans; +-suc; +-mono-≤; m≤n+m; m≤n⇒m≤1+n; <⇒≱; <-cmp)
+  using (≤-refl; ≤-trans; +-suc; +-mono-≤; m≤m+n; m≤n+m; m≤n⇒m≤1+n; <⇒≱; <-cmp)
 open import Data.Product using (Σ; _×_; _,_)
 open import Data.Empty using (⊥-elim)
 open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
@@ -94,6 +94,28 @@ overshoot (suc m) with overshoot m
           g2 : pow2 k' + pow2 k' ≤ suc (suc m) + suc (suc m)
           g2 = subst (λ z → z + z ≤ suc (suc m) + suc (suc m)) sm≡pk
                      (dbl-mono (sm≤ssm m))
+
+------------------------------------------------------------------------
+-- Monotonicity of pow2 and gsum (Levin B3: the operational finishing stage `k_op`
+-- is only `≤` the abstract bound stage `k` -- a faster program may verify earlier --
+-- so `gsum k_op ≤ gsum k` is what carries the optimality bound down to `k_op`).
+------------------------------------------------------------------------
+
+1≤pow2 : ∀ n → 1 ≤ pow2 n
+1≤pow2 zero    = s≤s z≤n
+1≤pow2 (suc n) = ≤-trans (1≤pow2 n) (m≤m+n (pow2 n) (pow2 n))
+
+pow2-mono : ∀ {m n} → m ≤ n → pow2 m ≤ pow2 n
+pow2-mono {n = n} z≤n = 1≤pow2 n
+pow2-mono (s≤s m≤n)   = +-mono-≤ (pow2-mono m≤n) (pow2-mono m≤n)
+
+1≤gsum : ∀ n → 1 ≤ gsum n
+1≤gsum zero    = s≤s z≤n
+1≤gsum (suc n) = ≤-trans (1≤gsum n) (m≤n+m (gsum n) (pow2 (suc n)))
+
+gsum-mono : ∀ {m n} → m ≤ n → gsum m ≤ gsum n
+gsum-mono {n = n} z≤n = 1≤gsum n
+gsum-mono (s≤s m≤n)   = +-mono-≤ (pow2-mono (s≤s m≤n)) (gsum-mono m≤n)
 
 ------------------------------------------------------------------------
 -- Concrete check: phases 0..3 cost 1+2+4+8 = 15 = 2^4 − 1 < 16.
