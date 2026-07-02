@@ -43,3 +43,30 @@ sint-khd p e env d =
                            (⇓kcons (⇓ktl (⇓khd (⇓ktl ⇓var)))
                                    (⇓ktl (⇓ktl ⇓var))))
                    d)))))
+
+-- Interpreting `ktl e` costs 48 (tag 4 ⇒ one extra `kifnil`-else vs `khd`).
+sint-ktl : ∀ p e env {v cₑ} →
+  sint , (p ∙ (⌜ e ⌝ ∙ env)) ⇓ v # cₑ →
+  sint , (p ∙ (⌜ ktl e ⌝ ∙ env)) ⇓ tl v # (48 + cₑ)
+sint-ktl p e env d =
+  ⇓else (⇓khd (⇓khd (⇓ktl ⇓var)))
+    (⇓else (⇓ktl (⇓khd (⇓khd (⇓ktl ⇓var))))
+      (⇓else (⇓ktl (⇓ktl (⇓khd (⇓khd (⇓ktl ⇓var)))))
+        (⇓else (⇓ktl (⇓ktl (⇓ktl (⇓khd (⇓khd (⇓ktl ⇓var))))))
+          (⇓then (⇓ktl (⇓ktl (⇓ktl (⇓ktl (⇓khd (⇓khd (⇓ktl ⇓var)))))))
+            (⇓ktl (⇓call
+                     (⇓kcons (⇓khd ⇓var)
+                             (⇓kcons (⇓ktl (⇓khd (⇓ktl ⇓var)))
+                                     (⇓ktl (⇓ktl ⇓var))))
+                     d))))))
+
+-- Base case `var` (tag 0): the outer `kifnil` guard is nil ⇒ return `env` (`R`).
+sint-var : ∀ p env → sint , (p ∙ (⌜ var ⌝ ∙ env)) ⇓ env # 8
+sint-var p env =
+  ⇓then (⇓khd (⇓khd (⇓ktl ⇓var))) (⇓ktl (⇓ktl ⇓var))
+
+-- Base case `knil` (tag 1): one else, then the `knil` branch ⇒ ⟨⟩.
+sint-knil : ∀ p env → sint , (p ∙ (⌜ knil ⌝ ∙ env)) ⇓ ⟨⟩ # 12
+sint-knil p env =
+  ⇓else (⇓khd (⇓khd (⇓ktl ⇓var)))
+    (⇓then (⇓ktl (⇓khd (⇓khd (⇓ktl ⇓var)))) ⇓knil)
