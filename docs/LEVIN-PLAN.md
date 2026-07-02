@@ -278,9 +278,12 @@ correctness **left as a hypothesis first**; `opt` a **fuel-indexed Agda driver**
   non-vacuously (halts at 9, cost `gsum 9 = 1023 < 1168`).
 - Also `LevinGrounded.search-solver` now grounds **both** Layer-A constants
   (`overhead := 73`, `idx := index q`).
-- **B3b REMAINING** (the grind): discharge the oracle `done` operationally
-  (`unpair i → (j,t)`, run `enum j` via `sint` for ≤ t steps, check `r`; finishing at
-  the budget-covering phase via `overshoot`/`int-efficient`/`enum-index`).
+- **B3b oracle DONE over an abstract runner** (`LevinDovetailRun`): the Jones STAGE-model
+  `done` (`hit`/`anyHit`/`done`) with `done-sound`, `done-intro`, and `finishing` (stage
+  `k=j+d` fires with `gsum k < aq·(Tq+Tr)`) — all green against an abstract `run` + the
+  single hypothesis `run-hits`. **B3b now = ONE obligation**: instantiate `run := runFor`
+  (real `sint` on `(⌜p⌝ . (⌜p⌝ . x))`) and prove `run-hits` from `int-efficient-time` — an
+  isolated StepCount lemma, no design risk.
 - **B3d stretch**: literal `opt ∈ Exp` step-counted via `StepCount`.
 
 The operational specializer-free construction: `opt` = dovetail (`enum`) × budget

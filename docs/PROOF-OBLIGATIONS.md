@@ -133,15 +133,15 @@ language (Layer B):
   — at the finishing phase the operational search halts with real cost `gsum k < aq·S`
   (Levin-optimal, `a = 73` a theorem), fired non-vacuously by a concrete instance. Both
   are **relative to the phase oracle** `done` finishing least at `k`. **B3b sub-phase 1
-  DONE**: `LevinBudget.gsum-mono`, `LevinDovetail.find-finish`, and
-  `LevinComplete.levin-operational` — the operational finish `kop` need only be `≤` the
-  abstract bound `k` (a faster program may verify earlier, still optimal), so
-  `levin-operational` takes just `done k ≡ true` + the bound at `k`. **Remaining (Layer
-  B3b): the oracle proper** — define `done` operationally (Jones STAGE model: stage `i`
-  runs programs `0..i`, program `m` for `pow2 (i∸m)` `sint`-steps on `(⌜p⌝ . (⌜p⌝ . x))`),
-  prove soundness + the finishing lemma (`overshoot` on `73·Tq`, `int-efficient`,
-  `enum-index`); and (B3d, stretch) literal `opt ∈ Exp` via `StepCount`. See
-  `docs/LEVIN-B3-DESIGN.md`. **M–L.**
+  DONE**: `LevinBudget.gsum-mono`, `LevinDovetail.find-finish`, `LevinComplete.levin-operational`
+  (the operational finish `kop ≤ k`). **B3b oracle DONE over an abstract runner**
+  (`LevinDovetailRun`): the Jones STAGE-model `done` (`hit`/`anyHit`/`done`) with
+  `done-sound`, `done-intro`, and `finishing` (stage `k = j+d` fires with `gsum k < aq·(Tq+Tr)`
+  via `overshoot′`/`pow2-+`/ring solver) — all green against an abstract `run` + the single
+  hypothesis `run-hits`. **Remaining (Layer B3b): ONE obligation** — instantiate `run := runFor`
+  (real `sint` on `(⌜p⌝ . (⌜p⌝ . x))`) and prove `run-hits` from `IntEfficient.int-efficient-time`
+  (a StepCount lemma, no design risk); and (B3d, stretch) literal `opt ∈ Exp` via `StepCount`.
+  See `docs/LEVIN-B3-DESIGN.md`. **M (down from M–L).**
 
 ## 5. C-tier robustness results (Jones ch.7–8)
 

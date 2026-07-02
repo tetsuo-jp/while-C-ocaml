@@ -1,9 +1,10 @@
 # Levin B3 — design for the operational `opt` and `time_opt = gsum k`
 
-Status: **B3a + B3c DONE and green** (`LevinDovetail`, `LevinComplete`); **B3b
-sub-phase 1 DONE** (`gsum-mono`, `find-finish`, `levin-operational` — the `≤` machinery);
-**B3b obligations (1) soundness + (2) finishing lemma remain** (the operational `done` +
-`runFor`-within-budget grind); B3d stretch. This is the last piece of Jones Thm
+Status: **B3a + B3c DONE and green** (`LevinDovetail`, `LevinComplete`); **B3b sub-phase 1
+DONE** (`gsum-mono`, `find-finish`, `levin-operational`); **B3b oracle DONE over an abstract
+runner** (`LevinDovetailRun`: `done-sound`, `done-intro`, `finishing` all green). **B3b now
+reduces to ONE obligation**: instantiate `run := runFor` (real `sint`) and prove `run-hits`
+from `int-efficient-time` — an isolated StepCount lemma. B3d stretch. This is the last piece of Jones Thm
 20.1.2. Layers A (`LevinOptimal`), B1 (`IntEfficient`, `a = 73`), B2a/B2b
 (`ProgramEnum`/`ProgramDecode`, `index`/`enum`) are DONE and green; Phase 4
 (`LevinGrounded`, `search-solver`) grounds both `a = 73` and `idx = index q` into Layer
@@ -92,6 +93,17 @@ bound phase `k` (a faster program found earlier — still optimal, `gsum k_op �
 aq·S`). See the B3b section; that refinement is [S] and supersedes the fixed-`k` form.
 
 ### B3b — discharge the oracle with the real machinery  [M–L, the grind]
+
+**IMPLEMENTED (over an abstract runner) — `LevinDovetailRun`, green.** The Jones
+STAGE-model oracle (`hit`/`anyHit`/`done`), `done-sound`, `done-intro`, and `finishing`
+(obligations 1 + 2 below) are all proven against an *abstract* `run : ℕ → Exp → V → Maybe V`
+plus the single hypothesis `run-hits` (the solver reaches its output within any budget
+`≥ 73·Tq`). A non-vacuity instance fires `finishing`. **So B3b is reduced to exactly one
+remaining obligation: instantiate `run := runFor` (real `sint`) and prove `run-hits` from
+`IntEfficient.int-efficient-time`** — an isolated StepCount lemma with no design risk (the
+`runFor`-within-budget alignment; reuse the `CostRelation.sound`/`evalT-mono` pattern).
+The design below records the intended `runFor` and the discharge; everything above it in
+the chain is already green.
 
 Refined design. Two corrections vs. the first sketch:
 - **Dovetail structure = the Jones STAGE model, not `unpair`.** `unpair` enumerates a
