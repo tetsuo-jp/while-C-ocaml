@@ -102,10 +102,13 @@ language (Layer B):
   counts. **B1.2 Phase 1 DONE**: `CostRelation` — a big-step cost relation
   `_,_⇓_#_` (fuel-free, one rule per constructor) with both adequacy directions vs
   `evalT` (`complete`, `sound` via `evalT-mono`/`-≤`); a sub-run enters a rule as an
-  opaque premise, dodging the refl-dispatch dead end. **B1.2 Phases 2–4 remaining**:
-  the per-node sint dispatch cost (derivation-tree construction), the linear bound by
-  induction on the derivation, and discharging Layer A's `overhead`. **L+** (see
-  `docs/LEVIN-PLAN.md`, B1.2 resolution plan).
+  opaque premise, dodging the refl-dispatch dead end. **B1.2 Phase 2 DONE**:
+  `SintCost` — all 7 constructors + 2 bases as derivation trees, `sint , node ⇓ … #
+  (K + Σ subcost)` (`var 8`/`knil 12`/`khd 39`/`ktl 48`/`kcons 45`/`kifnil 73`/`call
+  64`), so `a = max K = 73`. **B1.2 Phases 3–4 remaining**: the linear bound
+  `time_sint ≤ a·time_p` by induction on the object derivation (`K + Σ a·cᵢ ≤
+  a·(1+Σcᵢ)` via `K ≤ a`), and discharging Layer A's `overhead`. **M** (see
+  `docs/LEVIN-PLAN.md`).
 - **program enumeration** — **B2a DONE**: injective Gödel numbering
   `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
   solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:
