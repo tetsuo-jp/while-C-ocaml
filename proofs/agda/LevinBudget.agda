@@ -24,9 +24,10 @@
 
 module LevinBudget where
 
-open import Data.Nat using (ℕ; zero; suc; _+_; _≤_; _<_; s≤s; z≤n)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _≤_; _<_; s≤s; z≤n)
 open import Data.Nat.Properties
-  using (≤-refl; ≤-trans; +-suc; +-mono-≤; m≤m+n; m≤n+m; m≤n⇒m≤1+n; <⇒≱; <-cmp)
+  using (≤-refl; ≤-trans; +-suc; +-mono-≤; m≤m+n; m≤n+m; m≤n⇒m≤1+n; <⇒≱; <-cmp;
+         *-identityˡ; *-distribʳ-+)
 open import Data.Product using (Σ; _×_; _,_)
 open import Data.Empty using (⊥-elim)
 open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
@@ -116,6 +117,19 @@ pow2-mono (s≤s m≤n)   = +-mono-≤ (pow2-mono m≤n) (pow2-mono m≤n)
 gsum-mono : ∀ {m n} → m ≤ n → gsum m ≤ gsum n
 gsum-mono {n = n} z≤n = 1≤gsum n
 gsum-mono (s≤s m≤n)   = +-mono-≤ (pow2-mono (s≤s m≤n)) (gsum-mono m≤n)
+
+-- pow2 is a homomorphism (+ ↦ *): 2^(m+n) = 2^m · 2^n  (Levin B3: stage k = j + d, so
+-- pow2 k = pow2 j · pow2 d relates the solver's index and its budget offset).
+pow2-+ : ∀ m n → pow2 (m + n) ≡ pow2 m * pow2 n
+pow2-+ zero    n = sym (*-identityˡ (pow2 n))
+pow2-+ (suc m) n =
+  trans (cong (λ z → z + z) (pow2-+ m n))
+        (sym (*-distribʳ-+ (pow2 n) (pow2 m) (pow2 m)))
+
+-- `overshoot` phrased for a positive target `N ≥ 1`: some power of two lies in [N, 2N].
+overshoot′ : ∀ N → 1 ≤ N → Σ ℕ (λ k → (N ≤ pow2 k) × (pow2 k ≤ N + N))
+overshoot′ (suc n) _ = overshoot n
+overshoot′ zero    ()
 
 ------------------------------------------------------------------------
 -- Concrete check: phases 0..3 cost 1+2+4+8 = 15 = 2^4 − 1 < 16.
