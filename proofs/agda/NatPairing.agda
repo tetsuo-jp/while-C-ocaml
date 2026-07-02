@@ -18,12 +18,12 @@ module NatPairing where
 open import Data.Nat using (ℕ; zero; suc; _+_; _≤_; _<_; s≤s; z≤n)
 open import Data.Nat.Properties
   using (+-comm; +-mono-≤; +-monoʳ-<; +-cancelˡ-≡; <-cmp; <⇒≢; ≤-trans;
-         <-≤-trans; m≤m+n)
-open import Data.Product using (_×_; _,_)
+         <-≤-trans; m≤m+n; m≤n+m; +-identityʳ; +-suc)
+open import Data.Product using (_×_; _,_; uncurry)
 open import Data.Empty using (⊥-elim)
 open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
 open import Relation.Binary.PropositionalEquality
-  using (_≡_; refl; sym; trans; subst; cong)
+  using (_≡_; refl; sym; trans; subst; cong; cong₂)
 
 -- triangular numbers  tri n = 0 + 1 + ⋯ + n
 tri : ℕ → ℕ
@@ -80,3 +80,60 @@ pair-inj a b c d eq = a≡c , b≡d
 
     b≡d : b ≡ d
     b≡d = +-cancelˡ-≡ a b d (trans dd≡ee (cong (_+ d) (sym a≡c)))
+
+------------------------------------------------------------------------
+-- SURJECTIVITY / the inverse `unpair` (Levin plan Layer B2b).
+--
+-- The Cantor pairing satisfies a "diagonal walk" successor recursion:
+--     pair (suc x) y ≡ suc (pair x (suc y))      -- step down the current diagonal
+--     pair 0 (suc x) ≡ suc (pair x 0)            -- wrap to the start of the next
+-- so its inverse is STRUCTURALLY recursive on ℕ -- no well-founded machinery.
+------------------------------------------------------------------------
+
+pair-suc-l : ∀ x y → pair (suc x) y ≡ suc (pair x (suc y))
+pair-suc-l x y =
+  trans (+-suc _ x) (sym (cong (λ z → suc (tri z + x)) (+-suc x y)))
+
+pair-0-suc : ∀ x → pair 0 (suc x) ≡ suc (pair x 0)
+pair-0-suc x =
+  trans (+-identityʳ (tri (suc x)))
+        (trans (cong suc (+-comm x (tri x)))
+               (cong (λ z → suc (tri z + x)) (sym (+-identityʳ x))))
+
+-- one step of the walk (peel the last element of a diagonal, or wrap around)
+unpair-step : ℕ × ℕ → ℕ × ℕ
+unpair-step (x , zero)  = (0 , suc x)
+unpair-step (x , suc y) = (suc x , y)
+
+unpair : ℕ → ℕ × ℕ
+unpair zero    = (0 , 0)
+unpair (suc n) = unpair-step (unpair n)
+
+-- `pair ∘ unpair = id`: the walk lands on consecutive pair values.
+unpair-correct : ∀ n → uncurry pair (unpair n) ≡ n
+unpair-correct zero = refl
+unpair-correct (suc n) with unpair n | unpair-correct n
+... | (x , zero)  | eq = trans (pair-0-suc x)   (cong suc eq)
+... | (x , suc y) | eq = trans (pair-suc-l x y) (cong suc eq)
+
+-- hence `unpair ∘ pair = id` (via `pair`'s injectivity).
+unpair-pair : ∀ x y → unpair (pair x y) ≡ (x , y)
+unpair-pair x y with unpair (pair x y) | unpair-correct (pair x y)
+... | (x' , y') | eq with pair-inj x' y' x y eq
+...   | x'≡x , y'≡y = cong₂ _,_ x'≡x y'≡y
+
+------------------------------------------------------------------------
+-- component bounds: both projections are ≤ the pair value (for well-founded
+-- inversion of `vnat` in `ProgramDecode`).
+------------------------------------------------------------------------
+
+n≤tri : ∀ n → n ≤ tri n
+n≤tri zero    = z≤n
+n≤tri (suc n) = m≤m+n (suc n) (tri n)
+
+pair-fst-≤ : ∀ x y → x ≤ pair x y
+pair-fst-≤ x y = m≤n+m x (tri (x + y))
+
+pair-snd-≤ : ∀ x y → y ≤ pair x y
+pair-snd-≤ x y =
+  ≤-trans (m≤n+m y x) (≤-trans (n≤tri (x + y)) (m≤m+n (tri (x + y)) x))
