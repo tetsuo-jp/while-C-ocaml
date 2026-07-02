@@ -16,21 +16,26 @@ Machine-checked so far (`--safe`), and what may honestly be claimed:
   Layer A) — but **relative to** two abstract record fields, the interpreter overhead
   `a` (`overhead`) and q's index `j` (`idx`); program countability (`ProgramEnum`,
   B2a); and a total step-counting cost model (`StepCount`, B1.1).
-- **NOT done.** `int-efficient` (`time_sint ≤ a·time_p`, B1.2 — the fact that makes
-  `a` a real constant rather than an assumption); the surjective decoder (B2b); the
-  operational `opt` and `time_opt = gsum k` (B3).
+- **DONE (keystone).** `int-efficient` (`IntEfficient`, B1.2) — the self-interpreter's
+  LINEAR overhead `time_sint(⌜p⌝.(⌜p⌝.d)) ≤ 73·time_p(d)` is now MACHINE-CHECKED
+  (Jones Thm 19.1.3), so the overhead constant `a = 73` is a proven fact, no longer an
+  assumption. This discharges Layer A's `overhead` hypothesis.
+- **NOT done.** The surjective decoder (B2b); the operational `opt` and
+  `time_opt = gsum k` (B3).
 
-**Therefore, at present, the *only* honest claim is:** "we machine-check Levin's
-optimality *conditionally* — the optimality bound follows, in Agda `--safe`, from a
-linear-overhead self-interpreter and an effective program numbering; the
-combinatorial heart is fully verified, and the numbering is discharged." The bound's
-hypotheses `a, j, T_q, T_r` are abstract naturals, **not yet grounded in a concrete
-`opt` program**, so the statement is a *verified skeleton*, not a theorem about
-running WHILE/I programs. Do **not** claim "Levin's theorem is mechanized". A genuine
-secondary contribution IS claimable: the **negative methodological finding** that the
-`refl`-dispatch technique which mechanizes self-interpreter *correctness* (`simF`)
-does not transfer to *cost* (the step count is trapped in a stuck sub-term), so
-verifying interpreter *efficiency* needs a big-step cost relation — see B1.2.
+**Therefore the honest claim now is:** "we machine-check, in Agda `--safe`, that (i)
+the combinatorial heart of Levin's optimal search holds; (ii) programs are countable;
+and — the keystone — (iii) the one-variable self-interpreter has provably LINEAR
+overhead (`a = 73`), so Levin's optimality bound holds relative only to the effective
+program numbering and the operational `opt` assembly (B3), with the interpreter-cost
+hypothesis discharged." The remaining gap to a fully self-contained theorem about
+running I programs is B3 (build `opt`, tie `time_opt = gsum k`). Still do **not** claim
+the *whole* Levin theorem is mechanized until B3 lands. A genuine methodological
+contribution also stands: the **negative finding** that the `refl`-dispatch technique
+mechanizing self-interpreter *correctness* (`simF`) does NOT transfer to *cost* — the
+step count is trapped in a stuck sub-term — so verifying interpreter *efficiency*
+needs the big-step cost relation (`CostRelation`) + derivation-tree dispatch costs
+(`SintCost`), the route this repo now demonstrates end-to-end.
 
 ## The theorem (informal, Jones §20.1)
 

@@ -105,10 +105,12 @@ language (Layer B):
   opaque premise, dodging the refl-dispatch dead end. **B1.2 Phase 2 DONE**:
   `SintCost` — all 7 constructors + 2 bases as derivation trees, `sint , node ⇓ … #
   (K + Σ subcost)` (`var 8`/`knil 12`/`khd 39`/`ktl 48`/`kcons 45`/`kifnil 73`/`call
-  64`), so `a = max K = 73`. **B1.2 Phases 3–4 remaining**: the linear bound
-  `time_sint ≤ a·time_p` by induction on the object derivation (`K + Σ a·cᵢ ≤
-  a·(1+Σcᵢ)` via `K ≤ a`), and discharging Layer A's `overhead`. **M** (see
-  `docs/LEVIN-PLAN.md`).
+  64`), so `a = max K = 73`. **B1.2 Phase 3 DONE — `int-efficient` PROVEN**
+  (`IntEfficient`): `time_sint(⌜p⌝.(⌜p⌝.d)) ≤ 73·time_p(d)` by induction on the object
+  derivation (`int-efficient` relational + `int-efficient-time` executable). This is
+  Jones Thm 19.1.3 and discharges Layer A's `overhead` hypothesis (`a = 73` is a
+  theorem, not an assumption). **Remaining for full Levin**: B2b (surjective decoder)
+  and B3 (build `opt`, `time_opt = gsum k`); see `docs/LEVIN-PLAN.md`.
 - **program enumeration** — **B2a DONE**: injective Gödel numbering
   `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
   solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:
