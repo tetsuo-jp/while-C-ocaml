@@ -29,7 +29,7 @@ open import UniversalInterp
          Exp; var; knil; kcons; khd; ktl; kifnil; call)
 open import StepCount using (module StepCount)
 
-module _ (prog : Exp) where
+module Rel (prog : Exp) where
   open StepCount.StepCount prog using (evalT)
 
   -- big-step cost relation.  `prog` is the ambient global program (`call`).
