@@ -1,10 +1,11 @@
 # Levin B3 — design for the operational `opt` and `time_opt = gsum k`
 
-Status: **design only** (no code yet). This is the last piece of Jones Thm 20.1.2.
-Layers A (`LevinOptimal`), B1 (`IntEfficient`, `a = 73`), B2a/B2b
+Status: **B3a + B3c DONE and green** (`LevinDovetail`, `LevinComplete`); **B3b design
+refined below, not yet implemented**; B3d stretch. This is the last piece of Jones Thm
+20.1.2. Layers A (`LevinOptimal`), B1 (`IntEfficient`, `a = 73`), B2a/B2b
 (`ProgramEnum`/`ProgramDecode`, `index`/`enum`) are DONE and green; Phase 4
-(`LevinGrounded`) links `a = 73` into Layer A. B3 builds the operational search and
-ties its real cost to Layer A's abstract `gsum`.
+(`LevinGrounded`, `search-solver`) grounds both `a = 73` and `idx = index q` into Layer
+A. B3 builds the operational search and ties its real cost to Layer A's abstract `gsum`.
 
 See `docs/LEVIN-PLAN.md` for the overall layering; this file is the B3-specific plan.
 
@@ -79,41 +80,106 @@ levin-complete : ∀ j Tq Tr
 ```
 
 The `gsum k < aq·S` half is `levin-grounded`; the `time-opt k ≡ gsum k` half is
-B3a. The finishing phase `k` comes from `LevinOptimal.finish`/`overshoot` (already
-proven) applied to the target `N = c · S`. This is the honest end statement:
-*operational Levin optimality relative to the phase oracle*, `a = 73` a theorem.
+B3a. This is the honest end statement: *operational Levin optimality relative to the
+phase oracle*, `a = 73` a theorem.
+
+**Status: DONE** as `LevinComplete.levin-complete` (fixed `k_op = k`), green, with a
+concrete non-vacuous instance. **B3b needs a `≤` refinement** (`levin-complete-≤` +
+`gsum-mono`): the operational search's least success `k_op` may be *below* the abstract
+bound phase `k` (a faster program found earlier — still optimal, `gsum k_op ≤ gsum k <
+aq·S`). See the B3b section; that refinement is [S] and supersedes the fixed-`k` form.
 
 ### B3b — discharge the oracle with the real machinery  [M–L, the grind]
 
-Instantiate `done` operationally and prove it satisfies B3c's premises. Uses every
-prior layer:
+Refined design. Two corrections vs. the first sketch:
+- **Dovetail structure = the Jones STAGE model, not `unpair`.** `unpair` enumerates a
+  *flat* set of `(program, steps)` pairs; it does not carry the doubling phase
+  structure the batch cost model (A) needs. The right shape is: **phase (stage) `i`
+  runs programs `0..i`, giving program `m` a budget of `pow2 (i ∸ m)` sint-steps** —
+  the classic diagonal-doubling dovetail. `unpair` is *not* used here (it belongs to
+  B2b, already done). `NatPairing`/`ProgramDecode.enum` still provide the numbering.
+- **`sint` convention.** Running program `p` on input `x` via the self-interpreter is
+  `sint` on the triple `(⌜p⌝ ∙ (⌜p⌝ ∙ x))` (SelfInterp: program, current-expr = whole
+  body, env = x). `int-efficient-time` then bounds its step count:
+  `StepCount.evalT _ sint (⌜p⌝ ∙ (⌜p⌝ ∙ x))` costs `≤ 73 · time_p(x)`.
+
+**Checker.** Model the verifier semantically as a parameter `chk : V → V → Bool`
+(`chk x y = true` ⟺ `y` solves `x`). *First cut: `chk` is "free"* (not step-charged),
+so `S = Tq + Tr` is used only through `Tq` (loose but sound). *Faithful refinement:*
+also run `r` via `sint` inside the budget, needing budget `≥ 73·(Tq+Tr)`; then `Tr`
+enters genuinely. Do the free version first.
+
+**Definitions** (module parameterised by `chk : V → V → Bool` and input `x : V`):
 
 ```agda
--- phase i is a batch of candidate runs; unpair the batch coordinate into
--- (program index j, step budget t); run enum j on x via sint for ≤ t steps; check r.
-run-candidate : (x : V) → ℕ × ℕ → Bool
-run-candidate x (j , t) =
-  case StepCount.evalT t sint (⌜ enum j ⌝ ∙ x) of        -- run program (enum j) on x
-    just (y , _) → r x y                                  -- verify with the checker r
-    nothing      → false
+-- run program p on x via sint; return its output iff it halts within `b` sint-steps.
+runFor : ℕ → Exp → V → Maybe V
+runFor b p x with StepCount.evalT b sint (⌜ p ⌝ ∙ (⌜ p ⌝ ∙ x))
+... | just (y , c) = if c ≤ᵇ b then just y else nothing   -- (fuel = b ≥ depth since steps ≤ b)
+... | nothing      = nothing
 
-done : ℕ → Bool          -- true iff SOME candidate in phase i's batch verifies
+hit : ℕ → ℕ → Bool                    -- level i, program m: enum m verifies within pow2(i∸m) steps
+hit i m with runFor (pow2 (i ∸ m)) (enum m) x
+... | just y  = chk x y
+... | nothing = false
+
+anyHit : ℕ → ℕ → Bool                 -- level i; scan programs 0..bound
+anyHit i zero    = hit i 0
+anyHit i (suc m) = hit i (suc m) or anyHit i m
+
+done : ℕ → Bool
+done i = anyHit i i                    -- programs 0..i at stage i
 ```
 
-Obligations to discharge B3c's premises:
-- **Soundness:** `done i = true ⇒ Σ y, r x y ≡ true` (a genuinely verified witness).
-- **Finishing-phase existence:** given the optimal solver `q` (index `j = index q`,
-  `time_q x = Tq`, `r` verifies `q x` in `Tr`), there is a least `k` with
-  `done k = true`, and `pow2 k` covers the need `N = c·S` via `overshoot`. The
-  per-step interpreter overhead is absorbed by `int-efficient` (running `q` under
-  `sint` costs `≤ 73·Tq`), and `enum (index q) = q` (from `ProgramDecode.enum-index`)
-  guarantees `q` is actually reached by the dovetail.
+**Cost note.** The literal sint-step work at stage `i` is `Σ_{m≤i} pow2(i∸m) = gsum i`
+(≈ `2·pow2 i`); cost model (A) *charges* `pow2 i` per phase. So `time_opt = gsum k` is
+the phase-charged model cost, faithful to the real dovetail up to a factor 2 — a
+constant already absorbed into `a_q`. State this explicitly in `LevinDovetail` /
+the paper; it is standard for Levin bounds ("optimal up to a constant `a_q`").
 
-Risks: aligning the `(j,t)` batch enumeration (via `NatPairing.unpair`) with the
-abstract "`2^k ≥ c·S`"; making the batch's total budget exactly `pow2 i` (Cost model
-A) while covering enough `(j,t)` pairs; and choosing input/interp conventions
-(`⌜enum j⌝ ∙ x` vs the self-interp shape `⌜p⌝ ∙ (⌜e⌝ ∙ env)`) consistently with
-`int-efficient`. This is why B3b is deferred behind the oracle hypothesis.
+**Obligations** (feed `levin-complete`):
+
+1. **Soundness** `done i ≡ true → Σ[m] Σ[y] (runFor (pow2 (i∸m)) (enum m) x ≡ just y) ×
+   (chk x y ≡ true)`. Bool induction on `anyHit`: a `true` `or` yields a hitting `m ≤ i`;
+   `hit i m = true` unfolds to `runFor … ≡ just y` with `chk x y ≡ true`. **[S]**
+
+2. **Finishing at stage `k`** — the substantive coupling. Given the optimal solver
+   with index `j` (so `enum j = q` by `enum-index`), `time_q(x) = Tq`, output `yq`,
+   `chk x yq ≡ true`:
+   - `int-efficient-time` (+ a StepCount fuel/step lemma like `CostRelation.sound`)
+     gives `sint` halting on `(⌜q⌝ ∙ (⌜q⌝ ∙ x))` in `cₛ ≤ 73·Tq` steps with output `yq`.
+   - `overshoot (73·Tq ∸ 1)` gives an offset `d` with `73·Tq ≤ pow2 d ≤ 2·73·Tq`.
+   - Set `k = j + d`. Then `pow2 (k ∸ j) = pow2 d ≥ 73·Tq ≥ cₛ`, so `runFor (pow2 (k∸j))
+     (enum j) x ≡ just yq` (budget suffices), hence `hit k j ≡ true`, hence `done k ≡ true`.
+   - **Bound:** `pow2 k = pow2 j · pow2 d ≤ pow2 j · 2·73·Tq = 146·2^j·Tq`, so
+     `gsum k < 2·pow2 k ≤ 292·2^j·Tq ≤ 292·2^j·(Tq+Tr) = a_q·S`. So `gsum k < a_q·S`.
+   **[M–L]** — the arithmetic is `overshoot` + `pow2`-homomorphism `pow2 (j+d) =
+   pow2 j · pow2 d` + monotonicity; the operational core is the `runFor`-succeeds-within-
+   budget lemma (int-efficient ∘ StepCount).
+
+3. **Operational finish is `≤ k`, not `= k`** ⇒ **a required B3c refinement.** Levin does
+   NOT claim `q` is the *first* program found — a faster program may verify at an earlier
+   stage `k_op < k`, which is *even better* (`gsum k_op < gsum k < a_q·S`). So the
+   operational least-success stage `k_op` satisfies only `k_op ≤ k`. Add:
+   ```agda
+   gsum-mono : ∀ {m n} → m ≤ n → gsum m ≤ gsum n          -- from pow2 monotonicity  [S]
+   least-upto : ∀ k → done k ≡ true                        -- extract least success ≤ k  [S]
+     → Σ ℕ (λ kop → kop ≤ k × done kop ≡ true × (∀ i → i < kop → done i ≡ false))
+   levin-complete-≤ : … kop ≤ k → gsum k < aq·S → done kop ≡ true → (∀ i<kop, done i ≡ false)
+     → … × (gsum kop < aq·S)                               -- via ≤-<-trans (gsum-mono kop≤k) bnd
+   ```
+   `levin-complete-≤` supersedes the current `levin-complete` (which fixed `k_op = k`);
+   keep the latter as the special case. **[S]**
+
+**Discharge chain:** `q` solves `x` → (2) `done k ≡ true` with `gsum k < a_q·S` →
+(3) `least-upto` gives `k_op ≤ k` least → `levin-complete-≤` → `time_opt = gsum k_op <
+a_q·S`, fully operational, `a = 73` a theorem.
+
+**Residual risks:** the `runFor`-within-budget lemma (aligning `int-efficient-time`'s
+`≤ 73·Tq` with `evalT`'s fuel-as-depth vs steps-returned — reuse the `evalT-mono`/`sound`
+pattern from `CostRelation`); and, for the faithful checker, threading `r`'s sint-cost
+into the budget. The stage-model / cost-model-(A) factor-2 gap is documented, not proved
+away (it lives in `a_q`).
 
 ### B3d — stretch (out of scope): `opt ∈ Exp`
 
