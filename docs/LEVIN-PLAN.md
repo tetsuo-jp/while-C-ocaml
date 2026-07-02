@@ -20,6 +20,10 @@ Machine-checked so far (`--safe`), and what may honestly be claimed:
   LINEAR overhead `time_sint(⌜p⌝.(⌜p⌝.d)) ≤ 73·time_p(d)` is now MACHINE-CHECKED
   (Jones Thm 19.1.3), so the overhead constant `a = 73` is a proven fact, no longer an
   assumption. This discharges Layer A's `overhead` hypothesis.
+- **Linked (Phase 4, `LevinGrounded`).** The proven `a = 73` is fed into Layer A's
+  abstract record: `levin-grounded` is the optimality bound `gsum k < 4·73·2^j·(T_q+T_r)`
+  with `overhead` no longer a hypothesis (`overhead-grounded : LinearOverhead 73 =
+  int-efficient`).
 - **NOT done.** The surjective decoder (B2b); the operational `opt` and
   `time_opt = gsum k` (B3).
 
@@ -203,11 +207,14 @@ New module `CostRelation.agda` (over `module _ (prog : Exp)`), then `IntEfficien
 - Corollary `time_sint(⌜p⌝.d) ≤ a · time_p(d)` by `sound`/`complete` (Phase 1) at
   `e := p`, `env := d`.
 
-**Phase 4 — discharge Layer A's hypothesis.  [S]**
-- Build a `LevinOptimal.LevinSearch` for a concrete `q` with `overhead := a` supplied by
-  `int-efficient` (and `idx := ProgramEnum.index q`), so the optimality bound no longer
-  *assumes* the overhead — it is `a`. This is the payoff: Levin optimality for concrete
-  I programs, `--safe`, end-to-end (still modulo B3's actual `opt` construction).
+**Phase 4 — discharge Layer A's hypothesis.  [S]  DONE (`LevinGrounded`).**
+- `LevinGrounded.search j Tq Tr` builds a `LevinOptimal.LevinSearch` with
+  `overhead := IntEfficient.a` (= 73), and `overhead-grounded : LinearOverhead 73 =
+  int-efficient` witnesses that this exact constant is the machine-checked interpreter
+  bound — so `levin-grounded` (= `levin-optimal` at that record) no longer *assumes* the
+  overhead, it *is* `a = 73`. `aq (search 0 3 1) ≡ 292` checks the wiring. This is the
+  payoff: Levin optimality with the interpreter-cost hypothesis fully discharged, `--safe`
+  (still modulo `idx j` from B2b and B3's actual `opt` construction).
 
 **Risk & effort.** Phase 1 is M and independently valuable (a fuel-free cost semantics).
 Phase 2 is the L crux (hand-built derivations); the semi-automation via `complete` on the

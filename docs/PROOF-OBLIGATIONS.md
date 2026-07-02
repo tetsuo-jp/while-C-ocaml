@@ -109,8 +109,12 @@ language (Layer B):
   (`IntEfficient`): `time_sint(⌜p⌝.(⌜p⌝.d)) ≤ 73·time_p(d)` by induction on the object
   derivation (`int-efficient` relational + `int-efficient-time` executable). This is
   Jones Thm 19.1.3 and discharges Layer A's `overhead` hypothesis (`a = 73` is a
-  theorem, not an assumption). **Remaining for full Levin**: B2b (surjective decoder)
-  and B3 (build `opt`, `time_opt = gsum k`); see `docs/LEVIN-PLAN.md`.
+  theorem, not an assumption). **Phase 4 DONE — Layer A ∘ B1 linked** (`LevinGrounded`):
+  `overhead-grounded : LinearOverhead 73 = int-efficient` witnesses the constant Layer A
+  ranges over is the proven interpreter bound; `levin-grounded` is Levin optimality
+  (`gsum k < 4·73·2^j·(T_q+T_r)`) with `a` now a theorem. **Remaining for full Levin**:
+  B2b (surjective decoder) and B3 (build `opt`, `time_opt = gsum k`); see
+  `docs/LEVIN-PLAN.md`.
 - **program enumeration** — **B2a DONE**: injective Gödel numbering
   `ProgramEnum.index-injective` (via `NatPairing.pair-inj` + `⌜_⌝`/`vnat`), so each
   solver `q` has a unique index `j := index q` (programs countable). **B2b remaining**:
