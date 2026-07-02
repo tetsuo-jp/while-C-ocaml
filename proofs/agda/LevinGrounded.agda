@@ -31,6 +31,7 @@ open import SelfInterp using (sint)
 open import CostRelation using (module Rel)
 open import LevinBudget using (gsum)
 open import LevinOptimal using (LevinSearch; levin-optimal; aq; c; S)
+open import ProgramEnum using (index)
 import IntEfficient as IE
 
 ------------------------------------------------------------------------
@@ -79,3 +80,25 @@ levin-grounded j Tq Tr = levin-optimal (search j Tq Tr)
 -- Concrete: index 0, T_q = 3, T_r = 1  ⇒  c = 73, S = 4, target = 292, a_q·S = 1168.
 _ : Σ ℕ (λ k → gsum k < 1168)
 _ = levin-grounded 0 3 1 (s≤s z≤n)
+
+------------------------------------------------------------------------
+-- BOTH operational constants grounded.  Phase 4 grounded `overhead := 73` in
+-- `int-efficient` (B1).  For a concrete solver `q`, its enumeration index is
+-- `ProgramEnum.index q` (B2a, injective), so `search-solver` grounds BOTH `overhead`
+-- and `idx` in proven constructs -- only `T_q, T_r` (q/r's actual running times) and
+-- the operational `opt` (B3) remain to make the whole search concrete.
+------------------------------------------------------------------------
+
+search-solver : Exp → ℕ → ℕ → LevinSearch
+search-solver q Tq Tr = search (index q) Tq Tr
+
+_ : ∀ q Tq Tr → LevinSearch.overhead (search-solver q Tq Tr) ≡ 73
+_ = λ q Tq Tr → refl
+
+_ : ∀ q Tq Tr → LevinSearch.idx (search-solver q Tq Tr) ≡ index q
+_ = λ q Tq Tr → refl
+
+-- Levin optimality for a concrete solver program, both constants grounded.
+levin-grounded-solver : ∀ q Tq Tr → 1 ≤ c (search-solver q Tq Tr) * S (search-solver q Tq Tr) →
+  Σ ℕ (λ k → gsum k < aq (search-solver q Tq Tr) * S (search-solver q Tq Tr))
+levin-grounded-solver q Tq Tr = levin-optimal (search-solver q Tq Tr)
