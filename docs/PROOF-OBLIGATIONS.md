@@ -138,10 +138,14 @@ language (Layer B):
   (`LevinDovetailRun`): the Jones STAGE-model `done` (`hit`/`anyHit`/`done`) with
   `done-sound`, `done-intro`, and `finishing` (stage `k = j+d` fires with `gsum k < aq·(Tq+Tr)`
   via `overshoot′`/`pow2-+`/ring solver) — all green against an abstract `run` + the single
-  hypothesis `run-hits`. **Remaining (Layer B3b): ONE obligation** — instantiate `run := runFor`
-  (real `sint` on `(⌜p⌝ . (⌜p⌝ . x))`) and prove `run-hits` from `IntEfficient.int-efficient-time`
-  (a StepCount lemma, no design risk); and (B3d, stretch) literal `opt ∈ Exp` via `StepCount`.
-  See `docs/LEVIN-B3-DESIGN.md`. **M (down from M–L).**
+  hypothesis `run-hits`. **B3b DONE** (`LevinRunFor`): `runFor b p x` runs `p` on `x` via
+  `sint` (`(⌜p⌝ . (⌜p⌝ . x))`, depth budget `b`); `run-hits` discharged from
+  `IntEfficient.int-efficient-time` via `CostRelation.evalT-count` (fuel = step-count suffices)
+  + `evalT-mono-≤`; `levin-finishes` instantiates the oracle concretely (no hypotheses but the
+  solver's halting), `levin-optimal-run` gives the full operational search. **Remaining: only
+  B3d (stretch)** — literal `opt ∈ Exp` step-counted via `StepCount` — plus modelling scope
+  (cost model (A) charges `pow2 i`/stage; semantic checker `chk`; `opt` an Agda driver). See
+  `docs/LEVIN-B3-DESIGN.md`.
 
 ## 5. C-tier robustness results (Jones ch.7–8)
 

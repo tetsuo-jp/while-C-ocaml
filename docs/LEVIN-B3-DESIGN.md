@@ -1,10 +1,13 @@
 # Levin B3 — design for the operational `opt` and `time_opt = gsum k`
 
-Status: **B3a + B3c DONE and green** (`LevinDovetail`, `LevinComplete`); **B3b sub-phase 1
-DONE** (`gsum-mono`, `find-finish`, `levin-operational`); **B3b oracle DONE over an abstract
-runner** (`LevinDovetailRun`: `done-sound`, `done-intro`, `finishing` all green). **B3b now
-reduces to ONE obligation**: instantiate `run := runFor` (real `sint`) and prove `run-hits`
-from `int-efficient-time` — an isolated StepCount lemma. B3d stretch. This is the last piece of Jones Thm
+Status: **B3a + B3b + B3c ALL DONE and green.** `LevinDovetail` (cost skeleton),
+`LevinDovetailRun` (oracle over abstract runner), `LevinComplete` (end-to-end), and
+`LevinRunFor` (the concrete `sint` runner: `runFor` + `run-hits` discharged from
+`int-efficient-time` via `CostRelation.evalT-count`). `LevinRunFor.Solver.levin-optimal-run`
+is the fully operational Levin search — halts at a stage whose real (phase-charged) time
+`gsum kop < aq·(Tq+Tr)`, `a = 73` a theorem, **no hypotheses left but the solver's own
+halting fact**. Only **B3d** (literal `opt ∈ Exp` step-counted, a stretch) remains, plus the
+documented modelling scope (cost model (A); semantic checker `chk`; `opt` an Agda driver). This is the last piece of Jones Thm
 20.1.2. Layers A (`LevinOptimal`), B1 (`IntEfficient`, `a = 73`), B2a/B2b
 (`ProgramEnum`/`ProgramDecode`, `index`/`enum`) are DONE and green; Phase 4
 (`LevinGrounded`, `search-solver`) grounds both `a = 73` and `idx = index q` into Layer

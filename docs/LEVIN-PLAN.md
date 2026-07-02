@@ -27,12 +27,14 @@ Machine-checked so far (`--safe`), and what may honestly be claimed:
 - **Programs effectively enumerable (B2b, `ProgramDecode`).** The surjective decoder
   `enum : ℕ → Exp` with `enum-index : enum (index p) ≡ p` — `index` a section, `enum` a
   retraction. Both numbering directions are now machine-checked.
-- **Operational search cost skeleton + end-to-end (B3a/B3c, `LevinDovetail`/
-  `LevinComplete`).** `time_opt = gsum k` (batch model) and, at the finishing phase,
-  `time_opt < aq·S` (Levin-optimal, `a = 73` a theorem) — *relative to the phase oracle*.
-  Both Layer-A constants grounded (`search-solver`: `overhead := 73`, `idx := index q`).
-- **NOT done.** Only B3b: discharge the phase oracle operationally (and B3d stretch:
-  literal `opt ∈ Exp`).
+- **Operational Levin search FULLY DISCHARGED (B3a/B3b/B3c).** `LevinDovetail` (cost
+  skeleton, `time_opt = gsum k`), `LevinDovetailRun` (Jones stage oracle + `finishing`),
+  `LevinComplete` (`levin-operational`), `LevinRunFor` (`runFor` via real `sint` + `run-hits`
+  from `int-efficient-time`). `levin-optimal-run`: the concrete dovetail search halts with
+  real time `gsum kop < aq·(Tq+Tr)`, `a = 73` a theorem, no hypotheses but the solver's
+  halting fact. Both Layer-A constants grounded (`search-solver`).
+- **NOT done.** Only B3d (stretch: literal `opt ∈ Exp`), plus the documented modelling
+  scope (cost model (A); semantic checker `chk`; `opt` an Agda driver, not a WHILE program).
 
 **Therefore the honest claim now is:** "we machine-check, in Agda `--safe`, that (i)
 the combinatorial heart of Levin's optimal search holds; (ii) programs are countable;
@@ -279,12 +281,14 @@ correctness **left as a hypothesis first**; `opt` a **fuel-indexed Agda driver**
 - Also `LevinGrounded.search-solver` now grounds **both** Layer-A constants
   (`overhead := 73`, `idx := index q`).
 - **B3b oracle DONE over an abstract runner** (`LevinDovetailRun`): the Jones STAGE-model
-  `done` (`hit`/`anyHit`/`done`) with `done-sound`, `done-intro`, and `finishing` (stage
-  `k=j+d` fires with `gsum k < aq·(Tq+Tr)`) — all green against an abstract `run` + the
-  single hypothesis `run-hits`. **B3b now = ONE obligation**: instantiate `run := runFor`
-  (real `sint` on `(⌜p⌝ . (⌜p⌝ . x))`) and prove `run-hits` from `int-efficient-time` — an
-  isolated StepCount lemma, no design risk.
-- **B3d stretch**: literal `opt ∈ Exp` step-counted via `StepCount`.
+  `done` with `done-sound`, `done-intro`, and `finishing`, all green against an abstract
+  `run` + the single hypothesis `run-hits`.
+- **B3b DONE** (`LevinRunFor`): `runFor` (real `sint`) instantiates `run`; `run-hits`
+  discharged from `int-efficient-time` via `CostRelation.evalT-count` (fuel = step-count
+  suffices) + `evalT-mono-≤`. `levin-optimal-run` is the full operational search — halts at
+  a stage with real (phase-charged) time `gsum kop < aq·(Tq+Tr)`, `a = 73` a theorem, no
+  hypotheses left but the solver's halting fact.
+- **B3d stretch (only remaining)**: literal `opt ∈ Exp` step-counted via `StepCount`.
 
 The operational specializer-free construction: `opt` = dovetail (`enum`) × budget
 doubling (`pow2`) × run-via-`sint` × check-with-`r`, halting at the first verified
