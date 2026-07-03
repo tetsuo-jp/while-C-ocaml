@@ -3,11 +3,12 @@
 A Rocq 9.1 port of the Agda Levin development (`proofs/agda/`). **Statement-level
 fidelity**: theorem statements match the Agda modules; proofs are idiomatic Rocq
 (`induction` + `lia`/`nia`, `Arguments … : simpl never` + unfold lemmas for the
-interpreter). Build/check: `sh check.sh` (compiles every module in dependency order
-under a flat logical path via `rocq compile -Q . ""`). All lemmas are axiom-free
-(`Print Assumptions` = *Closed under the global context*).
+interpreter, `vm_compute` for dispatch equations over the giant `sint`). Build/check:
+`sh check.sh` (compiles every module in dependency order under a flat logical path via
+`rocq compile -Q . ""`). All lemmas are axiom-free (`Print Assumptions` = *Closed under
+the global context*).
 
-## Status — 14 modules, the Levin optimality STATEMENT + the self-interpreter term
+## Status — 21 modules; FULL self-interpreter correctness (G1) proven
 
 | Rocq module | ports Agda | key content |
 |---|---|---|
@@ -25,25 +26,31 @@ under a flat logical path via `rocq compile -Q . ""`). All lemmas are axiom-free
 | `LevinDovetailRun.v` | LevinDovetailRun | Jones-stage oracle over abstract run + finishing |
 | `LevinComplete.v` | LevinComplete | levin_complete / levin_operational |
 | `SelfInterp.v` | SelfInterp | the concrete self-interpreter term `sint` + run checks |
+| `SelfInterpCorrect.v` | SelfInterpCorrect (part) | `selfrun`, base dispatch (var/knil), guard/accessor lemmas |
+| `SimF.v` | SelfInterpCorrect (part) | the 4 recursive dispatches (khd/ktl/kcons/kifnil) + call-free `sim` |
+| `DispCall.v` | SelfInterpCorrect (part) | the `call` dispatch, offsets (20,10,13), shape-faithful nested RHS |
+| `SimFFull.v` | SelfInterpCorrect `simF` | **`simF_full` — FULL G1** (object-fuel induction ∘ `disp_call`), unconditional |
+| `SintCostR.v` | SintCost (pilot→) | cost dispatch: var 8 / knil 12 / khd 39 / ktl 48 — **equal to Agda**; cascade-RHS technique |
+| `LevinRunFor.v` | LevinRunFor | `runFor` + `run_hits` + `levin_optimal_run`, modulo `int_efficient_time` hypothesis |
+| `Extract.v` | — (D1) | extraction: `while_eval.ml`, an executable OCaml interpreter = the verified `eval/sint` |
 
-`levin_operational` (`LevinComplete`) is the end statement: the operational dovetail
-search halts at a stage with real (phase-charged) time `gsum kop < aq*Swork`,
-`aq = 4·73·2^j`.  `SelfInterp.sint` is the concrete self-interpreter, verified on
-every constructor incl. recursion (checks by `reflexivity` — the kernel's lazy
-conversion, since `vm_compute` eagerly evaluates both `kifnil` branches and blows up).
+Highlights: `SimFFull.simF_full` is the ∀-quantified self-interpreter correctness
+(Jones Thm 4.2.1 / the Agda `simF`) — for EVERY program incl. `call`/recursion.
+`LevinComplete.levin_operational` is Levin optimality for the operational dovetail
+(`gsum kop < aq*Swork`, `aq = 4·73·2^j`).  `LevinRunFor.levin_optimal_run` assembles
+the concrete `sint`-driven search, currently modulo the `int_efficient_time` hypothesis.
 
-## Remaining — the interpreter-correctness crux (multi-session)
+Proof-engineering notes (hard-won): dispatch equations over `sint` close by
+`vm_compute; reflexivity` (kernel reflexivity is exponential for multi-sub); the RHS
+must be stated SHAPE-FAITHFULLY (nested option-matches for `call`, `bumpN` cost cascades
+for the cost versions) with clean corollaries recovering the usable forms; concrete
+full runs use plain `reflexivity` instead (`vm_compute` explodes on those).
 
-Everything below discharges `overhead = 73` (currently a stated constant in
-`LevinGrounded`) and instantiates the abstract `run` of `LevinDovetailRun`:
+## Remaining — Phase 5 (cost) to full self-containment
 
-1. `SelfInterpCorrect` (`simF`), `SintCost`, `IntEfficient` (`int-efficient`, `a = 73`) —
-   the correctness/cost proofs over the specific `sint`; in Agda these were the hardest
-   part (refl-dispatch / derivation-tree costs, plus a documented negative finding that
-   refl-dispatch does not transfer to cost). **L (the hard middle)**
-2. `LevinRunFor` — `runFor` (real `sint`) instantiates `run`; `run_hits` from
-   `int-efficient-time`, giving the fully concrete operational search. **M** (once 1 lands)
-
-The arithmetic/combinatorial/adequacy layers and the self-interpreter TERM (all 14 above)
-are done; the self-interpreter's CORRECTNESS/COST theorems are the genuine remaining
-effort, as in the Agda original.
+1. `SintCostR`: cost dispatch equations for kcons/kifnil/call (expected constants
+   45/73/64, = Agda). **S–M** (cascade technique established).
+2. `IntEfficientR`: `int_efficient` (a = 73) by induction on the `Steps` derivation,
+   using the cost corollaries; `int_efficient_time` as executable corollary. **M**
+3. Discharge `LevinRunFor`'s `int_efficient_time` hypothesis with 2 → the Rocq Levin
+   chain is FULLY self-contained (only the solver's halting fact remains). **S**
