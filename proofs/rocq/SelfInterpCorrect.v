@@ -54,3 +54,28 @@ Proof. intros p env. exists 20. apply sint_var. Qed.
 
 Lemma simF_knil : forall p env, exists F, selfrun F p knil env = Some Vnil.
 Proof. intros p env. exists 20. apply sint_knil. Qed.
+
+(** ------------------------------------------------------------------ *)
+(** PHASE 1 of the recursive-dispatch plan (see SIMF-PLAN.md): guard & accessor
+    evaluation, all by kernel lazy [reflexivity] (symbolic p,e,env pass through).
+    These are the fully-concrete building blocks the Phase-2 dispatch lemmas rewrite with. *)
+
+Definition triple (p e : Exp) (env : V) : V := Vcons (enc p) (Vcons (enc e) env).
+
+(** accessors: P => enc p, R => env (the interpreted program's input). *)
+Lemma acc_P : forall p e env, eval sint 6 P (triple p e env) = Some (enc p).
+Proof. intros. reflexivity. Qed.
+
+Lemma acc_R : forall p e env, eval sint 6 R (triple p e env) = Some env.
+Proof. intros. reflexivity. Qed.
+
+(** for a khd-input, the sub-request builds exactly the sub-triple (enc p . (enc e . env)). *)
+Lemma acc_subtriple_khd : forall p e env,
+  eval sint 12 (kcons P (kcons argsE R)) (triple p (khd e) env)
+  = Some (Vcons (enc p) (Vcons (enc e) env)).
+Proof. intros. reflexivity. Qed.
+
+(** the tag-3 walk on a khd-input: the deepest guard reduces to nil (selects the khd arm). *)
+Lemma guard_khd_deep : forall p e env,
+  eval sint 12 (ktl (ktl (ktl (khd (khd (ktl var)))))) (triple p (khd e) env) = Some Vnil.
+Proof. intros. reflexivity. Qed.
