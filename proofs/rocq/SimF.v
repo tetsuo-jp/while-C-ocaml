@@ -93,3 +93,70 @@ Proof.
   destruct vc as [| a b]; simpl in Hsel |- *;
     apply (eval_mono_le sint F (8 + F)); [ lia | exact Hsel | lia | exact Hsel ].
 Qed.
+
+(** ------------------------------------------------------------------ *)
+(** PHASE 3: the call-free self-interpreter correctness [sim], by induction on [e]. *)
+
+Fixpoint call_free (e : Exp) : Prop :=
+  match e with
+  | var => True | knil => True
+  | khd e' => call_free e' | ktl e' => call_free e'
+  | kcons a b => call_free a /\ call_free b
+  | kifnil c t e' => call_free c /\ call_free t /\ call_free e'
+  | call _ => False
+  end.
+
+Lemma selfrun_mono : forall F F' p e env v,
+  F <= F' -> selfrun F p e env = Some v -> selfrun F' p e env = Some v.
+Proof. unfold selfrun. intros F F' p e env v Hle H. apply (eval_mono_le sint F F'); assumption. Qed.
+
+Lemma sim : forall e, call_free e -> forall p env v G,
+  eval p G e env = Some v -> exists F, selfrun F p e env = Some v.
+Proof.
+  induction e as [ | | a IHa b IHb | e' IHe' | e' IHe'
+                 | c IHc t IHt e' IHe' | e' IHe' ];
+    intros Hcf p env v G H.
+  - (* var *) destruct G as [| G]; [ discriminate |].
+    rewrite ev_var in H. injection H as H'. subst v. exists 20. apply sint_var.
+  - (* knil *) destruct G as [| G]; [ discriminate |].
+    rewrite ev_knil in H. injection H as H'. subst v. exists 20. apply sint_knil.
+  - (* kcons a b *) destruct G as [| G]; [ discriminate |].
+    rewrite ev_kcons in H.
+    destruct (eval p G a env) as [va|] eqn:Ea; [| discriminate].
+    destruct (eval p G b env) as [vb|] eqn:Eb; [| discriminate].
+    injection H as H'. subst v. destruct Hcf as [Hca Hcb].
+    destruct (IHa Hca p env va G Ea) as [Fa HFa].
+    destruct (IHb Hcb p env vb G Eb) as [Fb HFb].
+    exists (12 + (Fa + Fb)). apply disp_kcons.
+    + apply (selfrun_mono Fa); [ lia | exact HFa ].
+    + apply (selfrun_mono Fb); [ lia | exact HFb ].
+  - (* khd e' *) destruct G as [| G]; [ discriminate |].
+    rewrite ev_khd in H.
+    destruct (eval p G e' env) as [w|] eqn:Ee; [| discriminate].
+    injection H as H'. subst v.
+    destruct (IHe' Hcf p env w G Ee) as [Fe HFe].
+    exists (12 + Fe). apply disp_khd. exact HFe.
+  - (* ktl e' *) destruct G as [| G]; [ discriminate |].
+    rewrite ev_ktl in H.
+    destruct (eval p G e' env) as [w|] eqn:Ee; [| discriminate].
+    injection H as H'. subst v.
+    destruct (IHe' Hcf p env w G Ee) as [Fe HFe].
+    exists (13 + Fe). apply disp_ktl. exact HFe.
+  - (* kifnil c t e' *) destruct G as [| G]; [ discriminate |].
+    rewrite ev_kifnil in H.
+    destruct (eval p G c env) as [vc|] eqn:Ec; [| discriminate].
+    destruct Hcf as [Hcc [Hct Hce]].
+    destruct (IHc Hcc p env vc G Ec) as [Fc HFc].
+    destruct vc as [| x y]; simpl in H.
+    + (* nil -> then branch *)
+      destruct (IHt Hct p env v G H) as [Ft HFt].
+      exists (16 + (Fc + Ft)). apply (disp_kifnil _ p c t e' env Vnil v).
+      * apply (selfrun_mono Fc); [ lia | exact HFc ].
+      * simpl. apply (selfrun_mono Ft); [ lia | exact HFt ].
+    + (* cons -> else branch *)
+      destruct (IHe' Hce p env v G H) as [Fe HFe].
+      exists (16 + (Fc + Fe)). apply (disp_kifnil _ p c t e' env (Vcons x y) v).
+      * apply (selfrun_mono Fc); [ lia | exact HFc ].
+      * simpl. apply (selfrun_mono Fe); [ lia | exact HFe ].
+  - (* call *) destruct Hcf.
+Qed.
