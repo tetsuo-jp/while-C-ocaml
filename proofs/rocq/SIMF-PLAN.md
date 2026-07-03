@@ -66,7 +66,27 @@ Induction on `e`; base = Phase 0; step = the matching `disp_*` (Phase 2) applied
 IH sub-result(s), with `eval_mono_le` to lift each sub-run to the common fuel.  This is
 the Agda `sim` (call-free G1), the first real milestone.
 
-## Phase 4 — the call case & full `simF`  [L]
+## Phase 4 — the call case & full `simF`  [L]  (STATUS: dispatch offset not yet found)
+
+Phases 2+3 DONE (green, `vm_compute`, ~1.5s): all 4 recursive dispatches + the call-free
+`sim`.  Phase 4 is the [call] case.  The call branch `ireq P (ireq argsE R)` is a NESTED
+double interpretation:
+```
+eval sint (A+m) sint (enc p . (enc (call e) . env)) =?
+  match eval sint (B+m) sint (enc p . (enc e   . env))  with   (* inner: interp e -> arg *)
+  | None => None
+  | Some arg => eval sint (C+m) sint (enc p . (enc p . arg))    (* outer: interp p on arg *)
+  end
+```
+The equation FORM above is believed right (the outer re-interprets `P = ⌜p⌝` with env =
+`interp e`), but the three fuel offsets (A,B,C) are NOT yet found: `vm_compute`-scans of
+the predicted diagonals (B=A-11/C=A-8, then B=A-10/C=A-7, and a 2D grid at A=20) all fail,
+so the nested-call fuel bookkeeping is subtler than the single-level dispatches.  This
+needs INTERACTIVE step-through (load `sint` in an IDE, `cbn [eval] `-reduce the call branch
+one node at a time reading each `eval sint _ sint _` fuel) rather than blind batch scans.
+Once the offsets are found, `disp_call` follows the same pattern (`vm_compute` equation +
+`eval_mono_le`), and full `simF` is an induction on the OBJECT fuel `G` (the call case
+recurses with `G' < G`), reusing the Phase-2 `disp_*` for the non-call constructors.
 
 `call e` dispatches (tag 6) to `ireq P (ireq argsE R)` = re-interpret `p` with
 `env := interpret e`.  Needs induction on the OBJECT eval fuel `G` (recursion no longer
