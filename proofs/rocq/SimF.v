@@ -47,14 +47,24 @@ Proof.
   rewrite (disp_ktl_eq F p e env). rewrite H6. reflexivity.
 Qed.
 
-(** PROVEN: the single-sub recursive dispatches (khd/ktl) -- the make-or-break, showing
-    the symmetric-fuel equation + eval_mono_le technique closes the recursive dispatch
-    that reflexivity/cbn alone cannot (SIMF-PLAN.md Phase 2).
+(** kcons dispatch (tag 2, two sub-runs): outer = 12+m, both recursive at 7+m. *)
+Lemma disp_kcons_eq : forall m p a b env,
+  eval sint (12 + m) sint (Vcons (enc p) (Vcons (enc (kcons a b)) env)) =
+  match eval sint (7 + m) sint (Vcons (enc p) (Vcons (enc a) env)) with
+  | None => None
+  | Some va => match eval sint (7 + m) sint (Vcons (enc p) (Vcons (enc b) env)) with
+               | None => None | Some vb => Some (Vcons va vb) end
+  end.
+Proof. intros. reflexivity. Qed.
 
-    REMAINING (same technique, subtler offsets): the two-sub [disp_kcons] and the
-    guard+branch [disp_kifnil].  The naive fuel count (outer = branch-depth + node-count)
-    predicts the offsets for khd/ktl but not yet for kcons -- reflexivity genuinely fails
-    at the predicted offsets (not a timeout), so the kcons/kifnil sub-run fuels need
-    empirical calibration (their sub-requests use deeper accessors, [ktl argsE] /
-    [khd (ktl argsE)], than khd's [argsE]).  Then Phase 3 (call-free [sim] induction) and
-    Phase 4 (the [call] case) follow. *)
+Lemma disp_kcons : forall F p a b env va vb,
+  selfrun F p a env = Some va -> selfrun F p b env = Some vb ->
+  selfrun (12 + F) p (kcons a b) env = Some (Vcons va vb).
+Proof.
+  intros F p a b env va vb Ha Hb. unfold selfrun in *.
+  assert (Ha' : eval sint (7 + F) sint (Vcons (enc p) (Vcons (enc a) env)) = Some va)
+    by (apply (eval_mono_le sint F (7 + F)); [ lia | exact Ha ]).
+  assert (Hb' : eval sint (7 + F) sint (Vcons (enc p) (Vcons (enc b) env)) = Some vb)
+    by (apply (eval_mono_le sint F (7 + F)); [ lia | exact Hb ]).
+  rewrite (disp_kcons_eq F p a b env). rewrite Ha', Hb'. reflexivity.
+Qed.
