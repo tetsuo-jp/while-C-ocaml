@@ -1,11 +1,12 @@
-(** * LevinRunFor -- the concrete sint runner + operational search, modulo int-efficient.
+(** * LevinRunFor -- the concrete sint runner + fully operational, self-contained search.
 
-    Rocq port (statement-level) of [proofs/agda/LevinRunFor.agda] (Levin B3b, final step),
-    with the interpreter-cost theorem taken as a hypothesis [int_efficient_time] (its port
-    is the remaining crux; see SelfInterpCorrect).  [runFor] runs a program via [sint];
-    [run_hits] discharges the [LevinDovetailRun] hypothesis from [int_efficient_time]
+    Rocq port (statement-level) of [proofs/agda/LevinRunFor.agda] (Levin B3b, final step).
+    The interpreter-cost theorem [int_efficient_time] is now DISCHARGED (imported from
+    [IntEfficientR], proved via the [SintCostR] dispatch constants), so this module has NO
+    remaining hypothesis: [runFor] runs a program via [sint]; [run_hits] discharges the
+    [LevinDovetailRun] obligation from [int_efficient_time]
     (+ CostRelation.complete/evalT_count/evalT_mono_le); [levin_optimal_run] composes with
-    [LevinComplete.levin_operational] for the fully operational search. *)
+    [LevinComplete.levin_operational] for the fully operational, axiom-free search. *)
 
 From Stdlib Require Import Arith Lia.
 Require Import UniversalInterp.
@@ -21,6 +22,7 @@ Require Import LevinGrounded.
 Require Import LevinDovetail.
 Require Import LevinDovetailRun.
 Require Import LevinComplete.
+Require Import IntEfficientR.
 
 (** run program p on x via sint (on the triple enc p . (enc p . x)) with budget b. *)
 Definition runFor (b : nat) (p : Exp) (x : V) : option V :=
@@ -29,12 +31,8 @@ Definition runFor (b : nat) (p : Exp) (x : V) : option V :=
   | None => None
   end.
 
-Section RunFor.
-
-(** the interpreter-cost theorem, as a hypothesis (Thm 19.1.3 / IntEfficient, a = 73). *)
-Hypothesis int_efficient_time : forall p G d v c,
-  evalT p G p d = Some (v, c) ->
-  exists F c', evalT sint F sint (Vcons (enc p) (Vcons (enc p) d)) = Some (v, c') /\ c' <= 73 * c.
+(** [int_efficient_time] (Thm 19.1.3 / IntEfficient, a = 73) is now a PROVEN lemma
+    imported from [IntEfficientR] -- no longer a hypothesis. *)
 
 Section Solver.
 Variables (q : Exp) (x yq : V) (Tq G Tr : nat).
@@ -79,4 +77,3 @@ Proof.
 Qed.
 
 End Solver.
-End RunFor.
