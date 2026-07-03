@@ -66,7 +66,7 @@ Induction on `e`; base = Phase 0; step = the matching `disp_*` (Phase 2) applied
 IH sub-result(s), with `eval_mono_le` to lift each sub-run to the common fuel.  This is
 the Agda `sim` (call-free G1), the first real milestone.
 
-## Phase 4 — the call case & full `simF`  [L]  (STATUS: dispatch offset not yet found)
+## Phase 4 — the call case & full `simF`  [L]  — **DONE** (`DispCall.v` + `SimFFull.v`: offsets (20,10,13) with a shape-faithful nested-match RHS; `simF_full` unconditional, axiom-free)
 
 Phases 2+3 DONE (green, `vm_compute`, ~1.5s): all 4 recursive dispatches + the call-free
 `sim`.  Phase 4 is the [call] case.  The call branch `ireq P (ireq argsE R)` is a NESTED
