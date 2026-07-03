@@ -17,7 +17,16 @@
     stuck deep, so no single [K] makes [reflexivity]/[cbn] close the dispatch (scanned
     K=4..12).  A faithful port needs manual [ev_*]-stepping with a separate guard
     fuel-sufficiency lemma (freezing the recursive call at bare [F]) -- a dedicated
-    multi-session effort, as in the Agda original (constants by "fuel grid search"). *)
+    multi-session effort, as in the Agda original (constants by "fuel grid search").
+
+    Confirmed (three formulations, all fail by [reflexivity]/[cbn], scanning offsets):
+    (i) [selfrun (K+F) p (khd e) env = Some (hd v)] given the sub-run (K=4..12);
+    (ii) the reduction equation [= match selfrun F ... with ...] (K=4..12);
+    (iii) the SYMMETRIC-fuel equation [selfrun (K+m) p (khd e) env = omap hd (selfrun m ...)]
+          (K=4..8).  The guards partially reduce into the symbolic fuel tail on the outer
+          side but not on the inner, so no offset makes the two sides definitionally equal.
+    The way forward is manual [ev_*] stepping (never [reflexivity] on the recursive call)
+    + a guard-eval lemma, NOT a computational tactic. *)
 
 From Stdlib Require Import Arith.
 Require Import UniversalInterp.

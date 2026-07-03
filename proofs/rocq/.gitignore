@@ -5,3 +5,7 @@
 *.aux
 .*.aux
 .lia.cache
+while_eval.ml
+while_eval.mli
+while_eval.cmo
+while_eval.cmi
