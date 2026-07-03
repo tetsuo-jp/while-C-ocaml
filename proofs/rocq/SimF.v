@@ -1,10 +1,20 @@
-(** * SimF -- self-interpreter correctness, recursive dispatch (Phase 2+, SIMF-PLAN.md).
+(** * SimF -- self-interpreter correctness, recursive dispatch (Phase 2, SIMF-PLAN.md).
 
-    The make-or-break recursive dispatch, cracked.  KEY: state the dispatch as a
-    SYMMETRIC-fuel equation where the outer fuel = inner + (dispatch cost) and the inner
-    fuel keeps enough CONCRETE steps to run the tag-walk guards; then both sides share the
-    recursive sub-run at the SAME fuel, so [reflexivity] closes it.  The per-constructor
-    lemma then lifts the sub-run hypothesis by [eval_mono_le] and rewrites. *)
+    The make-or-break recursive dispatch, CRACKED for the single-sub constructors.  KEY:
+    state the dispatch as a SYMMETRIC-fuel equation where the outer fuel = inner +
+    (dispatch cost) and the inner fuel keeps enough CONCRETE steps to run the tag-walk
+    guards; then both sides share the recursive sub-run at the SAME fuel, so [reflexivity]
+    closes what [reflexivity]/[cbn] on the single-sided goal cannot.  The per-constructor
+    lemma then lifts the sub-run hypothesis by [eval_mono_le].
+
+    PERFORMANCE NOTE / DEFERRED WORK.  The SINGLE-sub equations (khd/ktl) close in ~5s.
+    The MULTI-sub equations blow up under kernel [reflexivity] (kcons_eq ~100s, kifnil_eq
+    >300s): reducing the giant [sint] symbolically with two/three recursive sub-runs is
+    exponential.  So kcons/kifnil dispatch (and hence the [sim] induction) are DEFERRED to
+    a faster proof route -- manual [ev_*] stepping + the [SelfInterpCorrect] guard/accessor
+    lemmas, which reduces only the dispatch spine and keeps each sub-run opaque, avoiding
+    the blow-up.  Offsets already found empirically: khd 12/6, ktl 13/6, kcons 12/7,
+    kifnil 16/8 (all verified in isolation; only kcons/kifnil are too slow to keep here). *)
 
 From Stdlib Require Import Arith Lia.
 Require Import UniversalInterp.
@@ -15,24 +25,23 @@ Require Import SelfInterpCorrect.
 Definition omap (f : V -> V) (o : option V) : option V :=
   match o with Some w => Some (f w) | None => None end.
 
-(** khd dispatch equation (by kernel lazy reflexivity): outer = 12+m, recursive = 6+m
-    (both sides run the sub-triple at fuel 6+m; 6 concrete steps feed the tag-3 guards). *)
+(** khd dispatch equation (kernel lazy reflexivity, ~5s): outer = 12+m, recursive = 6+m. *)
 Lemma disp_khd_eq : forall m p e env,
   eval sint (12 + m) sint (Vcons (enc p) (Vcons (enc (khd e)) env)) =
   omap hd (eval sint (6 + m) sint (Vcons (enc p) (Vcons (enc e) env))).
 Proof. intros. reflexivity. Qed.
 
-(** the khd dispatch lemma: interpreting (khd e) = hd of interpreting e. *)
+(** interpreting (khd e) = hd of interpreting e. *)
 Lemma disp_khd : forall F p e env v,
   selfrun F p e env = Some v -> selfrun (12 + F) p (khd e) env = Some (hd v).
 Proof.
   intros F p e env v H. unfold selfrun in *.
-  assert (H6 : eval sint (6 + F) sint (Vcons (enc p) (Vcons (enc e) env)) = Some v).
-  { apply (eval_mono_le sint F (6 + F)); [ lia | exact H ]. }
+  assert (H6 : eval sint (6 + F) sint (Vcons (enc p) (Vcons (enc e) env)) = Some v)
+    by (apply (eval_mono_le sint F (6 + F)); [ lia | exact H ]).
   rewrite (disp_khd_eq F p e env). rewrite H6. reflexivity.
 Qed.
 
-(** ktl dispatch (tag 4, one deeper than khd): outer = 13+m, recursive = 6+m. *)
+(** ktl dispatch (tag 4): outer = 13+m, recursive = 6+m. *)
 Lemma disp_ktl_eq : forall m p e env,
   eval sint (13 + m) sint (Vcons (enc p) (Vcons (enc (ktl e)) env)) =
   omap tl (eval sint (6 + m) sint (Vcons (enc p) (Vcons (enc e) env))).
@@ -42,61 +51,12 @@ Lemma disp_ktl : forall F p e env v,
   selfrun F p e env = Some v -> selfrun (13 + F) p (ktl e) env = Some (tl v).
 Proof.
   intros F p e env v H. unfold selfrun in *.
-  assert (H6 : eval sint (6 + F) sint (Vcons (enc p) (Vcons (enc e) env)) = Some v).
-  { apply (eval_mono_le sint F (6 + F)); [ lia | exact H ]. }
+  assert (H6 : eval sint (6 + F) sint (Vcons (enc p) (Vcons (enc e) env)) = Some v)
+    by (apply (eval_mono_le sint F (6 + F)); [ lia | exact H ]).
   rewrite (disp_ktl_eq F p e env). rewrite H6. reflexivity.
 Qed.
 
-(** kcons dispatch (tag 2, two sub-runs): outer = 12+m, both recursive at 7+m. *)
-Lemma disp_kcons_eq : forall m p a b env,
-  eval sint (12 + m) sint (Vcons (enc p) (Vcons (enc (kcons a b)) env)) =
-  match eval sint (7 + m) sint (Vcons (enc p) (Vcons (enc a) env)) with
-  | None => None
-  | Some va => match eval sint (7 + m) sint (Vcons (enc p) (Vcons (enc b) env)) with
-               | None => None | Some vb => Some (Vcons va vb) end
-  end.
-Proof. intros. reflexivity. Qed.
-
-Lemma disp_kcons : forall F p a b env va vb,
-  selfrun F p a env = Some va -> selfrun F p b env = Some vb ->
-  selfrun (12 + F) p (kcons a b) env = Some (Vcons va vb).
-Proof.
-  intros F p a b env va vb Ha Hb. unfold selfrun in *.
-  assert (Ha' : eval sint (7 + F) sint (Vcons (enc p) (Vcons (enc a) env)) = Some va)
-    by (apply (eval_mono_le sint F (7 + F)); [ lia | exact Ha ]).
-  assert (Hb' : eval sint (7 + F) sint (Vcons (enc p) (Vcons (enc b) env)) = Some vb)
-    by (apply (eval_mono_le sint F (7 + F)); [ lia | exact Hb ]).
-  rewrite (disp_kcons_eq F p a b env). rewrite Ha', Hb'. reflexivity.
-Qed.
-
-(** kifnil dispatch (tag 5, guard + two branches): outer = 16+m, subs at 8+m.  eval
-    evaluates the guard then [ifnil]-selects a branch (both branch runs appear, the
-    non-selected one discarded by ifnil). *)
-Lemma disp_kifnil_eq : forall m p c t e env,
-  eval sint (16 + m) sint (Vcons (enc p) (Vcons (enc (kifnil c t e)) env)) =
-  match eval sint (8 + m) sint (Vcons (enc p) (Vcons (enc c) env)) with
-  | None => None
-  | Some vc => ifnil vc (eval sint (8 + m) sint (Vcons (enc p) (Vcons (enc t) env)))
-                        (eval sint (8 + m) sint (Vcons (enc p) (Vcons (enc e) env)))
-  end.
-Proof. intros. reflexivity. Qed.
-
-Lemma disp_kifnil : forall F p c t e env vc v,
-  selfrun F p c env = Some vc ->
-  ifnil vc (selfrun F p t env) (selfrun F p e env) = Some v ->
-  selfrun (16 + F) p (kifnil c t e) env = Some v.
-Proof.
-  intros F p c t e env vc v Hc Hsel. unfold selfrun in *.
-  assert (Hc' : eval sint (8 + F) sint (Vcons (enc p) (Vcons (enc c) env)) = Some vc)
-    by (apply (eval_mono_le sint F (8 + F)); [ lia | exact Hc ]).
-  rewrite (disp_kifnil_eq F p c t e env). rewrite Hc'.
-  destruct vc as [| a b]; simpl in Hsel |- *;
-    apply (eval_mono_le sint F (8 + F)); [ lia | exact Hsel | lia | exact Hsel ].
-Qed.
-
-(** ------------------------------------------------------------------ *)
-(** PHASE 3: the call-free self-interpreter correctness [sim], by induction on [e]. *)
-
+(** call-free predicate + sub-run fuel monotonicity (for the deferred [sim] induction). *)
 Fixpoint call_free (e : Exp) : Prop :=
   match e with
   | var => True | knil => True
@@ -108,55 +68,6 @@ Fixpoint call_free (e : Exp) : Prop :=
 
 Lemma selfrun_mono : forall F F' p e env v,
   F <= F' -> selfrun F p e env = Some v -> selfrun F' p e env = Some v.
-Proof. unfold selfrun. intros F F' p e env v Hle H. apply (eval_mono_le sint F F'); assumption. Qed.
-
-Lemma sim : forall e, call_free e -> forall p env v G,
-  eval p G e env = Some v -> exists F, selfrun F p e env = Some v.
 Proof.
-  induction e as [ | | a IHa b IHb | e' IHe' | e' IHe'
-                 | c IHc t IHt e' IHe' | e' IHe' ];
-    intros Hcf p env v G H.
-  - (* var *) destruct G as [| G]; [ discriminate |].
-    rewrite ev_var in H. injection H as H'. subst v. exists 20. apply sint_var.
-  - (* knil *) destruct G as [| G]; [ discriminate |].
-    rewrite ev_knil in H. injection H as H'. subst v. exists 20. apply sint_knil.
-  - (* kcons a b *) destruct G as [| G]; [ discriminate |].
-    rewrite ev_kcons in H.
-    destruct (eval p G a env) as [va|] eqn:Ea; [| discriminate].
-    destruct (eval p G b env) as [vb|] eqn:Eb; [| discriminate].
-    injection H as H'. subst v. destruct Hcf as [Hca Hcb].
-    destruct (IHa Hca p env va G Ea) as [Fa HFa].
-    destruct (IHb Hcb p env vb G Eb) as [Fb HFb].
-    exists (12 + (Fa + Fb)). apply disp_kcons.
-    + apply (selfrun_mono Fa); [ lia | exact HFa ].
-    + apply (selfrun_mono Fb); [ lia | exact HFb ].
-  - (* khd e' *) destruct G as [| G]; [ discriminate |].
-    rewrite ev_khd in H.
-    destruct (eval p G e' env) as [w|] eqn:Ee; [| discriminate].
-    injection H as H'. subst v.
-    destruct (IHe' Hcf p env w G Ee) as [Fe HFe].
-    exists (12 + Fe). apply disp_khd. exact HFe.
-  - (* ktl e' *) destruct G as [| G]; [ discriminate |].
-    rewrite ev_ktl in H.
-    destruct (eval p G e' env) as [w|] eqn:Ee; [| discriminate].
-    injection H as H'. subst v.
-    destruct (IHe' Hcf p env w G Ee) as [Fe HFe].
-    exists (13 + Fe). apply disp_ktl. exact HFe.
-  - (* kifnil c t e' *) destruct G as [| G]; [ discriminate |].
-    rewrite ev_kifnil in H.
-    destruct (eval p G c env) as [vc|] eqn:Ec; [| discriminate].
-    destruct Hcf as [Hcc [Hct Hce]].
-    destruct (IHc Hcc p env vc G Ec) as [Fc HFc].
-    destruct vc as [| x y]; simpl in H.
-    + (* nil -> then branch *)
-      destruct (IHt Hct p env v G H) as [Ft HFt].
-      exists (16 + (Fc + Ft)). apply (disp_kifnil _ p c t e' env Vnil v).
-      * apply (selfrun_mono Fc); [ lia | exact HFc ].
-      * simpl. apply (selfrun_mono Ft); [ lia | exact HFt ].
-    + (* cons -> else branch *)
-      destruct (IHe' Hce p env v G H) as [Fe HFe].
-      exists (16 + (Fc + Fe)). apply (disp_kifnil _ p c t e' env (Vcons x y) v).
-      * apply (selfrun_mono Fc); [ lia | exact HFc ].
-      * simpl. apply (selfrun_mono Fe); [ lia | exact HFe ].
-  - (* call *) destruct Hcf.
+  unfold selfrun. intros F F' p e env v Hle H. apply (eval_mono_le sint F F'); assumption.
 Qed.
