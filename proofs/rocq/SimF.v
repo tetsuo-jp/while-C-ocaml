@@ -68,3 +68,28 @@ Proof.
     by (apply (eval_mono_le sint F (7 + F)); [ lia | exact Hb ]).
   rewrite (disp_kcons_eq F p a b env). rewrite Ha', Hb'. reflexivity.
 Qed.
+
+(** kifnil dispatch (tag 5, guard + two branches): outer = 16+m, subs at 8+m.  eval
+    evaluates the guard then [ifnil]-selects a branch (both branch runs appear, the
+    non-selected one discarded by ifnil). *)
+Lemma disp_kifnil_eq : forall m p c t e env,
+  eval sint (16 + m) sint (Vcons (enc p) (Vcons (enc (kifnil c t e)) env)) =
+  match eval sint (8 + m) sint (Vcons (enc p) (Vcons (enc c) env)) with
+  | None => None
+  | Some vc => ifnil vc (eval sint (8 + m) sint (Vcons (enc p) (Vcons (enc t) env)))
+                        (eval sint (8 + m) sint (Vcons (enc p) (Vcons (enc e) env)))
+  end.
+Proof. intros. reflexivity. Qed.
+
+Lemma disp_kifnil : forall F p c t e env vc v,
+  selfrun F p c env = Some vc ->
+  ifnil vc (selfrun F p t env) (selfrun F p e env) = Some v ->
+  selfrun (16 + F) p (kifnil c t e) env = Some v.
+Proof.
+  intros F p c t e env vc v Hc Hsel. unfold selfrun in *.
+  assert (Hc' : eval sint (8 + F) sint (Vcons (enc p) (Vcons (enc c) env)) = Some vc)
+    by (apply (eval_mono_le sint F (8 + F)); [ lia | exact Hc ]).
+  rewrite (disp_kifnil_eq F p c t e env). rewrite Hc'.
+  destruct vc as [| a b]; simpl in Hsel |- *;
+    apply (eval_mono_le sint F (8 + F)); [ lia | exact Hsel | lia | exact Hsel ].
+Qed.
