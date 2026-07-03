@@ -41,6 +41,14 @@ call kept OPAQUE (proved by targeted `rewrite ev_* / Phase-1 lemmas`, then
 - **`disp_kcons`**: two sub-runs; `= omap2 Vcons (selfrun F p a env) (selfrun F p b env)`.
 - **`disp_kifnil`**: guard sub-run + a branch sub-run selected by its value.
 
+**PERFORMANCE (critical, learned the hard way).**  The symmetric-fuel equations close by
+kernel `reflexivity` — but only the SINGLE-sub ones (khd/ktl, ~5s) are practical.  The
+MULTI-sub equations blow up: `disp_kcons_eq` ~100s, `disp_kifnil_eq` >300s — reducing the
+giant `sint` symbolically with two/three recursive sub-runs is exponential.  So kcons/
+kifnil (and the `sim` induction on top, >500s) MUST use the manual route below, NOT
+`reflexivity`.  Offsets found in isolation: khd 12/6, ktl 13/6, kcons 12/7, kifnil 16/8.
+Status: `disp_khd`/`disp_ktl` KEPT (fast); `disp_kcons`/`disp_kifnil`/`sim` DEFERRED.
+
 Method per lemma: `unfold selfrun`; `rewrite ev_kifnil`; `rewrite (guard_tag …)` to
 reduce the guard; compute `ifnil` on the concrete tag value to select the branch;
 `rewrite ev_khd`/`ev_call`/`ev_kcons` + `acc_*` to build the sub-triple; the residual
