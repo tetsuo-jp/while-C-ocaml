@@ -7,7 +7,7 @@ interpreter). Build/check: `sh check.sh` (compiles every module in dependency or
 under a flat logical path via `rocq compile -Q . ""`). All lemmas are axiom-free
 (`Print Assumptions` = *Closed under the global context*).
 
-## Status — 13 modules, the Levin optimality STATEMENT reached
+## Status — 14 modules, the Levin optimality STATEMENT + the self-interpreter term
 
 | Rocq module | ports Agda | key content |
 |---|---|---|
@@ -24,23 +24,26 @@ under a flat logical path via `rocq compile -Q . ""`). All lemmas are axiom-free
 | `LevinDovetail.v` | LevinDovetail | find/time_opt, find_least/find_complete/find_finish |
 | `LevinDovetailRun.v` | LevinDovetailRun | Jones-stage oracle over abstract run + finishing |
 | `LevinComplete.v` | LevinComplete | levin_complete / levin_operational |
+| `SelfInterp.v` | SelfInterp | the concrete self-interpreter term `sint` + run checks |
 
 `levin_operational` (`LevinComplete`) is the end statement: the operational dovetail
 search halts at a stage with real (phase-charged) time `gsum kop < aq*Swork`,
-`aq = 4·73·2^j`.
+`aq = 4·73·2^j`.  `SelfInterp.sint` is the concrete self-interpreter, verified on
+every constructor incl. recursion (checks by `reflexivity` — the kernel's lazy
+conversion, since `vm_compute` eagerly evaluates both `kifnil` branches and blows up).
 
 ## Remaining — the interpreter-correctness crux (multi-session)
 
 Everything below discharges `overhead = 73` (currently a stated constant in
 `LevinGrounded`) and instantiates the abstract `run` of `LevinDovetailRun`:
 
-1. `SelfInterp` — the concrete self-interpreter term `sint : Exp` (large, mechanical). **L**
-2. `SelfInterpCorrect` (`simF`), `SintCost`, `IntEfficient` (`int-efficient`, `a = 73`) —
+1. `SelfInterpCorrect` (`simF`), `SintCost`, `IntEfficient` (`int-efficient`, `a = 73`) —
    the correctness/cost proofs over the specific `sint`; in Agda these were the hardest
    part (refl-dispatch / derivation-tree costs, plus a documented negative finding that
    refl-dispatch does not transfer to cost). **L (the hard middle)**
-3. `LevinRunFor` — `runFor` (real `sint`) instantiates `run`; `run_hits` from
-   `int-efficient-time`, giving the fully concrete operational search. **M** (once 1–2 land)
+2. `LevinRunFor` — `runFor` (real `sint`) instantiates `run`; `run_hits` from
+   `int-efficient-time`, giving the fully concrete operational search. **M** (once 1 lands)
 
-The arithmetic/combinatorial/adequacy layers (all 13 above) are done; the self-interpreter
-and its cost theorem are the genuine remaining effort, as in the Agda original.
+The arithmetic/combinatorial/adequacy layers and the self-interpreter TERM (all 14 above)
+are done; the self-interpreter's CORRECTNESS/COST theorems are the genuine remaining
+effort, as in the Agda original.
