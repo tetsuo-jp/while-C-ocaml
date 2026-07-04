@@ -8,6 +8,11 @@ interpreter, `vm_compute` for dispatch equations over the giant `sint`). Build/c
 `rocq compile -Q . ""`). All lemmas are axiom-free (`Print Assumptions` = *Closed under
 the global context*).
 
+The **Agda ↔ Rocq module correspondence** — which theorem each twin re-proves — is
+tabulated in [`../../docs/AGDA_CORRESPONDENCE.md`](../../docs/AGDA_CORRESPONDENCE.md)
+(§ *Rocq cross-check*). An executable check of the extracted interpreter lives in
+`examples/desugar/test-extract.sh` (part of `run-all.sh`).
+
 ## Status — 23 modules; FULL G1 + int-efficient (a=73); Levin chain SELF-CONTAINED
 
 | Rocq module | ports Agda | key content |
@@ -33,7 +38,7 @@ the global context*).
 | `SintCostR.v` | SintCost | cost dispatch, ALL 7: var 8 / knil 12 / khd 39 / ktl 48 / kcons 45 / kifnil 73 / call 64 — **equal to Agda** (a=73=max); cascade-RHS technique |
 | `IntEfficientR.v` | IntEfficient | **`int_efficient` (a=73)** by `Steps`-induction + `int_efficient_time` (Thm 19.1.3) |
 | `LevinRunFor.v` | LevinRunFor | `runFor` + `run_hits` + **`levin_optimal_run`** — `int_efficient_time` now DISCHARGED, no hypothesis |
-| `Extract.v` | — (D1) | extraction: `while_eval.ml`, an executable OCaml interpreter = the verified `eval/sint` |
+| `Extract.v` | — (D1) | extraction: `while_eval.ml`, an executable OCaml interpreter = the verified `eval/sint`; exercised by `examples/desugar/test-extract.sh` (direct runs + self-interp oracles + G1 at runtime + `decode∘enc`) |
 
 Highlights: `SimFFull.simF_full` is the ∀-quantified self-interpreter correctness
 (Jones Thm 4.2.1 / the Agda `simF`) — for EVERY program incl. `call`/recursion.
