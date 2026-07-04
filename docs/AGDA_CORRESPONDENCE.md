@@ -156,6 +156,34 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (58 modules)
   classic hard core, `universal.while` in Agda — now exists and runs; 4c's
   remaining work is its general proof, and 4d the final assembly.
 
+## Rocq cross-check (independent port of the Levin chain)
+
+`proofs/rocq/` (Rocq 9.1, 23 modules, `sh proofs/rocq/check.sh`) re-proves the
+**Levin optimality chain + self-interpreter correctness** independently of the Agda
+development above — **statement-level fidelity**: theorem statements match the Agda
+twin; proofs are idiomatic Rocq (`induction` + `lia`/`nia`, `Arguments … : simpl
+never` + per-constructor unfold lemmas, `vm_compute` for the giant `sint` dispatch
+equations — kernel `reflexivity` is exponential there). Every theorem below is
+axiom-free (`Print Assumptions` = *Closed under the global context*).
+
+| Agda module (above) | Rocq twin | key result re-proved |
+|---|---|---|
+| `LevinBudget` / `NatPairing` | `LevinBudget.v` / `NatPairing.v` | `gsum<2last` + `overshoot`; Cantor `pair`/`unpair` (+inverses) |
+| `UniversalInterp` / `ProgEncoding` | `UniversalInterp.v` / `ProgEncoding.v` | `eval` + fuel-monotonicity; `enc`/`decode` + `decode_enc` |
+| `ProgramEnum` / `ProgramDecode` | `ProgramEnum.v` / `ProgramDecode.v` | `index_injective` (B2a); `enum_index` retraction (B2b) |
+| `StepCount` / `CostRelation` | `StepCount.v` / `CostRelation.v` | `evalT` step count; `Steps` big-step + `complete`/`sound` |
+| `SintCost` | `SintCostR.v` | all 7 dispatch constants 8/12/39/48/45/73/64 — **equal to Agda** (a=73=max) |
+| `IntEfficient` | `IntEfficientR.v` | **`int_efficient` (Thm 19.1.3, a=73)** by `Steps`-induction |
+| `SelfInterp` / `SelfInterpCorrect` | `SelfInterp.v` / `SimF.v`+`DispCall.v`+`SimFFull.v` | the `sint` term; **`simF_full` — G1 for the whole language incl. `call`** |
+| `LevinOptimal` … `LevinRunFor` | `LevinOptimal.v` … `LevinRunFor.v` | `levin_optimal`/`levin_operational` → **`levin_optimal_run`** |
+
+The Rocq `IntEfficient`/`LevinRunFor` twins close the same gap the Agda side did:
+`levin_optimal_run` carries **no** `int_efficient_time` hypothesis (discharged via the
+proven `SintCostR` constants), so BOTH formalizations reach Levin's Thm 20.1.2 with
+the linear-overhead constant `a = 73` a **theorem**, not an assumption. The Rocq port
+additionally extracts an executable OCaml interpreter (`Extract.v`) that IS the verified
+`eval`/`sint`. Module-by-module notes live in `proofs/rocq/README.md`.
+
 ## Relation to `rwhile-C-ocaml`
 
 The reversible sibling tracks the same proven-vs-tested distinction
