@@ -69,6 +69,18 @@ constant) + a garbage bracket — the reversible Levin search is exactly a
   semantics and no cost proof — this is the genuinely new formal work. Classical
   precedent for effort: B1 took `CostRelation` + `SintCost` + `IntEfficient`, and the
   Rocq re-proof established the cascade/`vm_compute` technique that transfers.
+  **MEASURED (2026-07-05, `rwhile-C-ocaml/examples/measure_ri_overhead.sh`):** in
+  R-WHILE's command-step model, `a-rev ≈ 364×` (mean over 5 non-trivial subjects,
+  range 228–466), and — crucially — *roughly constant* across program size
+  (perm_to_code at 4097 steps still ~437), the empirical analogue of `a` being a
+  per-step constant. The variation tracks how often each subject triggers
+  `ri.rwhile`'s `LOOKUP`/`UPDATE`, each a linear walk of the ~75-nil variable list
+  `Vl`. **Design pointer for the R3 proof:** bound one command's interpretation cost
+  by the `Vl` walk — that is where the `a-rev` constant comes from, the reversible
+  analogue of the classical per-node dispatch constants (khd 39 … call 64). Caveat:
+  this is R-WHILE's command-step count, not the node-summed `evalT` model `a = 73`
+  lives in; R3 must fix which count is the reversible canonical one (likely
+  node-summed) before the two constants are comparable.
 
 ## Reuse map (classical chain → reversible chain)
 
