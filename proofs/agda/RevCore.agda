@@ -28,7 +28,7 @@
 module RevCore where
 
 open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
-open import Data.Bool using (Bool; true; false; if_then_else_)
+open import Data.Bool using (Bool; true; false; if_then_else_; _xor_)
 open import Data.Nat using (ℕ; suc; _+_)
 open import Data.Nat.Properties using (+-comm)
 open import Data.Unit using (⊤; tt)
@@ -130,6 +130,49 @@ module Language (S : Set) where
   ... | false rewrite trans (pd s) eqs | cost-sym d wd s = refl
 
 ------------------------------------------------------------------------
+-- BENNETT (R1c, value level): realize the abstract input-preserving realization
+-- (RevLevinAbstract.Bennett, garbage = input) as an actual REVERSIBLE PROGRAM, so
+-- it inherits `cost` and `cost-sym`.  The reversible "copy" is R-WHILE's own
+-- `out ^= f(in)`: over an output algebra with a self-inverse `⊕` (a GF(2) space),
+-- it is an involution -- a legitimate atom -- BECAUSE the input `in` it reads is
+-- kept, so running it again recomputes `f in` and cancels (Bennett's uncompute is
+-- automatic here).  From a zeroed output it computes `(x , f x)`.
+--
+-- The output algebra is a parameter: `Bool`/`Vec Bool n`/any GF(2) space work
+-- immediately.  Connecting `f := ⟦p⟧` for a classical `Exp p` over trees needs an
+-- involutive xor on `V` (or the general exit-assertion atom, R1a') -- deferred to
+-- R1c-full / R3; here `f` is any total function into the output algebra.
+------------------------------------------------------------------------
+
+module Bennett
+  (A I : Set)
+  (_⊕_ : A → A → A) (zero : A)
+  (⊕-invol : (a b : A) → (a ⊕ b) ⊕ b ≡ a)   -- self-inverse output algebra ...
+  (⊕-unitˡ : (a : A) → zero ⊕ a ≡ a)          -- ... with a unit (the empty output)
+  (f : I → A)                                  -- the function to Bennett-simulate
+  where
+  open Language (I × A) public                 -- store = (input , output accumulator)
+
+  -- the reversible copy  out ^= f(in)  (self-inverse: `in` is kept, so re-reading
+  -- `f in` and ⊕-ing again cancels -- Bennett uncompute, for free)
+  copy : Upd
+  copy = (λ { (i , o) → (i , o ⊕ f i) })
+       , λ { (i , o) → cong (λ z → i , z) (⊕-invol o (f i)) }
+
+  B : Cmd
+  B = atom copy
+
+  -- VALUE-LEVEL BENNETT: from a zeroed output, B computes (x , f x), keeping x.
+  bennett-value : (x : I) → fwd B (x , zero) ≡ (x , f x)
+  bennett-value x = cong (λ z → x , z) (⊕-unitˡ (f x))
+
+  -- reversible (from inv-sound; `atom` is always WF) and cost-symmetric, cost 1
+  bennett-rev  : (s : I × A) → bwd B (fwd B s) ≡ s
+  bennett-rev  = inv-sound B tt
+  bennett-cost : (s : I × A) → cost B s ≡ 1
+  bennett-cost _ = refl
+
+------------------------------------------------------------------------
 -- A concrete, arithmetic-free reversible instance: store = two tree variables,
 -- updates built from `swapTop` (swap a node's two subtrees -- self-inverse).
 ------------------------------------------------------------------------
@@ -190,3 +233,32 @@ _ = refl
 -- reversible time-symmetry, concretely: undoing costs the same as doing
 prog-cost-sym : ∀ s → cost (inv prog) (fwd prog s) ≡ cost prog s
 prog-cost-sym = cost-sym prog wf-prog
+
+------------------------------------------------------------------------
+-- A concrete Bennett instance: reversibly copy the 1-bit predicate `isNil`
+-- into a Bool slot (a GF(2)¹ output), keeping the input tree.  (`Bool`/xor is
+-- the smallest GF(2) space; `Vec Bool n` scales this to n-bit outputs identically.)
+------------------------------------------------------------------------
+
+xor-invol : (a b : Bool) → (a xor b) xor b ≡ a
+xor-invol false false = refl
+xor-invol false true  = refl
+xor-invol true  false = refl
+xor-invol true  true  = refl
+
+xor-unitˡ : (a : Bool) → false xor a ≡ a
+xor-unitˡ false = refl
+xor-unitˡ true  = refl
+
+module BitBennett = Bennett Bool V _xor_ false xor-invol xor-unitˡ isNil
+
+-- value level: from an empty (false) bit, B computes (x , isNil x), keeping x
+_ : BitBennett.fwd BitBennett.B (⟨⟩ , false) ≡ (⟨⟩ , true)
+_ = refl
+_ : BitBennett.fwd BitBennett.B (⟨⟩ ∙ ⟨⟩ , false) ≡ (⟨⟩ ∙ ⟨⟩ , false)
+_ = refl
+-- the general value lemma, reversibility, and unit cost, at this instance
+bit-value : (x : V) → BitBennett.fwd BitBennett.B (x , false) ≡ (x , isNil x)
+bit-value = BitBennett.bennett-value
+bit-rev   : (s : V × Bool) → BitBennett.bwd BitBennett.B (BitBennett.fwd BitBennett.B s) ≡ s
+bit-rev   = BitBennett.bennett-rev
