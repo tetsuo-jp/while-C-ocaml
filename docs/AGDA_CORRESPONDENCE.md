@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (60 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (61 modules).
 
 ## Correspondence table
 
@@ -73,6 +73,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (60 modules)
 | `mix.while` dynamic-`if` store merge (`'doif`) | `MixMerge`: `merge-correct`, `merge-needs-both`, `merge-buggy-wrong` | **proven (design spec)** |
 | reversible-PE information bound (Theorem A) | `RevSpecGarbage`: `no-clean-if-merges`, `direct-needs-injective`, `clean-reversible`, `Fibre` | **proven (abstract)**; *measured* in `rwhile-C-ocaml` (`FINDINGS §6`) |
 | **reversible Levin search** (R-track, step R0) | `RevLevinAbstract`: `rev-levin-optimal` (Layer A fires verbatim at an abstract reversible overhead `a-rev` — time-optimality reduced to the reversible-interpreter constant), `Bennett.g`/`g-inj` + `Realization` instance (garbage UPPER bound: keeping the input is always a reversible realization), `no-clean-rev-search` + `no-clean-constant` (garbage LOWER bound: a merging witness map has no clean realization — Theorem A read at the search) | **proven (abstract R0)**; the operational R-track (reversible core lang, step count, reversible sint ⇒ `a-rev`, Bennett time lemma) is designed in `docs/REV-LEVIN-SKELETON.md` |
+| **reversible tree copy** (R-track, R1c trees) | `RevXor`: the tree-output Bennett, faithful to R-WHILE's real `X ^= E`. There is NO total involutive xor on `V` (deriving `v ⊕ v = ⟨⟩` fails for a `cons`); instead a PARTIAL involution `xorSlot` (SET blank→`v` / CLEAR `v`→blank / ABORT — `= RWhileValStore.RAss-sym`), with `eqV`/`eqV-sound`. `bcopy f` for a tree-valued `f`: **`bennett-tree : bcopy f (x , ⟨⟩) ≡ just (x , f x)`** (compute, keep input), `bcopy-uncompute`, `bcopy-invol` (partial involution). Concrete `f := ⟦p⟧` for a real `Exp p` by `refl` | **proven (R1c trees)**; the tree-output companion of `RevCore.Bennett`, letting a classical program's output be Bennett-logged. Time bound is R1c(time)/R3 |
 | **reversible core language** (R-track, steps R1a+R1b+R1c) | `RevCore`: a minimal SELF-CONTAINED reversible language `Language S` — self-inverse atomic update (`Upd = Σ f (f∘f = id)`, the algebra of `X ^= E`), `seq`, guard-preserving reversible `cond`; `fwd`/`inv`/`bwd`, `inv-inv`, keystone **`inv-sound : WF c → bwd c (fwd c s) ≡ s`** (R1a); **`cost`/`fwdT`** + **`cost-sym : cost (inv c) (fwd c s) ≡ cost c s`** (reversible time-symmetry, R1b); and **`Bennett`** — the reversible copy `out ^= f(in)` is a self-inverse atom over any GF(2) output algebra, `bennett-value : fwd B (x , zero) ≡ (x , f x)` (input kept as garbage) + `bennett-rev`/`bennett-cost` (R1c, value level). Concrete swap-based control instance + `BitBennett` (copy `isNil` reversibly), all by `refl` | **proven (R1a+R1b+R1c-value)**; realizes `RevLevinAbstract.Bennett` (R0b) as a reversible PROGRAM. Time bound + `f := ⟦p⟧`-on-trees (needs involutive xor on `V`) and loops are the next steps |
 
 ## Gaps (in priority order)
