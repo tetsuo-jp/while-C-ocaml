@@ -1,7 +1,9 @@
 # Reversible Levin search — formalization skeleton (the R-track)
 
 **Status: R0 done** (`proofs/agda/RevLevinAbstract.agda`, `--safe`, green). Everything
-below R0 is design. The classical track this builds on is complete: Jones Thm 20.1.2
+below R0 is design. This file is the **canonical** R-track document; the reversible
+sibling's receiving end (role split + the `a-rev` measurement task on `ri.rwhile`) is
+`rwhile-C-ocaml/plan_reversible_levin.md` — do not fork the design there. The classical track this builds on is complete: Jones Thm 20.1.2
 mechanized in Agda (58 modules; B3d = literal `opt ∈ Exp` remains a documented stretch)
 and independently in Rocq (22 modules, axiom-free), with the interpreter overhead
 `a = 73` a theorem in both (`IntEfficient` / `IntEfficientR`).
