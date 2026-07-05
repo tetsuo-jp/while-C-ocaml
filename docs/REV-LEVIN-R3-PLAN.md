@@ -11,6 +11,12 @@ It mirrors the CLASSICAL chain, which is done and double-verified:
 `UniversalInterp` (eval) → `SelfInterp` (`sint : Exp`) → `SintCost` (per-node costs) →
 `IntEfficient` (`a = 73`). The reversible twins are R3a…R3d below.
 
+**Status (2026-07-06): R3a+R3b DONE here (`proofs/agda/RevInst.agda`); R3c–R3e HANDED
+OFF to `rwhile-C-ocaml`** (see `rwhile-C-ocaml/plan_reversible_levin_R3.md`) — the
+reversible self-interpreter and its `a-rev` bound belong where the executable
+reversible self-interpreter (`ri.rwhile`) and reversible-semantics Agda (`RWhileRev*`)
+already live.  R3e feeds the proven constant back into `RevLevinAbstract` here.
+
 ## THE design blocker (resolved here)
 
 `RevCore.Language`'s `atom : Upd → Cmd` carries `Upd = Σ (S→S) (involution)` — a
@@ -24,13 +30,12 @@ self-interpreter.
 
 ## Bricks
 
-- **R3a — a concrete encodable reversible language `RCmd`.** Fixed store (e.g. `V`, the
-  single-variable I-language style, or a small register file), finite atomic reversible
-  ops (swap-subtrees / rotate / the R-WHILE `^=` SET/CLEAR partial-involution from
-  `RevXor`), `seq`, guard-preserving `cond`, bounded `iter`. `fwd`/`inv`/`bwd`,
-  `inv-sound`, and step count + `cost-sym` (reuse the `RevCore` techniques). START:
-  the datatype + `fwd`/`inv` + `inv-sound` on the atom+seq fragment.
+- **R3a — a concrete encodable reversible language `RCmd`.** **DONE** (`RevInst.agda`):
+  store = one tree variable, ops `swp` (swap the root's subtrees) / `sq` / `ifn` (branch
+  on nil); `fwd`/`inv`/`bwd`, `inv-inv`, `preservesNil`, `inv-sound` (UNCONDITIONAL — no
+  `WF`, since every op preserves nil-ness), `cost` + `cost-sym`.
 - **R3b — encoding `⌜_⌝ : RCmd → V` + `decode`** (the `ProgEncoding` twin), `decode∘⌜⌝ = id`.
+  **DONE** (`RevInst.agda`: `⌜_⌝`/`decode`/`decode-⌜⌝`).
 - **R3c — the reversible self-interpreter `rsint : RCmd`** (the `sint` twin): an `RCmd`
   program that interprets an encoded `⌜c⌝` over a store, reversibly. The hard core, like
   `universal.while`. First: dispatch on the encoded op tag; then the recursive cases.
