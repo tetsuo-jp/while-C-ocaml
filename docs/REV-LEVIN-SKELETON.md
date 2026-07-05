@@ -1,12 +1,34 @@
 # Reversible Levin search — formalization skeleton (the R-track)
 
-**Status: R0 done** (`proofs/agda/RevLevinAbstract.agda`, `--safe`, green). Everything
-below R0 is design. This file is the **canonical** R-track document; the reversible
-sibling's receiving end (role split + the `a-rev` measurement task on `ri.rwhile`) is
-`rwhile-C-ocaml/plan_reversible_levin.md` — do not fork the design there. The classical track this builds on is complete: Jones Thm 20.1.2
-mechanized in Agda (58 modules; B3d = literal `opt ∈ Exp` remains a documented stretch)
-and independently in Rocq (22 modules, axiom-free), with the interpreter overhead
-`a = 73` a theorem in both (`IntEfficient` / `IntEfficientR`).
+**Status (2026-07-05): R0 + R1a + R1b + R1c done; the whole SUBSTRATE is
+machine-checked.** What is proven (Agda `--safe`, all leaf modules, green):
+
+- **R0** (`RevLevinAbstract`) — Layer A fires verbatim at an abstract reversible
+  overhead `a-rev` (time-optimality reduced to one constant); garbage BRACKET
+  `|fibre| ≤ garbage ≤ |input|` (Bennett upper + no-clean lower, from Theorem A).
+- **a-rev MEASURED** (`rwhile-C-ocaml/measure_ri_overhead.sh`) — ≈ 364× (range
+  228–466), roughly constant across program size: `a-rev` behaves like the classical
+  per-step constant `a`, as R0a needs.
+- **R1a** (`RevCore`) — a minimal reversible language `Language S` + `inv-sound`
+  (`bwd ∘ fwd = id`).
+- **R1b** (`RevCore`) — step count `cost`/`fwdT` + `cost-sym` (backward run costs
+  exactly the forward run: reversible time-symmetry).
+- **R1c** (`RevCore.Bennett` GF(2)-total, `RevXor` tree-partial) — the reversible
+  input-preserving copy `out ^= f(in)` as an actual program, `bennett-*` computing
+  `(x, f x)` keeping `x`; the tree version handles `f := ⟦p⟧` for a real `Exp p`.
+
+So **time-optimality is REDUCED to the single constant `a-rev`** (proven abstractly,
+measured concretely), and the **garbage + Bennett + time-symmetry mechanisms are all
+machine-checked**. What remains is the crux **R3** (make `a-rev` a *theorem* via a
+reversible self-interpreter with a `SintCost`-style cost bound), which needs **R1a'**
+(reversible loops) first. This file is the **canonical** R-track document; the
+reversible sibling's receiving end (role split + the `a-rev` measurement on
+`ri.rwhile`) is `rwhile-C-ocaml/plan_reversible_levin.md` — do not fork the design.
+
+The classical track this builds on is complete: Jones Thm 20.1.2 mechanized in Agda
+(B3d = literal `opt ∈ Exp` remains a documented stretch) and independently in Rocq
+(22 modules, axiom-free), with the interpreter overhead `a = 73` a theorem in both
+(`IntEfficient` / `IntEfficientR`).
 
 ## The question
 
@@ -149,3 +171,23 @@ relative to the same modelling scope as the classical track (batch cost model (A
 semantic checker `chk`, driver-level `opt`). Do not claim the theorem before R3a
 lands — before that, the honest statement is R0's: "time-optimality is reduced to
 the reversible overhead constant; cleanliness is already refuted."
+
+**Honest claim as of 2026-07-05 (what may be stated now).** The theorem is NOT yet
+fully mechanized (R3 open), but the following ARE, and are quotable:
+1. *If* a reversible interpreter has linear overhead `a-rev`, the reversible search
+   is Levin-optimal within `4·a-rev·2^j·(T_q+T_r)` — machine-checked (R0a; Layer A
+   is cost-model agnostic).
+2. `a-rev` is empirically ≈ 364× and behaves like a per-step constant (measured).
+3. A reversible search cannot be clean: non-trivial (witness-merging) search forces
+   garbage `≥ |fibre|`, while keeping the input always suffices (`≤ |input|`) —
+   machine-checked (R0b/R0c).
+4. The reversible-computing substrate that a full proof needs — a reversible core
+   language, its inversion soundness, step count, forward/backward time-symmetry,
+   and the Bennett input-preserving copy (for GF(2) and tree outputs) — is
+   machine-checked (R1a/R1b/R1c).
+
+The one missing piece for the unconditional theorem is **R3**: replace the *measured*
+`a-rev` with a *proven* one (a reversible `sint` with a `SintCost`-style linear
+bound), which upgrades claim (1)'s hypothesis to a theorem. This is the reversible
+twin of the classical `IntEfficient` (`a = 73`), and — like it — is the hard,
+last-mile step; it needs R1a' (reversible loops) as a language prerequisite.

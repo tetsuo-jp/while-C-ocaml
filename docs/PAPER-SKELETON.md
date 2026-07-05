@@ -149,6 +149,19 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   **both** Agda and Rocq, giving the paper's self-application–cost thesis a
   double-checked, runnable foundation (proven-vs-tested map + Agda↔Rocq
   correspondence: `docs/AGDA_CORRESPONDENCE.md`, § *Rocq cross-check*).
+- **Companion (in progress: reversible Levin).** Theorem A (C1) plus the machine-checked
+  Levin chain seed a new question — is a *reversible* search Levin-optimal, and at what
+  garbage cost? The R-track (`docs/REV-LEVIN-SKELETON.md`) has, machine-checked in Agda:
+  Layer A fires at an abstract reversible overhead `a-rev` (time-optimality reduced to
+  one constant, `RevLevinAbstract`), a garbage BRACKET `|fibre| ≤ garbage ≤ |input|`
+  (Theorem A read at the search — optimality and cleanliness are jointly unachievable),
+  and the reversible-computing substrate (`RevCore`/`RevXor`: a reversible core language,
+  inversion soundness, step count, forward/backward time-symmetry `cost-sym`, and the
+  Bennett input-preserving copy for GF(2) and tree outputs). The overhead `a-rev` is
+  measured ≈ 364× (`rwhile-C-ocaml/measure_ri_overhead.sh`). Open: R3 — a reversible
+  self-interpreter making `a-rev` a *theorem* (the reversible twin of `IntEfficient`).
+  The likely headline: *reversible Levin = classical Levin with a proven reversible
+  constant, plus provably unavoidable garbage* — a time↔garbage trade-off theorem.
 
 ## What is classical vs novel (be explicit)
 - **Classical**: Futamura (1971); the running self-applicable mix and cogen
