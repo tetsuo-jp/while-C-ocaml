@@ -231,12 +231,27 @@ the real step count `StepCount.evalT`: `Tcost 0 = 3`, `Tcost (k+1) = 9 + 2·Tcos
 is `≥ 2^k` for ALL `k`.  (The FUEL is only `O(k)` while the step COUNT is `2^k` — the
 depth-vs-steps gap `StepCount` exists to measure.)
 
-**Remaining bricks:** the ORACLE `doneE` as real `Exp` — Cantor unpair + `enum` decode
-+ `sint` invocation-within-`dblE`-budget + checker; the general `∀k evalT = Tcost k`
-(needs an `evalT`-monotonicity lemma); and wiring brick 1's loop to brick 2's budget so
-the WHOLE search's step count telescopes to `gsum k`.  The Agda meta driver
-(`LevinDovetail`/`LevinComplete`) still discharges the full mathematical content of
-Thm 20.1.2; bricks 1–2 make the loop and its doubling budget literal.
+**The COST TELESCOPING is DONE** (`StepCountMono` + `LevinBudgetTime` + `LevinBudgetSum`,
+`--safe`, axiom-free): `StepCountMono.evalT-mono` gives fuel-monotonicity for the
+step-counting interpreter; `LevinBudgetTime.dbl-time` then proves, for ALL `k`, that
+`dblE`'s real `evalT` step count at phase `k` is EXACTLY `Tcost k` (= 12·2^k − 9), by
+induction (lifting the two `call` sub-runs to a common fuel via `add-fuelT`);
+`LevinBudgetSum.gsum≤totalT` proves `gsum k ≤ totalT k = Σ_{i≤k} Tcost i` from the
+per-phase floor `pow2 k ≤ Tcost k`.  Assembled in
+`LevinBudgetTime.budget-realizes-gsum-floor`: **over phases 0..k the literal doubling
+budget's total real step count `totalT k` is `≥ gsum k`, with each phase costing exactly
+`Tcost k`** — the object-language realization of Levin's cost floor `time_opt ≥ gsum k`
+(Jones Thm 20.1.2), `∀k`, mechanized.
+
+**Remaining (the last, deep brick):** a SINGLE literal `Exp` program that INTEGRATES
+brick 1's phase loop with brick 2's per-phase budget so one `evalT` of the whole search
+equals `totalT k`.  In the I-language `call` always re-runs the top-level program, so the
+loop-recursion and the budget-recursion cannot both be top-level `call`s — the faithful
+integration runs each phase's budget as DATA via `sint` (the Cantor-unpair + `enum` +
+`sint`-within-budget + checker oracle), which is the genuinely hard remaining brick.
+The Agda meta driver (`LevinDovetail`/`LevinComplete`) still discharges the full
+mathematical content of Thm 20.1.2; bricks 1–2 + the cost telescoping make the loop, its
+doubling budget, AND the `time_opt ≥ gsum k` cost literal and `∀k`-proven.
 
 ## Recommended order
 
