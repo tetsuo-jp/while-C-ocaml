@@ -1,7 +1,19 @@
 # Reversible Levin search — formalization skeleton (the R-track)
 
-**Status (2026-07-05): R0 + R1a + R1b + R1c done; the whole SUBSTRATE is
-machine-checked.** What is proven (Agda `--safe`, all leaf modules, green):
+**Status (2026-07-06): R0 + R1a + R1b + R1c + R3a + R3b done, and R3c step 1
+(the self-interpreter's semantics + correctness) done; the whole SUBSTRATE plus the
+correct-dispatch core of the crux is machine-checked.** What is proven (Agda
+`--safe`, all leaf modules, green):
+
+- **R3a/R3b** (`RevInst`) — a concrete ENCODABLE reversible language `RCmd`
+  (swp/sq/ifn, `inv-sound` UNCONDITIONAL, `cost`/`cost-sym`) + encoding
+  `⌜_⌝`/`decode`/`decode-⌜⌝`.
+- **R3c step 1** (`RevSelfInterp`) — the reversible self-interpreter's ALGORITHM as a
+  fuel-indexed `usint : ℕ → V → V → V` dispatching on the encoded op tag, with
+  `usint-correct : size c ≤ n → usint n ⌜c⌝ s ≡ fwd c s` and free reversibility
+  `usint-reversible` (from `inv-sound`). The `SelfInterp`/`SelfInterpCorrect` twin at
+  the semantic level; the object whose steps R3d counts to make `a-rev` a theorem.
+  Remaining in R3c: reify `usint` as an `RCmd` PROGRAM `rsint` (needs R1a'-guard).
 
 - **R0** (`RevLevinAbstract`) — Layer A fires verbatim at an abstract reversible
   overhead `a-rev` (time-optimality reduced to one constant); garbage BRACKET

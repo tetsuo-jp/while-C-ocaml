@@ -36,9 +36,19 @@ self-interpreter.
   `WF`, since every op preserves nil-ness), `cost` + `cost-sym`.
 - **R3b — encoding `⌜_⌝ : RCmd → V` + `decode`** (the `ProgEncoding` twin), `decode∘⌜⌝ = id`.
   **DONE** (`RevInst.agda`: `⌜_⌝`/`decode`/`decode-⌜⌝`).
-- **R3c — the reversible self-interpreter `rsint : RCmd`** (the `sint` twin): an `RCmd`
-  program that interprets an encoded `⌜c⌝` over a store, reversibly. The hard core, like
-  `universal.while`. First: dispatch on the encoded op tag; then the recursive cases.
+- **R3c — the reversible self-interpreter** (the `sint`/`SelfInterpCorrect` twin).
+  - **step 1 — DONE** (`RevSelfInterp.agda`): the self-interpretation ALGORITHM as a
+    FUEL-INDEXED interpreter `usint : ℕ → V → V → V` that dispatches on the encoded op tag
+    (the same tags `RevInst.decode` reads) and recurses on the sub-codes, plus the
+    correctness theorem `usint-correct : size c ≤ n → usint n ⌜c⌝ s ≡ fwd c s`
+    (`usint-exact` at exact fuel), and — for free from `RevInst.inv-sound` — reversibility
+    `usint-reversible : usint … ⌜ inv c ⌝ (usint … ⌜ c ⌝ s) ≡ s`. Machine-checked on
+    concrete instances (`module Examples`). This is the correct-dispatch core R3d counts.
+  - **step 2 — TODO** (`rsint : RCmd`): reify `usint` as an actual `RCmd` PROGRAM. The
+    blocker is that `RCmd` (swp/sq/ifn) has no recursive control, so this needs R1a'-guard
+    (a data-dependent reversible loop) first — the recursion `usint` gets from fuel must
+    come from the object language itself. Until then `usint` is the semantic self-
+    interpreter (the `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
 - **R3d — reversible per-op cost + `a-rev` theorem** (the `SintCost`+`IntEfficient` twin):
   a reversible StepCount, per-op dispatch constants, then `int-efficient-rev :
   time_rsint ≤ a-rev · time_c` by induction on a reversible cost derivation. The measured
