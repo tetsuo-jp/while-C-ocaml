@@ -7,7 +7,7 @@ repo. It distinguishes, per implementation component, whether the property is
 The Agda modules here are *design specs* (small models pinning a decision), except
 where noted; the executable artefacts are the OCaml tools and the WHILE programs.
 
-All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (59 modules).
+All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (60 modules).
 
 ## Correspondence table
 
@@ -73,6 +73,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (59 modules)
 | `mix.while` dynamic-`if` store merge (`'doif`) | `MixMerge`: `merge-correct`, `merge-needs-both`, `merge-buggy-wrong` | **proven (design spec)** |
 | reversible-PE information bound (Theorem A) | `RevSpecGarbage`: `no-clean-if-merges`, `direct-needs-injective`, `clean-reversible`, `Fibre` | **proven (abstract)**; *measured* in `rwhile-C-ocaml` (`FINDINGS §6`) |
 | **reversible Levin search** (R-track, step R0) | `RevLevinAbstract`: `rev-levin-optimal` (Layer A fires verbatim at an abstract reversible overhead `a-rev` — time-optimality reduced to the reversible-interpreter constant), `Bennett.g`/`g-inj` + `Realization` instance (garbage UPPER bound: keeping the input is always a reversible realization), `no-clean-rev-search` + `no-clean-constant` (garbage LOWER bound: a merging witness map has no clean realization — Theorem A read at the search) | **proven (abstract R0)**; the operational R-track (reversible core lang, step count, reversible sint ⇒ `a-rev`, Bennett time lemma) is designed in `docs/REV-LEVIN-SKELETON.md` |
+| **reversible core language** (R-track, step R1a) | `RevCore`: a minimal SELF-CONTAINED reversible language `Language S` — self-inverse atomic update (`Upd = Σ f (f∘f = id)`, the algebra of `X ^= E`), `seq`, guard-preserving reversible `cond`; `fwd`/`inv`/`bwd`, `inv-inv` (inversion is an involution), and the keystone **`inv-sound : WF c → bwd c (fwd c s) ≡ s`** (running the inverse forward undoes the forward run). A concrete swap-based (arithmetic-free) instance on two tree variables with full round-trips checked by `refl` | **proven (R1a)**; the substrate R1b (step count) / R1c (Bennett) / R3 (`a-rev`) build on. Loops + general exit-assertion `cond` are R1a' (next) |
 
 ## Gaps (in priority order)
 

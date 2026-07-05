@@ -108,7 +108,8 @@ already built and double-checked (Agda + Rocq) on the classical side.
 | step | content | size |
 |---|---|---|
 | R0 | **DONE** — `RevLevinAbstract.agda`: Layer A at abstract `a-rev`; Bennett value-level realization; no-clean for merging witness maps + non-vacuity | — |
-| R1a | `REXP`: a minimal reversible core language in Agda (xor-style self-cancelling assignment + reversible control, à la R-WHILE) with `fwd`/`bwd` semantics; first lemma `bwd ∘ fwd = id` | M |
+| R1a | **DONE** — `RevCore.agda`: minimal reversible language `Language S` (self-inverse `Upd` = the algebra of `X ^= E`, `seq`, guard-preserving reversible `cond`), `fwd`/`inv`/`bwd`, `inv-inv`, keystone `inv-sound : WF c → bwd (fwd s) ≡ s`; concrete swap-based tree instance, round-trips by `refl` | M |
+| R1a' | loops (`from E do C loop D until F`, exit assertions + termination) + the GENERAL exit-assertion `cond` (partial/`Maybe` semantics, reversibility on defined runs); full bijection (`fwd ∘ bwd = id` too) | M |
 | R1b | step-count semantics for REXP (the `StepCount`/`CostRelation` twin) | S–M |
 | R1c | **Bennett lemma in REXP**: for each classical `Exp` program `p` a reversible `B(p)` with `run (B p) x = (x , ⟦p⟧ x)` (value level first), then `time_{B(p)} ≤ c_B · time_p + c'·|copy|` (the real content) | M–L |
 | R2a | garbage of the concrete searcher: make "retain (k, m), uncompute failed runs" precise; connect to `fibre-map` | M |
