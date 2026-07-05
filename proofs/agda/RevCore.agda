@@ -29,7 +29,7 @@ module RevCore where
 
 open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
 open import Data.Bool using (Bool; true; false; if_then_else_; _xor_)
-open import Data.Nat using (ℕ; suc; _+_)
+open import Data.Nat using (ℕ; zero; suc; _+_)
 open import Data.Nat.Properties using (+-comm)
 open import Data.Unit using (⊤; tt)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; cong; cong₂)
@@ -128,6 +128,34 @@ module Language (S : Set) where
   cost-sym (cond p c d) (wc , wd , pc , pd) s with p s in eqs
   ... | true  rewrite trans (pc s) eqs | cost-sym c wc s = refl
   ... | false rewrite trans (pd s) eqs | cost-sym d wd s = refl
+
+  ----------------------------------------------------------------------
+  -- BOUNDED REVERSIBLE ITERATION (R1a', bounded): repeat a body `c` exactly
+  -- `n` times, as a DERIVED combinator (n nested `seq`s ending in `skip`).  Its
+  -- reversibility and time-symmetry come FOR FREE from `inv-sound`/`cost-sym` on
+  -- `seq`+`atom` -- the R1a/R1b substrate composes into loops with no new proof.
+  -- (The data-dependent guard loop `from e do c until e'`, whose trip count is
+  -- recovered on reversal via exit assertions, is R1a'-guard -- see RevLoop.)
+  ----------------------------------------------------------------------
+  skip : Cmd
+  skip = atom ((λ s → s) , λ s → refl)
+
+  iterC : ℕ → Cmd → Cmd
+  iterC zero    c = skip
+  iterC (suc n) c = seq c (iterC n c)
+
+  iterC-wf : (n : ℕ) {c : Cmd} → WF c → WF (iterC n c)
+  iterC-wf zero    _  = tt
+  iterC-wf (suc n) wc = wc , iterC-wf n wc
+
+  -- reversibility of the bounded loop, inherited from inv-sound
+  iterC-sound : (n : ℕ) {c : Cmd} → WF c → ∀ s → bwd (iterC n c) (fwd (iterC n c) s) ≡ s
+  iterC-sound n {c} wc = inv-sound (iterC n c) (iterC-wf n wc)
+
+  -- time-symmetry of the bounded loop, inherited from cost-sym
+  iterC-cost-sym : (n : ℕ) {c : Cmd} → WF c → ∀ s →
+    cost (inv (iterC n c)) (fwd (iterC n c) s) ≡ cost (iterC n c) s
+  iterC-cost-sym n {c} wc = cost-sym (iterC n c) (iterC-wf n wc)
 
 ------------------------------------------------------------------------
 -- BENNETT (R1c, value level): realize the abstract input-preserving realization
@@ -233,6 +261,18 @@ _ = refl
 -- reversible time-symmetry, concretely: undoing costs the same as doing
 prog-cost-sym : ∀ s → cost (inv prog) (fwd prog s) ≡ cost prog s
 prog-cost-sym = cost-sym prog wf-prog
+
+-- bounded reversible iteration: swap var1's subtrees 3 times, reversibly.
+iter3 : Cmd
+iter3 = iterC 3 (atom u1)
+
+-- reversibility of the whole loop, from the general combinator lemma
+iter3-rev : ∀ s → bwd iter3 (fwd iter3 s) ≡ s
+iter3-rev = iterC-sound 3 {atom u1} tt
+
+-- concrete: 3 swaps of a subtree = 1 swap (swapTop is an involution)
+_ : fwd iter3 (⟨⟩ ∙ (⟨⟩ ∙ ⟨⟩) , ⟨⟩) ≡ ((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩ , ⟨⟩)
+_ = refl
 
 ------------------------------------------------------------------------
 -- A concrete Bennett instance: reversibly copy the 1-bit predicate `isNil`
