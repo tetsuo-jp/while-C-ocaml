@@ -220,12 +220,23 @@ program realizing the dovetail phase loop `find k = if done k then k else find (
   (not just `refl`).
 
 So the search CONTROL of `opt` is now a literal `Exp` program (it was a meta driver).
+
+**Brick 2 — the per-phase budget `2^k` — is DONE** (`proofs/agda/LevinBudgetE.agda`,
+`--safe`, axiom-free): `dblE = kifnil var knil (kcons (call (ktl var)) (call (ktl var)))`
+builds a full binary tree of depth `k` at phase `k` (2^k leaves) by `call`-recursion,
+so its running time DOUBLES per phase — the source of `gsum k = Σ 2^i`.  Measured by
+the real step count `StepCount.evalT`: `Tcost 0 = 3`, `Tcost (k+1) = 9 + 2·Tcost k`
+(= `12·2^k − 9`); the concrete counts `3,15,39,87,183` for `k=0..4` are bound to
+`evalT` by `refl`, and `pow2≤Tcost : ∀ k → 2^k ≤ Tcost k` proves the per-phase budget
+is `≥ 2^k` for ALL `k`.  (The FUEL is only `O(k)` while the step COUNT is `2^k` — the
+depth-vs-steps gap `StepCount` exists to measure.)
+
 **Remaining bricks:** the ORACLE `doneE` as real `Exp` — Cantor unpair + `enum` decode
-+ budget `2^k` + `sint` invocation + checker — step-counted via `StepCount.evalT`.
-Note the current loop has LINEAR control cost; the `time_opt = gsum k` DOUBLING lives
-in the oracle's per-phase budget `2^k` (a later brick).  The Agda meta driver
++ `sint` invocation-within-`dblE`-budget + checker; the general `∀k evalT = Tcost k`
+(needs an `evalT`-monotonicity lemma); and wiring brick 1's loop to brick 2's budget so
+the WHOLE search's step count telescopes to `gsum k`.  The Agda meta driver
 (`LevinDovetail`/`LevinComplete`) still discharges the full mathematical content of
-Thm 20.1.2; brick 1 makes the loop literal.
+Thm 20.1.2; bricks 1–2 make the loop and its doubling budget literal.
 
 ## Recommended order
 
