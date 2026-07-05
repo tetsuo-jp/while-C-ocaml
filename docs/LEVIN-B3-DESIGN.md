@@ -206,12 +206,26 @@ pattern from `CostRelation`); and, for the faithful checker, threading `r`'s sin
 into the budget. The stage-model / cost-model-(A) factor-2 gap is documented, not proved
 away (it lives in `a_q`).
 
-### B3d — stretch (out of scope): `opt ∈ Exp`
+### B3d — `opt ∈ Exp` (brick 1 DONE: the literal search loop)
 
-The literal WHILE program (dovetail loop + Cantor pairing coded in `Exp` + budget
-bookkeeping + `sint` invocation), step-counted via `StepCount.evalT`, with
-`time_opt` the real step count. Documented as future work; the Agda driver above
-already discharges the mathematical content of Thm 20.1.2.
+Making `opt` a literal object-language program is several bricks.  **Brick 1 — the
+CONTROL loop — is DONE** (`proofs/agda/LevinOptE.agda`, `--safe`, axiom-free):
+`optE doneE = kifnil doneE (call incE) var` is a genuine `call`-recursive `Exp`
+program realizing the dovetail phase loop `find k = if done k then k else find (k+1)`.
+- It RUNS: `Demo` checks by `refl` that from phase 0 it climbs to the least
+  done-phase (`run 40 (phaseV 0) ≡ just (phaseV 2)`).
+- `climb` / `optE-least` prove it computes EXACTLY `LevinDovetail.find-least`'s
+  least-success phase, parameterised by an oracle-realization hypothesis; `DemoCorrect`
+  instantiates it with a concrete oracle and DERIVES the phase result from the theorem
+  (not just `refl`).
+
+So the search CONTROL of `opt` is now a literal `Exp` program (it was a meta driver).
+**Remaining bricks:** the ORACLE `doneE` as real `Exp` — Cantor unpair + `enum` decode
++ budget `2^k` + `sint` invocation + checker — step-counted via `StepCount.evalT`.
+Note the current loop has LINEAR control cost; the `time_opt = gsum k` DOUBLING lives
+in the oracle's per-phase budget `2^k` (a later brick).  The Agda meta driver
+(`LevinDovetail`/`LevinComplete`) still discharges the full mathematical content of
+Thm 20.1.2; brick 1 makes the loop literal.
 
 ## Recommended order
 
