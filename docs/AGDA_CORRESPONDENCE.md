@@ -158,7 +158,7 @@ All Agda modules are `--safe` and checked by `proofs/agda/check.sh` (58 modules)
 
 ## Rocq cross-check (independent port of the Levin chain)
 
-`proofs/rocq/` (Rocq 9.1, 23 modules, `sh proofs/rocq/check.sh`) re-proves the
+`proofs/rocq/` (Rocq 9.1, 22 modules, `sh proofs/rocq/check.sh`) re-proves the
 **Levin optimality chain + self-interpreter correctness** independently of the Agda
 development above — **statement-level fidelity**: theorem statements match the Agda
 twin; proofs are idiomatic Rocq (`induction` + `lia`/`nia`, `Arguments … : simpl

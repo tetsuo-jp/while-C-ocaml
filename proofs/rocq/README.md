@@ -13,7 +13,7 @@ tabulated in [`../../docs/AGDA_CORRESPONDENCE.md`](../../docs/AGDA_CORRESPONDENC
 (§ *Rocq cross-check*). An executable check of the extracted interpreter lives in
 `examples/desugar/test-extract.sh` (part of `run-all.sh`).
 
-## Status — 23 modules; FULL G1 + int-efficient (a=73); Levin chain SELF-CONTAINED
+## Status — 22 modules; FULL G1 + int-efficient (a=73); Levin chain SELF-CONTAINED
 
 | Rocq module | ports Agda | key content |
 |---|---|---|
@@ -69,4 +69,4 @@ full runs use plain `reflexivity` instead (`vm_compute` explodes on those).
    → the Rocq Levin chain is FULLY self-contained (only the solver's halting fact, the
    `Steps`/`chk` premises, remains as data). ✓
 
-Everything axiom-free; `sh check.sh` compiles all 23 modules (~23s clean).
+Everything axiom-free; `sh check.sh` compiles all 22 modules (~23s clean).

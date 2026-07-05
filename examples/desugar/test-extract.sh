@@ -10,7 +10,9 @@
 #      values on `(enc p . (enc p . inp))`;
 #   3. G1 AT RUNTIME -- a direct run and a self-interpretation of the same program
 #      agree (SimFFull.simF_full, exhibited executably);
-#   4. `decode` is a left inverse of `enc`.
+#   4. larger recursive programs (list length, append, reverse) compute the right
+#      value, run directly -- deeper `call`/recursion than `drain`;
+#   5. `decode` is a left inverse of `enc`.
 # This ties the Rocq proofs to an executable artefact.  (Self-interpreting a
 # RECURSIVE program is left out: the extracted `eval` is strict, so it forces both
 # `kifnil` branches -- the deep recursion needed there blows up, though every case
@@ -46,12 +48,19 @@ let rec exp_eq a b = match a, b with
   | _,_ -> false
 let rec show = function Vnil -> "nil" | Vcons(a,b) -> "("^show a^" . "^show b^")"
 let show_opt = function Some v -> show v | None -> "None"
+let rec vlist = function [] -> Vnil | x :: xs -> Vcons (x, vlist xs)
 let fails = ref 0
 let check name got want = match got with
   | Some g when v_eq g want -> Printf.printf "ok   %s = %s\n" name (show g)
   | _ -> incr fails; Printf.printf "FAIL %s: got %s, want %s\n" name (show_opt got) (show want)
 let d = Vcons (Vnil, Vcons (Vnil, Vnil))                (* [nil, nil] *)
 let drain = Kifnil (Var, Knil, Call (Ktl Var))          (* recurse tl until nil *)
+(* larger recursive I-language programs (input in the single variable var) *)
+let len = Kifnil (Var, Knil, Kcons (Knil, Call (Ktl Var)))   (* |xs| as a nil-numeral *)
+let app = Kifnil (Khd Var, Ktl Var,                          (* append: var = (xs . ys) *)
+            Kcons (Khd (Khd Var), Call (Kcons (Ktl (Khd Var), Ktl Var))))
+let rev = Kifnil (Khd Var, Ktl Var,                          (* reverse w/ acc: var = (xs . acc) *)
+            Call (Kcons (Ktl (Khd Var), Kcons (Khd (Khd Var), Ktl Var))))
 let selfrun p inp f = run sint (nat_of_int f) (Vcons (enc p, Vcons (enc p, inp)))
 let () =
   (* (1) extracted eval, every constructor, run directly (incl. recursion) *)
@@ -76,7 +85,15 @@ let () =
   g1 "khd"   (Khd Var) d 5 20;
   g1 "ktl"   (Ktl Var) d 5 20;
   g1 "kcons" (Kcons (Ktl Var, Khd Var)) d 5 30;
-  (* (4) decode is a left inverse of enc *)
+  (* (4) larger recursive programs, run directly (deeper call/recursion) *)
+  let a = Vnil and b = Vcons (Vnil, Vnil) in
+  check "len[nil,nil,nil]" (run len (nat_of_int 40) (vlist [Vnil; Vnil; Vnil]))
+        (vlist [Vnil; Vnil; Vnil]);                            (* 3 -> three nils *)
+  check "append[nil]++[nil,nil]" (run app (nat_of_int 40) (Vcons (vlist [Vnil], vlist [Vnil; Vnil])))
+        (vlist [Vnil; Vnil; Vnil]);                            (* [nil,nil,nil] *)
+  check "reverse[a,b]" (run rev (nat_of_int 40) (Vcons (vlist [a; b], Vnil)))
+        (vlist [b; a]);                                        (* [a,b] -> [b,a] *)
+  (* (5) decode is a left inverse of enc *)
   (match decode (enc drain) with
    | Some e when exp_eq e drain -> print_string "ok   decode(enc drain) = drain\n"
    | _ -> incr fails; print_string "FAIL decode(enc drain)\n");

@@ -134,6 +134,21 @@ predicted trade-off against the reversible specializer of `rwhile-C-ocaml`.
   oracle); the proven-vs-tested boundary is recorded in `docs/AGDA_CORRESPONDENCE.md`.
   (18 `--safe` modules; one explicit hypothesis — the loop-generalisation fixpoint —
   is discharged on a concrete loop, `SpecAssemblyWhile.example-while-sound`.)
+- **Companion (verified foundation, double-checked + executable).** The universal
+  program the projections above run on is itself machine-checked: its correctness
+  (**G1** — `∀ p, e, env` the self-interpreter reproduces the direct interpreter,
+  incl. `call`/recursion, `SelfInterpCorrect.simF` / Rocq `SimFFull.simF_full`) and
+  its **linear overhead** (self-interpretation costs `≤ a · time_p`, `a = 73` = the
+  max per-node dispatch cost; `IntEfficient` / Rocq `IntEfficientR.int_efficient`).
+  The whole chain is **independently re-proved in Rocq** (a 22-module port, all
+  axiom-free), which additionally **extracts to an executable OCaml interpreter**
+  (`proofs/rocq/Extract.v` → `while_eval.ml`, exercised by
+  `examples/desugar/test-extract.sh`: it agrees with the proved oracles and exhibits
+  G1 at runtime). This grounds Levin's optimal-search theorem (Jones 20.1.2), whose
+  constant *is* this interpreter overhead — now a theorem, not an assumption — in
+  **both** Agda and Rocq, giving the paper's self-application–cost thesis a
+  double-checked, runnable foundation (proven-vs-tested map + Agda↔Rocq
+  correspondence: `docs/AGDA_CORRESPONDENCE.md`, § *Rocq cross-check*).
 
 ## What is classical vs novel (be explicit)
 - **Classical**: Futamura (1971); the running self-applicable mix and cogen
