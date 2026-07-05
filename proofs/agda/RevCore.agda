@@ -29,6 +29,8 @@ module RevCore where
 
 open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
 open import Data.Bool using (Bool; true; false; if_then_else_)
+open import Data.Nat using (ℕ; suc; _+_)
+open import Data.Nat.Properties using (+-comm)
 open import Data.Unit using (⊤; tt)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; trans; cong; cong₂)
 
@@ -92,6 +94,41 @@ module Language (S : Set) where
   ... | true  rewrite trans (pc s) eqs = inv-sound c wc s
   ... | false rewrite trans (pd s) eqs = inv-sound d wd s
 
+  ----------------------------------------------------------------------
+  -- STEP COUNT (R1b): unit-cost executed-command count (one per atom, one
+  -- per conditional dispatch), the twin of StepCount.evalT for a total
+  -- semantics.  `fwdT` is the instrumented interpreter (store + count).
+  ----------------------------------------------------------------------
+  cost : Cmd → S → ℕ
+  cost (atom u)     s = 1
+  cost (seq c d)    s = cost c s + cost d (fwd c s)
+  cost (cond p c d) s = suc (if p s then cost c s else cost d s)
+
+  fwdT : Cmd → S → S × ℕ
+  fwdT c s = (fwd c s , cost c s)
+
+  -- the instrumented interpreter computes the same store (twin of evalT⇒eval)
+  fwdT-value : (c : Cmd) (s : S) → proj₁ (fwdT c s) ≡ fwd c s
+  fwdT-value c s = refl
+
+  ----------------------------------------------------------------------
+  -- REVERSIBLE TIME-SYMMETRY (R1b keystone): the backward run costs EXACTLY
+  -- as many steps as the forward run.  This is the operational content behind
+  -- "uncomputing is as cheap as computing" (Bennett), and the reason a-rev has
+  -- a forward/backward-symmetric budget.  Proof mirrors `inv-sound`: the seq
+  -- case flips the two summands (backward runs the parts in reverse order), so
+  -- it closes by commutativity of +.
+  ----------------------------------------------------------------------
+  cost-sym : (c : Cmd) → WF c → ∀ s → cost (inv c) (fwd c s) ≡ cost c s
+  cost-sym (atom u) _ s = refl
+  cost-sym (seq c d) (wc , wd) s
+    rewrite inv-sound d wd (fwd c s)
+          | cost-sym d wd (fwd c s)
+          | cost-sym c wc s = +-comm (cost d (fwd c s)) (cost c s)
+  cost-sym (cond p c d) (wc , wd , pc , pd) s with p s in eqs
+  ... | true  rewrite trans (pc s) eqs | cost-sym c wc s = refl
+  ... | false rewrite trans (pd s) eqs | cost-sym d wd s = refl
+
 ------------------------------------------------------------------------
 -- A concrete, arithmetic-free reversible instance: store = two tree variables,
 -- updates built from `swapTop` (swap a node's two subtrees -- self-inverse).
@@ -143,3 +180,13 @@ _ : fwd prog (⟨⟩ ∙ (⟨⟩ ∙ ⟨⟩) , ⟨⟩) ≡ (((⟨⟩ ∙ ⟨⟩)
 _ = refl
 _ : bwd prog ((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩ , ⟨⟩) ≡ (⟨⟩ ∙ (⟨⟩ ∙ ⟨⟩) , ⟨⟩)
 _ = refl
+
+-- cost: one conditional dispatch + one atom = 2 steps, either branch
+_ : cost prog (⟨⟩ , ⟨⟩ ∙ (⟨⟩ ∙ ⟨⟩)) ≡ 2
+_ = refl
+_ : cost prog (⟨⟩ ∙ (⟨⟩ ∙ ⟨⟩) , ⟨⟩) ≡ 2
+_ = refl
+
+-- reversible time-symmetry, concretely: undoing costs the same as doing
+prog-cost-sym : ∀ s → cost (inv prog) (fwd prog s) ≡ cost prog s
+prog-cost-sym = cost-sym prog wf-prog

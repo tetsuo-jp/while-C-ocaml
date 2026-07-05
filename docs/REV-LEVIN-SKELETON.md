@@ -110,7 +110,7 @@ already built and double-checked (Agda + Rocq) on the classical side.
 | R0 | **DONE** — `RevLevinAbstract.agda`: Layer A at abstract `a-rev`; Bennett value-level realization; no-clean for merging witness maps + non-vacuity | — |
 | R1a | **DONE** — `RevCore.agda`: minimal reversible language `Language S` (self-inverse `Upd` = the algebra of `X ^= E`, `seq`, guard-preserving reversible `cond`), `fwd`/`inv`/`bwd`, `inv-inv`, keystone `inv-sound : WF c → bwd (fwd s) ≡ s`; concrete swap-based tree instance, round-trips by `refl` | M |
 | R1a' | loops (`from E do C loop D until F`, exit assertions + termination) + the GENERAL exit-assertion `cond` (partial/`Maybe` semantics, reversibility on defined runs); full bijection (`fwd ∘ bwd = id` too) | M |
-| R1b | step-count semantics for REXP (the `StepCount`/`CostRelation` twin) | S–M |
+| R1b | **DONE** — `RevCore.agda`: `cost`/`fwdT` (unit-cost executed-command count, the `StepCount.evalT` twin for a total semantics), `fwdT-value` (same store), and the keystone **`cost-sym : WF c → cost (inv c) (fwd c s) ≡ cost c s`** (the backward run costs EXACTLY the forward run — reversible time-symmetry, the operational content of "uncomputing is as cheap as computing") | S–M |
 | R1c | **Bennett lemma in REXP**: for each classical `Exp` program `p` a reversible `B(p)` with `run (B p) x = (x , ⟦p⟧ x)` (value level first), then `time_{B(p)} ≤ c_B · time_p + c'·|copy|` (the real content) | M–L |
 | R2a | garbage of the concrete searcher: make "retain (k, m), uncompute failed runs" precise; connect to `fibre-map` | M |
 | R3a | reversible self-interpreter for REXP + `SintCost`-style dispatch constants ⇒ `a-rev` a theorem; then a `LevinGrounded` twin with `overhead := a-rev` closes R1 | L (the crux) |
