@@ -26,9 +26,10 @@ module RevSintCost where
 
 open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _≤_; z≤n; s≤s)
 open import Data.Nat.Properties
-  using (≤-refl; ≤-trans; +-mono-≤; +-monoʳ-≤; m≤m+n; m≤n+m)
+  using (≤-refl; ≤-trans; +-mono-≤; +-monoʳ-≤; m≤m+n; m≤n+m; +-comm)
 open import Data.Nat.Solver using (module +-*-Solver)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality
+  using (_≡_; refl; sym; cong; subst; trans)
 open import UniversalInterp using (V; ⟨⟩; _∙_; ifnil)
 open import RevSelfInterp using (usint; usint-correct; size)
 import RevInst as R
@@ -119,3 +120,51 @@ module Examples where
   -- … and the overhead bound holds (9 ≤ 4 * 4 = 16).
   ex-bound : usintC (size prog) ⌜ prog ⌝ s0 ≤ a-rev * ocost prog s0
   ex-bound = int-efficient-rev-exact prog s0
+
+------------------------------------------------------------------------
+-- REVERSIBLE TIME-SYMMETRY of the self-interpreter (the RevInst.cost-sym twin,
+-- lifted to `usintC`): self-interpreting the INVERSE program on the forward
+-- result costs the self-interpreter EXACTLY as much as self-interpreting the
+-- forward program -- so `a-rev` is a two-sided constant (backward self-
+-- interpretation is as cheap as forward, the operational content of "uncomputing
+-- costs the same as computing", now at the SELF-INTERPRETER level).
+------------------------------------------------------------------------
+
+-- inversion preserves code size (so exact fuel transfers to the inverse).
+size-inv : (c : R.RCmd) → size (R.inv c) ≡ size c
+size-inv R.swp      = refl
+size-inv (R.sq c d)  rewrite size-inv d | size-inv c = cong suc (+-comm (size d) (size c))
+size-inv (R.ifn c d) rewrite size-inv c | size-inv d = refl
+
+symArith : ∀ a b → 3 + a + b ≡ 3 + b + a
+symArith = solve 2 (λ a b → con 3 :+ a :+ b := con 3 :+ b :+ a) refl
+
+usintC-sym : (c : R.RCmd) (s : V) (n : ℕ)
+           → size c ≤ n → usintC n ⌜ R.inv c ⌝ (R.fwd c s) ≡ usintC n ⌜ c ⌝ s
+usintC-sym R.swp      s zero ()
+usintC-sym (R.sq c d)  s zero ()
+usintC-sym (R.ifn c d) s zero ()
+usintC-sym R.swp s (suc n) _ = refl
+usintC-sym (R.sq c d) s (suc n) (s≤s le)
+  rewrite trans (usint-correct (R.inv d) (R.fwd d (R.fwd c s)) n
+                   (subst (λ x → x ≤ n) (sym (size-inv d)) (≤-trans (m≤n+m (size d) (size c)) le)))
+                (R.inv-sound d (R.fwd c s))
+        | usintC-sym d (R.fwd c s) n (≤-trans (m≤n+m (size d) (size c)) le)
+        | usintC-sym c s n (≤-trans (m≤m+n (size c) (size d)) le)
+        | usint-correct c s n (≤-trans (m≤m+n (size c) (size d)) le)
+  = symArith (usintC n ⌜ d ⌝ (R.fwd c s)) (usintC n ⌜ c ⌝ s)
+usintC-sym (R.ifn c d) ⟨⟩ (suc n) (s≤s le)
+  rewrite R.ifnil-then (R.fwd c ⟨⟩) (usintC n ⌜ R.inv c ⌝ (R.fwd c ⟨⟩))
+                       (usintC n ⌜ R.inv d ⌝ (R.fwd c ⟨⟩)) (R.preservesNil c ⟨⟩)
+        | usintC-sym c ⟨⟩ n (≤-trans (m≤m+n (size c) (size d)) le)
+  = refl
+usintC-sym (R.ifn c d) (a ∙ b) (suc n) (s≤s le)
+  rewrite R.ifnil-else (R.fwd d (a ∙ b)) (usintC n ⌜ R.inv c ⌝ (R.fwd d (a ∙ b)))
+                       (usintC n ⌜ R.inv d ⌝ (R.fwd d (a ∙ b))) (R.preservesNil d (a ∙ b))
+        | usintC-sym d (a ∙ b) n (≤-trans (m≤n+m (size d) (size c)) le)
+  = refl
+
+-- exact-fuel corollary: the backward self-interpretation cost equals the forward.
+usintC-sym-exact : (c : R.RCmd) (s : V)
+  → usintC (size c) ⌜ R.inv c ⌝ (R.fwd c s) ≡ usintC (size c) ⌜ c ⌝ s
+usintC-sym-exact c s = usintC-sym c s (size c) ≤-refl

@@ -72,7 +72,10 @@ self-interpreter.
     `int-efficient-rev : size c ≤ n → usintC n ⌜c⌝ s ≤ a-rev · ocost c s` (a-rev = 4).
     This is the `IntEfficient` (`a = 73`) twin at the fuel/structural level: the
     self-interpreter's overhead is provably LINEAR. Constant is small because this
-    minimal language has O(1) tag dispatch.
+    minimal language has O(1) tag dispatch.  PLUS reversible TIME-SYMMETRY of the
+    self-interpreter, `usintC-sym : usintC n ⌜inv c⌝ (fwd c s) ≡ usintC n ⌜c⌝ s`
+    (the `RevInst.cost-sym` twin lifted to `usintC`): self-interpreting the inverse
+    costs exactly the forward cost, so `a-rev` is a TWO-SIDED constant.
   - **remaining (the 364× model)**: the measured `a-rev ≈ 364×`
     (`rwhile-C-ocaml/measure_ri_overhead.sh`) comes from `ri.rwhile`'s variable-list
     (`Vl`) walk, absent here. Bounding one op's interpretation cost by the `Vl` walk (a

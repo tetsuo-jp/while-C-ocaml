@@ -29,7 +29,9 @@ What is proven (Agda `--safe`, all leaf modules, green):
 - **R3d, fuel-level** (`RevSintCost`) — the `IntEfficient` (`a = 73`) twin: a step
   count `usintC` for `usint` and a faithful object cost `ocost`, with
   `int-efficient-rev : size c ≤ n → usintC n ⌜c⌝ s ≤ a-rev · ocost c s` (a-rev = 4) --
-  the reversible self-interpreter's overhead is provably LINEAR (fuel level).
+  the reversible self-interpreter's overhead is provably LINEAR (fuel level) -- and
+  reversible TIME-SYMMETRY `usintC-sym : usintC n ⌜inv c⌝ (fwd c s) ≡ usintC n ⌜c⌝ s`
+  (the `cost-sym` twin), so `a-rev` is a TWO-SIDED constant.
   Remaining: the 364× `Vl`-walk cost model + lifting the count to `rsint`.
 
 - **R0** (`RevLevinAbstract`) — Layer A fires verbatim at an abstract reversible
