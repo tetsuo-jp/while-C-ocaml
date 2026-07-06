@@ -44,13 +44,19 @@ self-interpreter.
     (`usint-exact` at exact fuel), and — for free from `RevInst.inv-sound` — reversibility
     `usint-reversible : usint … ⌜ inv c ⌝ (usint … ⌜ c ⌝ s) ≡ s`. Machine-checked on
     concrete instances (`module Examples`). This is the correct-dispatch core R3d counts.
-  - **step 2 — TODO** (`rsint : RCmd`): reify `usint` as an actual `RCmd` PROGRAM. The
-    recursive-control prerequisite R1a'-guard (a data-dependent reversible loop) is now
-    **DONE** (`RevLoop.agda`: `from e do D loop L until f` + `inv-sound`), so the recursion
-    `usint` gets from fuel can be supplied by the object language's own loop. Remaining:
-    fold the loop into the ENCODABLE first-order `RCmd` (extend `RevInst` / a variant) and
-    write `rsint` as the tag-dispatch-in-a-loop program. Until then `usint` is the semantic
-    self-interpreter (the `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
+  - **step 2 — IN PROGRESS**. Two prerequisites now done:
+    - R1a'-guard (`RevLoop.agda`): the general reversible loop `from e do D loop L until f`
+      + `inv-sound`.
+    - **brick 1 — the object language `RCmdL.agda`** (DONE): an ENCODABLE, FIRST-ORDER
+      reversible language with a loop -- atoms = `RevInst.RCmd` (run by the total `fwd`),
+      guards = first-order `GCode` (nil-tests along hd/tl), `pSeq`/`pCond`/`pLoop`.
+      `inv-sound` (atom case DEFINITIONAL from `RevInst.inv-sound`; loop case via the
+      `RevLoop` `rev-rest` chain-reversal), `inv-inv`, `inv-complete`. All data ⇒
+      encodable; this is the language `rsint` is written in.
+    - **remaining (the crux term)**: write `rsint : RCmdL` -- the tag-dispatch-in-a-loop
+      program realizing `RevSelfInterp.usint`, + its encoding `⌜_⌝ : RCmdL → V` (the R3b
+      twin) and `rsint`-correct. Until then `usint` is the semantic self-interpreter (the
+      `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
 - **R3d — reversible per-op cost + `a-rev` theorem** (the `SintCost`+`IntEfficient` twin):
   a reversible StepCount, per-op dispatch constants, then `int-efficient-rev :
   time_rsint ≤ a-rev · time_c` by induction on a reversible cost derivation. The measured
