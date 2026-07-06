@@ -21,9 +21,11 @@
 
 module RevAgenda where
 
+open import Data.Nat using (ℕ; zero; suc)
 open import Data.List using (List; []; _∷_)
+open import Data.Product using (Σ; _,_)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst; sym)
-open import UniversalInterp using (V; ⟨⟩; _∙_)
+open import UniversalInterp using (V; ⟨⟩; _∙_; ifnil)
 open import RevSelfInterp using (usint; usint-exact; size)
 import RevInst as R
 open R using (⌜_⌝)
@@ -73,6 +75,37 @@ agenda-det (a-swp p)      (a-swp q)      = agenda-det p q
 agenda-det (a-sq p)       (a-sq q)       = agenda-det p q
 agenda-det (a-ifn-nil p)  (a-ifn-nil q)  = agenda-det p q
 agenda-det (a-ifn-cons p) (a-ifn-cons q) = agenda-det p q
+
+------------------------------------------------------------------------
+-- The EXECUTABLE agenda runner: a single tail-recursive LOOP (fuel-indexed) --
+-- the loop shape `rsint` (P3) reifies into the object language.  It coincides
+-- with the relation (hence with `usint`), for enough fuel.
+
+agendaRun : ℕ → List V → V → V
+agendaRun zero    _                                       s = s
+agendaRun (suc n) []                                      s = s
+agendaRun (suc n) (⟨⟩ ∷ todo)                             s = agendaRun n todo (R.swapTop s)
+agendaRun (suc n) (((⟨⟩ ∙ ⟨⟩) ∙ (c ∙ d)) ∷ todo)         s = agendaRun n (c ∷ d ∷ todo) s
+agendaRun (suc n) ((((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩) ∙ (c ∙ d)) ∷ todo)  s =
+  agendaRun n (ifnil s (c ∷ todo) (d ∷ todo)) s
+agendaRun (suc n) (_ ∷ todo)                              s = agendaRun n todo s
+
+-- soundness: the relation is realised by the runner at SOME fuel (∃ fuel,
+-- accumulated up the derivation -- no explicit bound needed).
+agenda-sound : ∀ {todo s s'} → Agenda todo s s' → Σ ℕ (λ n → agendaRun n todo s ≡ s')
+agenda-sound a-done                     = suc zero , refl
+agenda-sound (a-swp p)      with agenda-sound p
+... | (n , eq) = suc n , eq
+agenda-sound (a-sq p)       with agenda-sound p
+... | (n , eq) = suc n , eq
+agenda-sound (a-ifn-nil p)  with agenda-sound p
+... | (n , eq) = suc n , eq
+agenda-sound (a-ifn-cons p) with agenda-sound p
+... | (n , eq) = suc n , eq
+
+-- the loop-form self-interpreter computes `fwd c` (= usint) on a single program.
+agendaRun-usint : (c : R.RCmd) (s : V) → Σ ℕ (λ n → agendaRun n (⌜ c ⌝ ∷ []) s ≡ R.fwd c s)
+agendaRun-usint c s = agenda-sound (agenda-correct c s)
 
 ------------------------------------------------------------------------
 -- Test-first: a concrete program's agenda run coincides with fwd/usint.
