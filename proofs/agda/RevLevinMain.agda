@@ -15,6 +15,10 @@
 --   gen-linear-overhead  the GENERIC linear-overhead lemma (any per-op κ ≤ K)
 --   sint-correct         the reversible self-interpreter reproduces `fwd` (usint-correct)
 --   sint-reversible      self-interpreting the inverse undoes self-interpreting forward
+--   rsint-computes       the PROGRAM-level reversible self-interpreter (the `rsint` machine,
+--                        todo/done/store stacks) computes `fwd c` in its store (Track 3 P3c)
+--   rsint-reversible     `rsint` reverses as a WHOLE program (forward then backward = id);
+--                        the done-stack IS the Bennett garbage
 --   op-inv-sound         RevInst reversible-op inversion soundness (bwd ∘ fwd = id)
 --   op-cost-sym          RevInst reversible time-symmetry (backward run = forward cost)
 --   lang-inv-sound       RCmdL (encodable loop language) inversion soundness
@@ -73,3 +77,7 @@ open import RevLevinGrounded public
 open import RevLevin public
   using (ReversibleLevin)
   renaming (reversible-levin to rev-levin-thm)
+
+-- the PROGRAM-level reversible self-interpreter as an actual reversible machine (R3c, P3)
+open import RevRsint public
+  using (rsint-computes; rsint-reversible)
