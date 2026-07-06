@@ -109,6 +109,39 @@ rsint-computes : (c : R.RCmd) (s : V)
 rsint-computes c s = rsint-tracks (agenda-correct c s) []
 
 ------------------------------------------------------------------------
+-- FULL-RUN REVERSIBILITY: running forward `dsteps` steps then backward `dsteps`
+-- steps recovers the EXACT initial state (Bennett: the `done` stack is consumed
+-- back to empty).  The step count is the Agenda derivation's depth (each processed
+-- code = one step); reversibility is per-step `astep-invol` lifted by induction.
+
+dsteps : ∀ {todo s s'} → Agenda todo s s' → ℕ
+dsteps a-done         = 0
+dsteps (a-swp p)      = suc (dsteps p)
+dsteps (a-sq p)       = suc (dsteps p)
+dsteps (a-ifn-nil p)  = suc (dsteps p)
+dsteps (a-ifn-cons p) = suc (dsteps p)
+
+rsintRunB : ℕ → RState → RState
+rsintRunB zero    st = st
+rsintRunB (suc n) st = astepB (rsintRunB n st)
+
+run-invol : ∀ {todo s s'} (d : Agenda todo s s') (done : List V)
+  → rsintRunB (dsteps d) (rsintRun (dsteps d) (todo , done , s)) ≡ (todo , done , s)
+run-invol a-done                done = refl
+run-invol (a-swp {todo} {s} p)  done rewrite run-invol p (⟨⟩ ∷ done) =
+  cong (λ z → ⟨⟩ ∷ todo , done , z) (R.swapTop-invol s)
+run-invol (a-sq {c} {d} p)      done rewrite run-invol p (((⟨⟩ ∙ ⟨⟩) ∙ (c ∙ d)) ∷ done) = refl
+run-invol (a-ifn-nil {c} {d} p) done rewrite run-invol p ((((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩) ∙ (c ∙ d)) ∷ done) = refl
+run-invol (a-ifn-cons {c} {d} p) done rewrite run-invol p ((((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩) ∙ (c ∙ d)) ∷ done) = refl
+
+-- rsint is REVERSIBLE as a whole program: forward then backward = identity, on
+-- the actual self-interpretation of any `c` (starting/ending with empty `done`).
+rsint-reversible : (c : R.RCmd) (s : V) →
+  rsintRunB (dsteps (agenda-correct c s)) (rsintRun (dsteps (agenda-correct c s)) (⌜ c ⌝ ∷ [] , [] , s))
+    ≡ (⌜ c ⌝ ∷ [] , [] , s)
+rsint-reversible c s = run-invol (agenda-correct c s) []
+
+------------------------------------------------------------------------
 -- Test-first: a concrete program run + a concrete reversible step.
 
 module Examples where
