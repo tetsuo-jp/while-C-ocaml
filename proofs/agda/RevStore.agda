@@ -84,6 +84,44 @@ update-length k v ((k' , w) ∷ s) with eqℕ k k'
 ... | false = cong suc (update-length k v s)
 
 ------------------------------------------------------------------------
+-- REVERSIBLE single-slot update `mapAt f k` (apply f to variable k's value in one
+-- pass): the store-side reversible atom for the multi-variable language (S3).  If
+-- `f` is a self-inverse, `mapAt f k` is a store involution; its cost is the same
+-- length-`L`-bounded walk.
+
+mapAt : (V → V) → ℕ → Store → Store
+mapAt f k []             = []
+mapAt f k ((k' , v) ∷ s) with eqℕ k k'
+... | true  = (k' , f v) ∷ s
+... | false = (k' , v) ∷ mapAt f k s
+
+-- self-inverse f ⇒ mapAt f k is a store involution (single-pass, no store lemmas).
+mapAt-invol : (f : V → V) → (∀ v → f (f v) ≡ v)
+            → ∀ k s → mapAt f k (mapAt f k s) ≡ s
+mapAt-invol f fi k []             = refl
+mapAt-invol f fi k ((k' , v) ∷ s) with eqℕ k k' in eq
+... | true  rewrite eq = cong (λ z → (k' , z) ∷ s) (fi v)
+... | false rewrite eq = cong (λ z → (k' , v) ∷ z) (mapAt-invol f fi k s)
+
+mapAtC : ℕ → Store → ℕ
+mapAtC k []             = 0
+mapAtC k ((k' , v) ∷ s) with eqℕ k k'
+... | true  = 1
+... | false = suc (mapAtC k s)
+
+mapAtC-bound : ∀ k s → mapAtC k s ≤ length s
+mapAtC-bound k []             = z≤n
+mapAtC-bound k ((k' , v) ∷ s) with eqℕ k k'
+... | true  = s≤s z≤n
+... | false = s≤s (mapAtC-bound k s)
+
+mapAt-length : ∀ f k s → length (mapAt f k s) ≡ length s
+mapAt-length f k []             = refl
+mapAt-length f k ((k' , v) ∷ s) with eqℕ k k'
+... | true  = refl
+... | false = cong suc (mapAt-length f k s)
+
+------------------------------------------------------------------------
 -- Test-first: a concrete store; lookup, its cost, and the bound.
 
 module Examples where
