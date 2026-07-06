@@ -33,6 +33,13 @@ What is proven (Agda `--safe`, all leaf modules, green):
   reversible TIME-SYMMETRY `usintC-sym : usintC n ⌜inv c⌝ (fwd c s) ≡ usintC n ⌜c⌝ s`
   (the `cost-sym` twin), so `a-rev` is a TWO-SIDED constant.
   Remaining: the 364× `Vl`-walk cost model + lifting the count to `rsint`.
+- **R3e, driver level** (`RevLevinGrounded`, the `LevinGrounded` twin, brick E1 of
+  `docs/REV-LEVIN-R3D-BRICKS.md`) — feeds the PROVEN `a-rev` into Layer A:
+  `overhead-grounded : LinearOverheadRev a-rev := int-efficient-rev`, and
+  `rev-levin-grounded : gsum k < 4·a-rev·2^j·(Tq+Tr)` with the overhead constant a
+  THEOREM (not an assumption). **Reversible Levin TIME-OPTIMALITY is now CLAIMABLE at
+  the driver level** (interpreter = the semantic `usint`); the program-level `rsint`
+  and the 364× store-walk model are the fidelity upgrades of Tracks 2/3.
 
 - **R0** (`RevLevinAbstract`) — Layer A fires verbatim at an abstract reversible
   overhead `a-rev` (time-optimality reduced to one constant); garbage BRACKET
