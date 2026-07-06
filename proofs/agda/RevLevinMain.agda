@@ -26,6 +26,10 @@
 --   op-decode / lang-decode / lang-decodeG   program⇄data round trips (encodable)
 --   store-lookupC-bound / store-updateC-bound / store-update-length
 --                        the 364× store-walk cost content (walk ≤ L; L invariant)
+--   store-overhead-affine  a-rev(L) = base + 2L AFFINE in the store size L (Track 2 S4/S5)
+--   program-overhead       rsint's program-level step count is linear, ≤ 2·ocost (Track 3 P5)
+--   cost-chain             the four overhead constants unified as one affine law
+--                        (agenda ≤ meta a-rev=4 ≤ store(m=1) ≤ store(m=2); Track 3 P5)
 --
 -- `--safe`, no postulates/holes.
 ------------------------------------------------------------------------
@@ -81,3 +85,9 @@ open import RevLevin public
 -- the PROGRAM-level reversible self-interpreter as an actual reversible machine (R3c, P3)
 open import RevRsint public
   using (rsint-computes; rsint-reversible)
+
+-- the store-walk overhead model + the four-constant cost reconciliation (Track 2 S4/S5, Track 3 P5)
+open import RevCostReconcile public
+  using ()
+  renaming (store-bound to store-overhead-affine; agenda-bound to program-overhead;
+            chain to cost-chain)

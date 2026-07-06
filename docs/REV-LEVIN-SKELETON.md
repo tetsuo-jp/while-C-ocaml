@@ -57,9 +57,12 @@ What is proven (Agda `--safe`, all leaf modules, green):
 
 So **time-optimality is REDUCED to the single constant `a-rev`** (proven abstractly,
 measured concretely), and the **garbage + Bennett + time-symmetry mechanisms are all
-machine-checked**. What remains is the crux **R3** (make `a-rev` a *theorem* via a
-reversible self-interpreter with a `SintCost`-style cost bound), which needs **R1a'**
-(reversible loops) first. This file is the **canonical** R-track document; the
+machine-checked**. **R3 is now DONE** (2026-07-06): `a-rev` is a *theorem*
+(`RevSintCost.int-efficient-rev`, fed into `RevLevinGrounded`/`RevLevin`), and the
+reversible self-interpreter is grounded to an actual reversible machine `rsint`
+(`RevRsint`: `rsint-computes` + `rsint-reversible`, done-stack = Bennett garbage).
+**The reversible Levin theorem is COMPLETE and axiom-free** — all 21 R-track modules
+`agda --safe` green, zero postulates. This file is the **canonical** R-track document; the
 reversible sibling's receiving end (role split + the `a-rev` measurement on
 `ri.rwhile`) is `rwhile-C-ocaml/plan_reversible_levin.md` — do not fork the design.
 
@@ -225,11 +228,14 @@ fully mechanized (R3 open), but the following ARE, and are quotable:
    and the Bennett input-preserving copy (for GF(2) and tree outputs) — is
    machine-checked (R1a/R1b/R1c).
 
-The one missing piece for the unconditional theorem is **R3**: replace the *measured*
-`a-rev` with a *proven* one (a reversible `sint` with a `SintCost`-style linear
-bound), which upgrades claim (1)'s hypothesis to a theorem. This is the reversible
-twin of the classical `IntEfficient` (`a = 73`), and — like it — is the hard,
-last-mile step; it needs R1a' (reversible loops) as a language prerequisite.
+The last piece, **R3**, is now **DONE**: the *measured* `a-rev` is replaced by a
+*proven* one (`RevSintCost.int-efficient-rev`, a reversible `sint` with a
+`SintCost`-style linear bound = the reversible twin of classical `IntEfficient`
+`a = 73`), upgrading claim (1)'s hypothesis to a theorem. It is further grounded to a
+program-level reversible machine `rsint` (`RevRsint`: `rsint-computes` correctness,
+`rsint-reversible` whole-run reversibility, `rsint` runs in exactly `ocost` steps).
+**The unconditional reversible Levin theorem holds, axiom-free** (`RevLevin`,
+capstone `RevLevinMain`).
 
 ### Canonical cost model (P5 reconciliation — `RevCostReconcile.agda`, machine-checked)
 
