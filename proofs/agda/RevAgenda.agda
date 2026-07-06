@@ -21,12 +21,14 @@
 
 module RevAgenda where
 
-open import Data.Nat using (ℕ; zero; suc)
+open import Data.Nat using (ℕ; zero; suc; _+_)
+open import Data.Nat.Properties using (+-assoc)
 open import Data.List using (List; []; _∷_)
 open import Data.Product using (Σ; _,_)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst; sym)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst; sym; cong)
 open import UniversalInterp using (V; ⟨⟩; _∙_; ifnil)
 open import RevSelfInterp using (usint; usint-exact; size)
+open import RevSintCost using (ocost)
 import RevInst as R
 open R using (⌜_⌝)
 
@@ -106,6 +108,34 @@ agenda-sound (a-ifn-cons p) with agenda-sound p
 -- the loop-form self-interpreter computes `fwd c` (= usint) on a single program.
 agendaRun-usint : (c : R.RCmd) (s : V) → Σ ℕ (λ n → agendaRun n (⌜ c ⌝ ∷ []) s ≡ R.fwd c s)
 agendaRun-usint c s = agenda-sound (agenda-correct c s)
+
+------------------------------------------------------------------------
+-- STEP COUNT of the loop-form self-interpreter: the agenda processes exactly the
+-- executed object nodes -- one dispatch per node -- so its step count is
+-- `ocost c s + 1` (LINEAR in the object's own runtime, factor 1 at the agenda
+-- level; the real a-rev adds per-step navigation cost, Track-3 P4).
+
+asteps : ∀ {todo s s'} → Agenda todo s s' → ℕ
+asteps a-done         = 1
+asteps (a-swp p)      = suc (asteps p)
+asteps (a-sq p)       = suc (asteps p)
+asteps (a-ifn-nil p)  = suc (asteps p)
+asteps (a-ifn-cons p) = suc (asteps p)
+
+-- pushing ⌜c⌝ costs exactly `ocost c s` agenda steps (on top of the rest).
+asteps-prepend : (c : R.RCmd) (todo : List V) (s s' : V) (h : Agenda todo (R.fwd c s) s')
+               → asteps (prepend c todo s s' h) ≡ ocost c s + asteps h
+asteps-prepend R.swp       todo s s' h = refl
+asteps-prepend (R.sq c d)  todo s s' h
+  rewrite asteps-prepend c (⌜ d ⌝ ∷ todo) s s' (prepend d todo (R.fwd c s) s' h)
+        | asteps-prepend d todo (R.fwd c s) s' h
+  = cong suc (sym (+-assoc (ocost c s) (ocost d (R.fwd c s)) (asteps h)))
+asteps-prepend (R.ifn c d) todo ⟨⟩      s' h rewrite asteps-prepend c todo ⟨⟩ s' h = refl
+asteps-prepend (R.ifn c d) todo (a ∙ b) s' h rewrite asteps-prepend d todo (a ∙ b) s' h = refl
+
+-- P4 (agenda level): the loop-form self-interpreter's step count is LINEAR.
+asteps-agenda : (c : R.RCmd) (s : V) → asteps (agenda-correct c s) ≡ ocost c s + 1
+asteps-agenda c s = asteps-prepend c [] s (R.fwd c s) a-done
 
 ------------------------------------------------------------------------
 -- Test-first: a concrete program's agenda run coincides with fwd/usint.
