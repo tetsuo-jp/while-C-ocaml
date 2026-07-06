@@ -45,10 +45,12 @@ self-interpreter.
     `usint-reversible : usint … ⌜ inv c ⌝ (usint … ⌜ c ⌝ s) ≡ s`. Machine-checked on
     concrete instances (`module Examples`). This is the correct-dispatch core R3d counts.
   - **step 2 — TODO** (`rsint : RCmd`): reify `usint` as an actual `RCmd` PROGRAM. The
-    blocker is that `RCmd` (swp/sq/ifn) has no recursive control, so this needs R1a'-guard
-    (a data-dependent reversible loop) first — the recursion `usint` gets from fuel must
-    come from the object language itself. Until then `usint` is the semantic self-
-    interpreter (the `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
+    recursive-control prerequisite R1a'-guard (a data-dependent reversible loop) is now
+    **DONE** (`RevLoop.agda`: `from e do D loop L until f` + `inv-sound`), so the recursion
+    `usint` gets from fuel can be supplied by the object language's own loop. Remaining:
+    fold the loop into the ENCODABLE first-order `RCmd` (extend `RevInst` / a variant) and
+    write `rsint` as the tag-dispatch-in-a-loop program. Until then `usint` is the semantic
+    self-interpreter (the `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
 - **R3d — reversible per-op cost + `a-rev` theorem** (the `SintCost`+`IntEfficient` twin):
   a reversible StepCount, per-op dispatch constants, then `int-efficient-rev :
   time_rsint ≤ a-rev · time_c` by induction on a reversible cost derivation. The measured

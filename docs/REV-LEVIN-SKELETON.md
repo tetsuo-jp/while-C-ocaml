@@ -1,9 +1,16 @@
 # Reversible Levin search — formalization skeleton (the R-track)
 
-**Status (2026-07-06): R0 + R1a + R1b + R1c + R3a + R3b done, and R3c step 1
-(the self-interpreter's semantics + correctness) done; the whole SUBSTRATE plus the
+**Status (2026-07-06): R0 + R1a + R1a'(bounded) + R1a'(guard) + R1b + R1c + R3a
++ R3b done, and R3c step 1 (the self-interpreter's semantics + correctness) done;
+the whole SUBSTRATE — now including the general reversible LOOP — plus the
 correct-dispatch core of the crux is machine-checked.** What is proven (Agda
 `--safe`, all leaf modules, green):
+
+- **R1a'(guard)** (`RevLoop`) — the general data-dependent reversible loop
+  `from e do D loop L until f`, `inv-sound` via the accumulator chain-reversal
+  `rev-rest` (assertion-inversion over the whole trace) + `inv-inv`/`inv-complete`;
+  genuine two-trip example + atoms instantiated with the encodable `RevInst.RCmd`.
+  The reversible CONTROL prerequisite for reifying `usint` as `rsint` (R3c step 2).
 
 - **R3a/R3b** (`RevInst`) — a concrete ENCODABLE reversible language `RCmd`
   (swp/sq/ifn, `inv-sound` UNCONDITIONAL, `cost`/`cost-sym`) + encoding
@@ -144,7 +151,7 @@ already built and double-checked (Agda + Rocq) on the classical side.
 | R0 | **DONE** — `RevLevinAbstract.agda`: Layer A at abstract `a-rev`; Bennett value-level realization; no-clean for merging witness maps + non-vacuity | — |
 | R1a | **DONE** — `RevCore.agda`: minimal reversible language `Language S` (self-inverse `Upd` = the algebra of `X ^= E`, `seq`, guard-preserving reversible `cond`), `fwd`/`inv`/`bwd`, `inv-inv`, keystone `inv-sound : WF c → bwd (fwd s) ≡ s`; concrete swap-based tree instance, round-trips by `refl` | M |
 | R1a' (bounded) | **DONE** — `RevCore.iterC`: bounded reversible iteration (repeat `c` exactly `n` times) as a DERIVED combinator (`n` nested `seq`s ending in `skip`); `iterC-sound` (reversibility) and `iterC-cost-sym` (time-symmetry) inherited FOR FREE from `inv-sound`/`cost-sym` — the substrate composes into loops with no new induction. Concrete `iter3` (swap ×3) | S |
-| R1a' (guard) | the DATA-DEPENDENT loop `from e do c until e'` whose trip count is recovered on reversal via exit assertions (fuel-indexed, `Maybe`, `run n e2 (inv c) e1` inverts `run n e1 c e2`); + the general exit-assertion `cond` and full bijection (`fwd ∘ bwd = id`). This is the substantial reversible-control proof (assertion-inversion invariant over the loop trace) | M–L |
+| R1a' (guard) | **DONE** — `RevLoop.agda`: the DATA-DEPENDENT loop `from e do D loop L until f` (big-step `_⊢_⇒_` + auxiliary `Rest`), inverting to `from f do (inv D) loop (inv L) until e`; keystone `inv-sound` via the accumulator chain-reversal `rev-rest` (the assertion-inversion invariant over the whole loop trace — trip count recovered from the swapped entry/exit assertions), plus `inv-inv`/`inv-complete` (full bijection). Store-generic; `Examples` = a genuine TWO-TRIP loop (ℕ×ℕ move-counter), `VLoop` instantiates the atoms with the ENCODABLE `RevInst.RCmd` (via `RevInst.fwd`). Mirrors the R-WHILE impl (`EvalRwhile.ml`/`InvRwhile.ml`) and `rwhile-C-ocaml/RWhileRevFull`. | M–L |
 | R1b | **DONE** — `RevCore.agda`: `cost`/`fwdT` (unit-cost executed-command count, the `StepCount.evalT` twin for a total semantics), `fwdT-value` (same store), and the keystone **`cost-sym : WF c → cost (inv c) (fwd c s) ≡ cost c s`** (the backward run costs EXACTLY the forward run — reversible time-symmetry, the operational content of "uncomputing is as cheap as computing") | S–M |
 | R1c (value) | **DONE** — `RevCore.Bennett`: the reversible copy `out ^= f(in)` is a self-inverse atom over any GF(2) output algebra (Bennett's uncompute is automatic — `in` is kept, so re-reading `f in` cancels); `bennett-value : fwd B (x , zero) ≡ (x , f x)` (input preserved), `bennett-rev`, `bennett-cost ≡ 1`. Concrete `BitBennett` (copy `isNil` into a bit). Realizes `RevLevinAbstract.Bennett` (R0b) as an actual reversible PROGRAM with a step count | M |
 | R1c (trees) | **DONE** — `RevXor.agda`: the obstacle (NO total involutive xor on `V`) resolved the way R-WHILE does — a PARTIAL involution `xorSlot` (SET blank→`v` / CLEAR `v`→blank / ABORT), matching `rwhile-C-ocaml/RWhileValStore.RAss-sym`. `bcopy f` for a TREE-valued `f`, `bennett-tree : bcopy f (x , ⟨⟩) ≡ just (x , f x)`, `bcopy-uncompute`, `bcopy-invol` (partial involution). Concrete `f := ⟦p⟧` for a real `Exp p` (`sem`, fuel-defaulted) checked by `refl` — Bennett applied to an actual object-language computation | M |
