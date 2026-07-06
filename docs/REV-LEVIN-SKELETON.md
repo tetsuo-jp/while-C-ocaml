@@ -1,10 +1,12 @@
 # Reversible Levin search — formalization skeleton (the R-track)
 
 **Status (2026-07-06): R0 + R1a + R1a'(bounded) + R1a'(guard) + R1b + R1c + R3a
-+ R3b done, and R3c step 1 (the self-interpreter's semantics + correctness) done;
-the whole SUBSTRATE — now including the general reversible LOOP — plus the
-correct-dispatch core of the crux is machine-checked.** What is proven (Agda
-`--safe`, all leaf modules, green):
++ R3b + R3c(step1) + R3c(step2 brick1) + R3d(fuel-level) done; the whole SUBSTRATE
+— including the general reversible LOOP — plus the self-interpreter's correct
+dispatch, its encodable object language, and a LINEAR-overhead (`a-rev`) theorem at
+the fuel level are all machine-checked.  What remains for the unconditional theorem
+is the crux TERM `rsint : RCmdL` (R3c step2) and the 364× `Vl`-walk cost model.**
+What is proven (Agda `--safe`, all leaf modules, green):
 
 - **R1a'(guard)** (`RevLoop`) — the general data-dependent reversible loop
   `from e do D loop L until f`, `inv-sound` via the accumulator chain-reversal
@@ -20,7 +22,15 @@ correct-dispatch core of the crux is machine-checked.** What is proven (Agda
   `usint-correct : size c ≤ n → usint n ⌜c⌝ s ≡ fwd c s` and free reversibility
   `usint-reversible` (from `inv-sound`). The `SelfInterp`/`SelfInterpCorrect` twin at
   the semantic level; the object whose steps R3d counts to make `a-rev` a theorem.
-  Remaining in R3c: reify `usint` as an `RCmd` PROGRAM `rsint` (needs R1a'-guard).
+- **R3c step 2, brick 1** (`RCmdL`) — an ENCODABLE, FIRST-ORDER reversible language
+  with a loop (atoms = `RevInst.RCmd` via the total `fwd`, guards = first-order
+  `GCode`), `inv-sound`/`inv-inv`/`inv-complete`. The language `rsint` is written in.
+  Remaining in R3c: the crux term `rsint : RCmdL` realizing `usint` + its encoding.
+- **R3d, fuel-level** (`RevSintCost`) — the `IntEfficient` (`a = 73`) twin: a step
+  count `usintC` for `usint` and a faithful object cost `ocost`, with
+  `int-efficient-rev : size c ≤ n → usintC n ⌜c⌝ s ≤ a-rev · ocost c s` (a-rev = 4) --
+  the reversible self-interpreter's overhead is provably LINEAR (fuel level).
+  Remaining: the 364× `Vl`-walk cost model + lifting the count to `rsint`.
 
 - **R0** (`RevLevinAbstract`) — Layer A fires verbatim at an abstract reversible
   overhead `a-rev` (time-optimality reduced to one constant); garbage BRACKET

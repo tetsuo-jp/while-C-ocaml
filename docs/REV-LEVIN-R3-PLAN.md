@@ -57,11 +57,21 @@ self-interpreter.
       program realizing `RevSelfInterp.usint`, + its encoding `⌜_⌝ : RCmdL → V` (the R3b
       twin) and `rsint`-correct. Until then `usint` is the semantic self-interpreter (the
       `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
-- **R3d — reversible per-op cost + `a-rev` theorem** (the `SintCost`+`IntEfficient` twin):
-  a reversible StepCount, per-op dispatch constants, then `int-efficient-rev :
-  time_rsint ≤ a-rev · time_c` by induction on a reversible cost derivation. The measured
-  `a-rev ≈ 364×` (`rwhile-C-ocaml/measure_ri_overhead.sh`) is the target ballpark and the
-  design pointer is "bound one op's interpretation cost by the variable-list walk".
+- **R3d — reversible per-op cost + `a-rev` theorem** (the `SintCost`+`IntEfficient` twin).
+  - **fuel-level — DONE** (`RevSintCost.agda`): a step count `usintC` for
+    `RevSelfInterp.usint` (per-op dispatch constants swp=1/sq=3/ifn=4, reflecting tag-
+    inspection depth) and a faithful object step count `ocost` (one step per executed
+    RCmd node; `ifn` runs only the taken branch), with the KEYSTONE
+    `int-efficient-rev : size c ≤ n → usintC n ⌜c⌝ s ≤ a-rev · ocost c s` (a-rev = 4).
+    This is the `IntEfficient` (`a = 73`) twin at the fuel/structural level: the
+    self-interpreter's overhead is provably LINEAR. Constant is small because this
+    minimal language has O(1) tag dispatch.
+  - **remaining (the 364× model)**: the measured `a-rev ≈ 364×`
+    (`rwhile-C-ocaml/measure_ri_overhead.sh`) comes from `ri.rwhile`'s variable-list
+    (`Vl`) walk, absent here. Bounding one op's interpretation cost by the `Vl` walk (a
+    store-carrying interpreter) is the remaining work; and lifting the count from `usintC`
+    to the eventual `rsint`'s own object-step count (R3c-step2 crux) reconciles the two
+    cost models (per the skeleton's caveat).
 - **R3e — close the loop:** a `LevinGrounded` twin with `overhead := a-rev`, feeding the
   proven constant into Layer A → `rev-levin-optimal` becomes UNCONDITIONAL. Then assemble
   with the garbage bracket (R0b/c) for the full time↔garbage trade-off statement.
