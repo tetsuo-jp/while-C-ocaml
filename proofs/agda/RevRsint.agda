@@ -24,15 +24,17 @@
 
 module RevRsint where
 
-open import Data.Nat using (ℕ; zero; suc)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_)
+open import Data.Nat.Properties using (suc-injective; +-comm)
 open import Data.List using (List; []; _∷_)
 open import Data.Product using (_×_; _,_; Σ)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; trans)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong; trans; sym)
 open import UniversalInterp using (V; ⟨⟩; _∙_; ifnil)
 import RevInst as R
 open R using (⌜_⌝)
 open import RevAgenda
-  using (Agenda; a-done; a-swp; a-sq; a-ifn-nil; a-ifn-cons; agenda-correct)
+  using (Agenda; a-done; a-swp; a-sq; a-ifn-nil; a-ifn-cons; agenda-correct; asteps; asteps-agenda)
+open import RevSintCost using (ocost)
 
 ------------------------------------------------------------------------
 -- the reversible machine state and its store projection.
@@ -140,6 +142,39 @@ rsint-reversible : (c : R.RCmd) (s : V) →
   rsintRunB (dsteps (agenda-correct c s)) (rsintRun (dsteps (agenda-correct c s)) (⌜ c ⌝ ∷ [] , [] , s))
     ≡ (⌜ c ⌝ ∷ [] , [] , s)
 rsint-reversible c s = run-invol (agenda-correct c s) []
+
+------------------------------------------------------------------------
+-- PROGRAM-LEVEL a-rev (Track-3 P4/P5): the rsint MACHINE runs in EXACTLY `ocost c s`
+-- steps -- linear in the interpreted program's own runtime, and with the SAME count
+-- `ocost` the fuel-level bound uses (RevSintCost).  Each executed object node is one
+-- reversible machine step: the program-level overhead is a CONSTANT `a-revP` per
+-- step (= 1 here; this minimal language has no variable-list walk, so unlike the
+-- measured 364× there is no L-dependence).  This reconciles the cost models (P5):
+--   fuel level  usintC n ⌜c⌝ s ≤ 4 · ocost c s   (RevSintCost.int-efficient-rev)
+--   program level  #(rsint steps) = ocost c s     (below).
+
+-- the machine step count is the Agenda-derivation depth = the executed-node count.
+asteps≡suc-dsteps : ∀ {todo s s'} (d : Agenda todo s s') → asteps d ≡ suc (dsteps d)
+asteps≡suc-dsteps a-done         = refl
+asteps≡suc-dsteps (a-swp p)      = cong suc (asteps≡suc-dsteps p)
+asteps≡suc-dsteps (a-sq p)       = cong suc (asteps≡suc-dsteps p)
+asteps≡suc-dsteps (a-ifn-nil p)  = cong suc (asteps≡suc-dsteps p)
+asteps≡suc-dsteps (a-ifn-cons p) = cong suc (asteps≡suc-dsteps p)
+
+-- rsint's forward run takes EXACTLY `ocost c s` reversible machine steps.
+rsint-steps : (c : R.RCmd) (s : V) → dsteps (agenda-correct c s) ≡ ocost c s
+rsint-steps c s = suc-injective
+  (trans (sym (asteps≡suc-dsteps (agenda-correct c s)))
+         (trans (asteps-agenda c s) (+-comm (ocost c s) 1)))
+
+-- charging each step a bounded per-step constant `a-revP`, the total is a-revP·ocost
+-- -- program-level LINEAR overhead (the object-level twin of int-efficient-rev).
+a-revP : ℕ
+a-revP = 1
+
+rsint-linear : (c : R.RCmd) (s : V)
+  → a-revP * dsteps (agenda-correct c s) ≡ a-revP * ocost c s
+rsint-linear c s = cong (a-revP *_) (rsint-steps c s)
 
 ------------------------------------------------------------------------
 -- Test-first: a concrete program run + a concrete reversible step.
