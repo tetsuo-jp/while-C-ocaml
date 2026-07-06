@@ -53,9 +53,16 @@ self-interpreter.
       `inv-sound` (atom case DEFINITIONAL from `RevInst.inv-sound`; loop case via the
       `RevLoop` `rev-rest` chain-reversal), `inv-inv`, `inv-complete`. All data ⇒
       encodable; this is the language `rsint` is written in.
-    - **remaining (the crux term)**: write `rsint : RCmdL` -- the tag-dispatch-in-a-loop
-      program realizing `RevSelfInterp.usint`, + its encoding `⌜_⌝ : RCmdL → V` (the R3b
-      twin) and `rsint`-correct. Until then `usint` is the semantic self-interpreter (the
+    - **brick 2 — the encoding `RCmdLEnc.agda`** (DONE): `⌜_⌝ : P → V` and
+      `⌜_⌝g : GCode → V` (atoms reuse `RevInst.⌜_⌝`), `decode`/`decodeG` with the round
+      trip `decode ⌜ p ⌝ ≡ just p` (`decode-⌜⌝`). So `P` is genuinely encodable -- this is
+      what makes `rsint` SELF-APPLICABLE (it consumes `⌜ p ⌝` for `p : P` its own language).
+    - **remaining (the crux term)**: write `rsint : P` realizing `RevSelfInterp.usint` +
+      `rsint`-correct. Design note: needs RICHER reversible atoms than `RevInst.RCmd`
+      (swp/sq/ifn) -- `swp` only swaps the store ROOT's two subtrees, so it cannot keep an
+      encoded program and its data in separate store positions and act on one; `rsint` is a
+      STACK MACHINE (pLoop-driven) needing navigation/structure atoms. That atom-set design
+      is the next sub-brick. Until then `usint` is the semantic self-interpreter (the
       `SelfInterp` twin) and `ri.rwhile` the executable cross-check.
 - **R3d — reversible per-op cost + `a-rev` theorem** (the `SintCost`+`IntEfficient` twin).
   - **fuel-level — DONE** (`RevSintCost.agda`): a step count `usintC` for
