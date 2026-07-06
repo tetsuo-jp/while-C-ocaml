@@ -1,8 +1,9 @@
 # Related work — existing research mapped to this repo
 
 This file is the canonical bibliography for the partial-evaluation / Futamura side
-of the project. It records, per existing result, **which component or open gap of
-this repo it connects to** — so the paper (`PAPER-SKELETON.md`) can cite a single
+of the project **and the Levin optimal-search / computability thread** (see the
+Levin section below). It records, per existing result, **which component or open gap
+of this repo it connects to** — so the paper (`PAPER-SKELETON.md`) can cite a single
 place, and so the "classical vs novel" boundary stays explicit. Component/gap
 labels are from `docs/FUTAMURA.md`, `docs/PAPER-SKELETON.md` (contributions
 C1–C6), and `docs/AGDA_CORRESPONDENCE.md` (gaps G1–G3).
@@ -161,3 +162,62 @@ The reversible information lower bound (C1) and its Bennett–Landauer counting 
 covered in `docs/PAPER-SKELETON.md` §(b)/§(c) and `proofs/agda/RevSpecGarbage.agda`,
 with the measured upper bound in `rwhile-C-ocaml` (`FINDINGS §6`,
 `RWhileRevProjGen`). Not repeated here.
+
+## Levin optimal search — the first mechanization (classical Levin track)
+
+The classical Levin optimal-search result (the `proofs/agda` Levin chain +
+`proofs/rocq`, double-verified, axiom-free) is, to our literature search (Semantic
+Scholar / Crossref / arXiv, 2026-07; see `memory/levin-formalization-novelty.md`),
+the **first machine-checked proof of Levin's optimal search theorem** (Jones's
+*optimal program search*, Thm 20.1.2). No prior formalization of Levin search /
+optimal program search was found; the nearest mechanized neighbours are two
+**Kolmogorov-complexity** formalizations. We position our result against them **by
+mirroring their own line of argument** (constructiveness / faithful mechanization of
+a classically-argued result):
+
+- **Forster, Kunze, Lauermann 2022**, *Synthetic Kolmogorov Complexity in Coq*
+  (ITP 2022, LIPIcs vol. 237, 12:1–12:19, doi:10.4230/LIPIcs.ITP.2022.12).
+  Mechanizes Kolmogorov complexity **synthetically** — rather than fixing a model of
+  computation it *abstractly assumes a universal function*, and stresses
+  **constructiveness** (isolate the one classical step as Markov's principle, then
+  eliminate it). → **Our complementary delta.** We take the *opposite, deliberately
+  concrete* route: we instantiate Jones's **actual WHILE self-interpreter** and
+  **prove the interpretive-overhead constant** (`a = 73`, `IntEfficient`) that a
+  synthetic treatment abstracts away — the computational counterpart to their assumed
+  universal function. Their "constructiveness" hook is matched by our
+  **axiom-freedom** (`--safe`, 0 postulates; Rocq `Print Assumptions` closed) and
+  *doubled* across Agda **and** Rocq.
+- **Catt, Norrish 2021**, *On the formalisation of Kolmogorov complexity* (CPP 2021,
+  pp. 291–299, doi:10.1145/3437992.3439921; HOL4). A concrete-model KC formalization
+  (invariance theorem). → Same delta: it formalizes complexity, not optimal *search*,
+  in a single system. It also establishes the **precedent**: a faithful mechanization
+  of a Kolmogorov/Levin-adjacent classical result is a recognized contribution at the
+  top formalization venues (CPP/ITP) — which our Levin mechanization follows.
+
+**The argument, in their idiom.** Textbook Levin/KC results carry an informal core.
+For us it is concrete: the interpreter-overhead constant (the `a` in "optimal within
+`a·(T_q+T_r)`") is *asserted to exist* but never computed, and the dovetail
+schedule's optimality is argued by hand. Exactly as Forster et al. render the
+classically-argued KC results *constructive and machine-checked*, we render Jones's
+optimal-search proof **axiom-free and machine-checked, and turn its hand-waved
+constant into a theorem** (`a = 73`) — while a second, independent **Rocq**
+development rules out a single-prover artifact. Novelty type: *first mechanization*
+(the theorem's mathematics is Levin's/Jones's); the contribution is the faithful
+concrete formalization + the constant-as-theorem + double verification. The
+**reversible Levin** extension (`RevLevinMain`, novel result) is the forward-looking
+companion; see `docs/REV-LEVIN-SKELETON.md`.
+
+## Partial-evaluation / Futamura *formalization* — methodological neighbours
+
+Formalizations and mechanized experiments of the Futamura projections / PE are a
+separate line, cited for the repo's PE side (C2–C6):
+
+- **Latifi 2019**, *Practical second Futamura projection: partial evaluation for
+  high-performance language interpreters* (SPLASH Companion / SRC 2019, pp. 29–31,
+  doi:10.1145/3359061.3361077). The second projection realized in a production
+  interpreter (Truffle/GraalVM) — the practical counterpart to our verified `fp2`.
+- **Glück & Normann 2024**, *Inversion by Partial Evaluation: A Reversible
+  Interpreter Experiment* (EPTCS vol. 413, pp. 1–14, doi:10.4204/EPTCS.413.1).
+  **Closest on the reversible side**: PE of/for a reversible interpreter and program
+  inversion — the neighbour of this repo's reversible PE (C1, Theorem A) and the
+  reversible-Levin self-interpreter `rsint` (`RevRsint`).
