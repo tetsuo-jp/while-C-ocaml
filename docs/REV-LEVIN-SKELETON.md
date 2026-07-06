@@ -230,3 +230,30 @@ The one missing piece for the unconditional theorem is **R3**: replace the *meas
 bound), which upgrades claim (1)'s hypothesis to a theorem. This is the reversible
 twin of the classical `IntEfficient` (`a = 73`), and — like it — is the hard,
 last-mile step; it needs R1a' (reversible loops) as a language prerequisite.
+
+### Canonical cost model (P5 reconciliation — `RevCostReconcile.agda`, machine-checked)
+
+The four overhead constants are one affine law `icost ≤ (base + 2·m·L)·ocost`
+(`ocost` = node-summed, one step per executed object node — the canonical count,
+resolving the "which count is canonical" caveat: node-summed, confirmed) read at
+different unit granularities and store sizes:
+
+- **a-rev = 4** (`RevSintCost.int-efficient-rev`) — the **L = 0 meta-dispatch
+  floor** (`floor`/`floor-4`), the theorem-level constant `RevLevinGrounded` cites;
+- **a-rev(L) = base + 2mL** (`RevStoreOverhead.AffineInL`; `m` lookup/update walks
+  per op via `model-bound`, which is `AffineInL.overhead-affine` at store `m·L` —
+  `model≡affine` is `refl`, so the multiplier needs no new theorem) — the store model;
+- **a-revL ≤ 2** (`RevAgenda.asteps-agenda` via `agenda-bound`) — the same growth
+  law at agenda/program granularity (stack ops free);
+- **measured ≈ 364** (`rwhile-C-ocaml/measure_ri_overhead.sh`, band 228–466) — the
+  (L≈75, m≈2, base≈64) instance: m = 1 provably undershoots the band
+  (`single-walk-below-band`: 4+2·75 = 154 < 228, so ≥2 accesses/op are *forced*),
+  m ∈ {2,3} lands at 304/454 inside 228–466 (`bridge-m2`/`bridge-m3`).
+
+Honesty: the specific `base = 64, m = 2` reproducing the mean exactly
+(`mean-exact : 64 + 2·2·75 ≡ 364`) is an *illustrative fit* — it shows the
+measurement is consistent with the affine law at plausible (base, m, L), not a
+constant derived from `ri.rwhile`'s source. Citable form: **"a-rev is affine in
+the store size; 4 is the L = 0 floor, base + 2mL the store law, 364 the L ≈ 75
+instance."** The theorem is the affine law; constants are model-dependent and
+secondary (as classical `a = 73` was).
