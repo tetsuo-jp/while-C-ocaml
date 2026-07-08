@@ -69,11 +69,20 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   on call-free programs (compiled programs are call-free) — the WHILE side is
   `runLF-sound`. (Note: importing `Interp`/`Mono` makes a cold `--safe` check of
   `WhileCompile` slow, ~minutes; the `.agdai` caches it.)
-- **Only B3b `while` remains** — the L crux (needs `call`/recursion; the compiled loop
-  is `prog_loop = kifnil (compileE e) var (call (compileLF c))`, and correctness is an
-  iteration induction relating `run n prog_loop x` to `runW m (wwhile e c) x`, with the
-  guard/body evaluated via `eval-callfree`; `MemoFold.run-inv` template). A single loop
-  with a loop-free body is the first target; nested loops need a dispatcher.
+- **B3b (single loop) DONE** (`WhileLoop.Loop.loop-correct`, `--safe`, axiom-free): a
+  WHILE `while` loop with a loop-free body compiles to the recursive I program
+  `progLoop = kifnil (compileE e) var (call (compileLF c))`, and **every terminating run
+  is reproduced**: `runW m (wwhile e c) x ≡ just r → Σ n, run n x ≡ just r`, by induction
+  on the `runW` fuel with the guard/body evaluated via `CF.eval-callfree` and the
+  fuel `suc (suc M)` chosen so the `call` unfolds body+recursion to `M`. Prep in the same
+  module: `runW-runLF` (loop-free `runW` result = `runLF`) + call-freeness of the
+  compiler output. Concrete drain-loop example checked. `just`-injectivity + fuel
+  monotonicity + `runLF-sound` do the fuel bookkeeping (no `MemoFold` needed).
+- **Remaining for FULL `WHILE ⟶ I`**: a whole-program compiler that composes the
+  loop-free fragment (B3a) with loops (B3b) and dispatches NESTED/multiple loops (each
+  needs its own `call` target — a program-counter / dispatcher in the single global
+  `prog`). B1–B3b give both fragments correct in isolation; the assembler + dispatcher
+  is the final step to a total `WHILE ⟶ I` `_⟶_` instance beyond the loop-free B5.
 
 ## Bricks (each ends at a green `--safe` commit)
 
