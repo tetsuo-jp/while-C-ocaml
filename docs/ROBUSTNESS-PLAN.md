@@ -46,9 +46,17 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
 - **Foundational lemma DONE**: `WhileLang.runW-mono` (fuel monotonicity, the +1 step;
   the imperative twin of `add-fuel`). The `≤`-lift is a routine follow-on (via
   `m∸n+n≡m`) when B4 needs it.
-- **Next**: B3 splits into **B3a loop-free** (`skip`/`asgn`/`seq`/`if` → `Exp`, no
-  `call`; `asgn i` unrolls `setR i` into a fixed `khd`/`ktl`/`kcons` term, `seq` is
-  `Exp` substitution) and **B3b `while`** (needs `call`/recursion — the crux, with B4).
+- **B3a DONE** (`proofs/agda/WhileCompile.agda`, `--safe`, axiom-free): the LOOP-FREE
+  WHILE → I compiler + correctness. `substVar` (Exp substitution) realises sequencing
+  and register descent; `getRE`/`setRE'` compile `getR`/`setR`; `compileE`/`compileLF`
+  map WExp/loop-free WCmd to call-free `Exp`; **`compile-correct : ev0 (compileLF c) s ≡
+  runLF c s`** against the total loop-free denotational semantics `runLF`, with a
+  refl-checked concrete example. (`ev0` = the call-free I evaluator, inlined to avoid
+  `SelfInterpCorrect`'s slow `simF` import — a build-perf choice, not a proof gap.)
+- **Next (small bridges toward B5)**: (i) `runLF ≈ runW` — `Σ n, runW n c s ≡ just
+  (runLF c s)` for loop-free `c` (needs `runW-mono-≤`, the `≤`-lift of `runW-mono`);
+  (ii) `ev0 e ≈ eval`/`run` for call-free `e` (the compiled program is call-free). Then
+  **B3b `while`** (needs `call`/recursion — the crux, with B4; `MemoFold.run-inv` template).
 
 ## Bricks (each ends at a green `--safe` commit)
 
