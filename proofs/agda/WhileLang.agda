@@ -20,8 +20,10 @@
 module WhileLang where
 
 open import Data.Nat using (ℕ; zero; suc)
+open import Data.Empty using (⊥-elim)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
-open import UniversalInterp using (V; ⟨⟩; _∙_; hd; tl; ifnil; Maybe; just; nothing; _>>=_)
+open import UniversalInterp
+  using (V; ⟨⟩; _∙_; hd; tl; ifnil; Maybe; just; nothing; _>>=_; nothing≢just)
 open import OneVarTuring using (getR; setR)
 
 ------------------------------------------------------------------------
@@ -63,6 +65,28 @@ runW (suc n) (wseq c d)   s = runW n c s >>= runW n d
 runW (suc n) (wif e c d)  s = ifnil (evalE e s) (runW n c s) (runW n d s)
 runW (suc n) (wwhile e c) s =
   ifnil (evalE e s) (just s) (runW n c s >>= λ s′ → runW n (wwhile e c) s′)
+
+------------------------------------------------------------------------
+-- Fuel monotonicity: more fuel never changes a defined result.  This is the
+-- imperative counterpart of `UniversalInterp.Mono.add-fuel`, and is what the
+-- while-case of the compiler-correctness proof (B4) needs to align the two
+-- languages' fuel.
+
+runW-mono : ∀ n c s {s′} → runW n c s ≡ just s′ → runW (suc n) c s ≡ just s′
+runW-mono zero    c            s ()
+runW-mono (suc n) wskip        s h = h
+runW-mono (suc n) (wasgn i e)  s h = h
+runW-mono (suc n) (wseq c d)   s h with runW n c s in eqc
+... | nothing = ⊥-elim (nothing≢just h)
+... | just sc rewrite runW-mono n c s eqc = runW-mono n d sc h
+runW-mono (suc n) (wif e c d)  s h with evalE e s
+... | ⟨⟩      = runW-mono n c s h
+... | (_ ∙ _) = runW-mono n d s h
+runW-mono (suc n) (wwhile e c) s h with evalE e s
+... | ⟨⟩      = h
+... | (_ ∙ _) with runW n c s in eqc
+...   | nothing = ⊥-elim (nothing≢just h)
+...   | just sc rewrite runW-mono n c s eqc = runW-mono n (wwhile e c) sc h
 
 ------------------------------------------------------------------------
 -- Test-first: concrete runs, each closed by `refl`.

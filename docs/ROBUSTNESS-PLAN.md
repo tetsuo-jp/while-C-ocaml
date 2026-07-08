@@ -36,6 +36,20 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
 - **Missing:** a multi-variable WHILE AST + semantics in Agda, a model of the
   `onevar` translation, and the correctness proof.
 
+## Progress (2026-07-09)
+- **B1 DONE** (`proofs/agda/WhileLang.agda`, `--safe`, axiom-free): the minimal
+  multi-variable WHILE (`WExp`, `WCmd`, fuel-indexed `runW`) over the register store
+  `V` (`getR`/`setR`), with refl-checked example runs (assign / seq+read / if / while
+  drain).
+- **B2 SUBSUMED**: the store *is* `V` and registers are `OneVarTuring.getR`/`setR`, so
+  no separate store↔packed encoding is needed; the array axioms are directly available.
+- **Foundational lemma DONE**: `WhileLang.runW-mono` (fuel monotonicity, the +1 step;
+  the imperative twin of `add-fuel`). The `≤`-lift is a routine follow-on (via
+  `m∸n+n≡m`) when B4 needs it.
+- **Next**: B3 splits into **B3a loop-free** (`skip`/`asgn`/`seq`/`if` → `Exp`, no
+  `call`; `asgn i` unrolls `setR i` into a fixed `khd`/`ktl`/`kcons` term, `seq` is
+  `Exp` substitution) and **B3b `while`** (needs `call`/recursion — the crux, with B4).
+
 ## Bricks (each ends at a green `--safe` commit)
 
 | brick | content | size | assets |
