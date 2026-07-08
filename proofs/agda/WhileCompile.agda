@@ -25,7 +25,8 @@ module WhileCompile where
 
 open import Data.Nat using (ℕ; zero; suc; _+_)
 open import Data.Nat.Properties using (m≤m+n; m≤n+m)
-open import Data.Product using (Σ; _,_)
+open import Data.Product using (Σ; _,_; proj₁; proj₂)
+import Compilation as C
 open import Relation.Binary.PropositionalEquality
   using (_≡_; refl; sym; trans; cong; cong₂)
 open import UniversalInterp
@@ -180,6 +181,27 @@ runLF-sound (wif e c d) (lf-if lc ld)  s with runLF-sound c lc s | runLF-sound d
       trans (ifnil-cong (evalE e s) (runW-mono-≤ c s (m≤m+n nc nd) hc)
                                     (runW-mono-≤ d s (m≤n+m nd nc) hd))
             (sym (just-ifnil (evalE e s) (runLF c s) (runLF d s)))
+
+------------------------------------------------------------------------
+-- B5: instantiate the abstract compilation preorder `Compilation._⟶_` with a
+-- CONCRETE edge.  `Compilation.Lang.run` is a total `Prog → D → D`, so the I side
+-- uses the (necessarily total) call-free evaluator `ev0`, and the WHILE side uses
+-- the total loop-free semantics `runLF` on genuinely loop-free programs.  This is
+-- the first concrete inhabitant of `Compilation._⟶_` (previously only `⟶-refl`/
+-- `⟶-trans` existed); `runLF-sound` ties `runLF` to the operational `runW`.
+
+WHILE-LF : C.Lang V
+WHILE-LF = record { Prog = Σ WCmd LoopFree ; run = λ p s → runLF (proj₁ p) s }
+
+I-CF : C.Lang V
+I-CF = record { Prog = Exp ; run = ev0 }
+
+-- THE concrete compilation edge: loop-free WHILE ⟶ call-free I.
+WHILE⟶I : WHILE-LF C.⟶ I-CF
+WHILE⟶I = record
+  { comp    = λ p → compileLF (proj₁ p)
+  ; correct = λ p s → compile-correct (proj₁ p) (proj₂ p) s
+  }
 
 ------------------------------------------------------------------------
 -- Test-first: a concrete loop-free program, compiled and run under `ev0`,

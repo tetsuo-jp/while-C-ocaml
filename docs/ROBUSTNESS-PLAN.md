@@ -57,10 +57,16 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   (runLF c s)` for loop-free `c`, using `WhileLang.runW-mono-≤` (the `≤`-lift of
   `runW-mono`, added via `m∸n+n≡m`). So loop-free WHILE → I is connected both
   denotationally (`compile-correct`) and operationally (`runLF-sound`).
-- **Next**: (ii) `ev0 e ≈ eval`/`run` for call-free `e` (the compiled program is
-  call-free) — the last small bridge before B5's `_⟶_` instance for the loop-free
-  fragment. Then **B3b `while`** (needs `call`/recursion — the crux, with B4;
-  `MemoFold.run-inv` template).
+- **B5 (loop-free fragment) DONE** (`WhileCompile.WHILE⟶I`, `--safe`): the first
+  CONCRETE inhabitant of `Compilation._⟶_` (previously only `⟶-refl`/`⟶-trans`).
+  `WHILE-LF : Lang V` (Prog = `Σ WCmd LoopFree`, run = `runLF`) `⟶` `I-CF : Lang V`
+  (Prog = `Exp`, run = `ev0`), via `compileLF`/`compile-correct`. Note: `Lang.run` is a
+  *total* `Prog → D → D`, so the I side necessarily uses the total call-free `ev0`.
+- **Next**: (ii) `ev0 e ≈ eval`/`run` for call-free `e` — an optional *certification*
+  that `I-CF`'s `ev0` agrees with the canonical fuel-indexed I operational semantics
+  (`runLF-sound` already does the WHILE side). Then **B3b `while`** — the L crux
+  (needs `call`/recursion; `MemoFold.run-inv` template) to lift the fragment to full
+  `WHILE ⟶ I`.
 
 ## Bricks (each ends at a green `--safe` commit)
 
