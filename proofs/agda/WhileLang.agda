@@ -19,9 +19,10 @@
 
 module WhileLang where
 
-open import Data.Nat using (ℕ; zero; suc)
+open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _≤_)
+open import Data.Nat.Properties using (m∸n+n≡m)
 open import Data.Empty using (⊥-elim)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
 open import UniversalInterp
   using (V; ⟨⟩; _∙_; hd; tl; ifnil; Maybe; just; nothing; _>>=_; nothing≢just)
 open import OneVarTuring using (getR; setR)
@@ -87,6 +88,15 @@ runW-mono (suc n) (wwhile e c) s h with evalE e s
 ... | (_ ∙ _) with runW n c s in eqc
 ...   | nothing = ⊥-elim (nothing≢just h)
 ...   | just sc rewrite runW-mono n c s eqc = runW-mono n (wwhile e c) sc h
+
+-- the `≤`-lift: any fuel ≥ a sufficient one also yields the same result.
+runW-mono-+ : ∀ k n c s {s′} → runW n c s ≡ just s′ → runW (k + n) c s ≡ just s′
+runW-mono-+ zero    n c s h = h
+runW-mono-+ (suc k) n c s h = runW-mono (k + n) c s (runW-mono-+ k n c s h)
+
+runW-mono-≤ : ∀ {n m} c s {s′} → n ≤ m → runW n c s ≡ just s′ → runW m c s ≡ just s′
+runW-mono-≤ {n} {m} c s {s′} le h =
+  subst (λ k → runW k c s ≡ just s′) (m∸n+n≡m le) (runW-mono-+ (m ∸ n) n c s h)
 
 ------------------------------------------------------------------------
 -- Test-first: concrete runs, each closed by `refl`.

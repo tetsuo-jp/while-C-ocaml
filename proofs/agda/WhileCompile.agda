@@ -23,15 +23,18 @@
 
 module WhileCompile where
 
-open import Data.Nat using (ℕ; zero; suc)
+open import Data.Nat using (ℕ; zero; suc; _+_)
+open import Data.Nat.Properties using (m≤m+n; m≤n+m)
+open import Data.Product using (Σ; _,_)
 open import Relation.Binary.PropositionalEquality
-  using (_≡_; refl; trans; cong; cong₂)
+  using (_≡_; refl; sym; trans; cong; cong₂)
 open import UniversalInterp
-  using (V; ⟨⟩; _∙_; hd; tl; ifnil;
+  using (V; ⟨⟩; _∙_; hd; tl; ifnil; Maybe; just;
          Exp; var; knil; kcons; khd; ktl; kifnil; call)
 open import OneVarTuring using (getR; setR)
 open import WhileLang using (WExp; wvar; wnil; wcons; whd; wtl;
-                            WCmd; wskip; wasgn; wseq; wif; wwhile; evalE)
+                            WCmd; wskip; wasgn; wseq; wif; wwhile; evalE;
+                            runW; runW-mono-≤)
 
 -- The call-free I evaluator (= `SelfInterpCorrect.ev0`; inlined here to avoid
 -- depending on that module's heavy `simF` proof).  `call` is a dummy: the
@@ -148,6 +151,35 @@ compile-correct (wif e c d) (lf-if lc ld) s
   rewrite compileE-correct e s with evalE e s
 ... | ⟨⟩      = compile-correct c lc s
 ... | (_ ∙ _) = compile-correct d ld s
+
+------------------------------------------------------------------------
+-- Bridge (i): the total loop-free semantics `runLF` agrees with the operational,
+-- fuel-indexed `runW` -- for some fuel, `runW n c s ≡ just (runLF c s)`.  This is
+-- what lets the compiler-correctness statement (against `runLF`) speak about the
+-- real WHILE interpreter `runW`.
+
+private
+  just-ifnil : ∀ (w : V) (a b : V) → just (ifnil w a b) ≡ ifnil w (just a) (just b)
+  just-ifnil ⟨⟩      a b = refl
+  just-ifnil (_ ∙ _) a b = refl
+
+  ifnil-cong : ∀ (w : V) {a a′ b b′ : Maybe V}
+             → a ≡ a′ → b ≡ b′ → ifnil w a b ≡ ifnil w a′ b′
+  ifnil-cong w refl refl = refl
+
+runLF-sound : ∀ c → LoopFree c → ∀ s → Σ ℕ (λ n → runW n c s ≡ just (runLF c s))
+runLF-sound wskip       lf-skip        s = 1 , refl
+runLF-sound (wasgn i e) lf-asgn        s = 1 , refl
+runLF-sound (wseq c d)  (lf-seq lc ld) s with runLF-sound c lc s | runLF-sound d ld (runLF c s)
+... | nc , hc | nd , hd = suc (nc + nd) , seqpf
+  where
+    seqpf : runW (suc (nc + nd)) (wseq c d) s ≡ just (runLF d (runLF c s))
+    seqpf rewrite runW-mono-≤ c s (m≤m+n nc nd) hc = runW-mono-≤ d (runLF c s) (m≤n+m nd nc) hd
+runLF-sound (wif e c d) (lf-if lc ld)  s with runLF-sound c lc s | runLF-sound d ld s
+... | nc , hc | nd , hd = suc (nc + nd) ,
+      trans (ifnil-cong (evalE e s) (runW-mono-≤ c s (m≤m+n nc nd) hc)
+                                    (runW-mono-≤ d s (m≤n+m nd nc) hd))
+            (sym (just-ifnil (evalE e s) (runLF c s) (runLF d s)))
 
 ------------------------------------------------------------------------
 -- Test-first: a concrete loop-free program, compiled and run under `ev0`,

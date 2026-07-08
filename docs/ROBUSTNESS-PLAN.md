@@ -53,10 +53,14 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   runLF c s`** against the total loop-free denotational semantics `runLF`, with a
   refl-checked concrete example. (`ev0` = the call-free I evaluator, inlined to avoid
   `SelfInterpCorrect`'s slow `simF` import — a build-perf choice, not a proof gap.)
-- **Next (small bridges toward B5)**: (i) `runLF ≈ runW` — `Σ n, runW n c s ≡ just
-  (runLF c s)` for loop-free `c` (needs `runW-mono-≤`, the `≤`-lift of `runW-mono`);
-  (ii) `ev0 e ≈ eval`/`run` for call-free `e` (the compiled program is call-free). Then
-  **B3b `while`** (needs `call`/recursion — the crux, with B4; `MemoFold.run-inv` template).
+- **Bridge (i) DONE** (`WhileCompile.runLF-sound`, `--safe`): `Σ n, runW n c s ≡ just
+  (runLF c s)` for loop-free `c`, using `WhileLang.runW-mono-≤` (the `≤`-lift of
+  `runW-mono`, added via `m∸n+n≡m`). So loop-free WHILE → I is connected both
+  denotationally (`compile-correct`) and operationally (`runLF-sound`).
+- **Next**: (ii) `ev0 e ≈ eval`/`run` for call-free `e` (the compiled program is
+  call-free) — the last small bridge before B5's `_⟶_` instance for the loop-free
+  fragment. Then **B3b `while`** (needs `call`/recursion — the crux, with B4;
+  `MemoFold.run-inv` template).
 
 ## Bricks (each ends at a green `--safe` commit)
 
