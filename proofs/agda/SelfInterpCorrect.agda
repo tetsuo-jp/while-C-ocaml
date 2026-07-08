@@ -1,6 +1,6 @@
 {-# OPTIONS --safe #-}
 ------------------------------------------------------------------------
--- G1 (THE KEYSTONE): general self-interpreter correctness -- in progress.
+-- G1 (THE KEYSTONE): general self-interpreter correctness -- DONE (`simF`, --safe).
 --
 -- Goal (`docs/PROOF-OBLIGATIONS.md` §G1): `SelfInterp.sint` computes the meaning
 -- of EVERY program for ALL inputs.  Target semantics for the call-free fragment:
@@ -17,11 +17,12 @@
 --   (2) `Mono.add-fuel` to lift the inductive hypothesis from fuel `Fₑ` to `J+Fₑ`;
 --   (3) `trans`/`cong` to combine.
 --
--- DONE here: the head/tail fragment `HT` (var/knil/khd/ktl) -- a complete,
--- machine-checked instance of G1.  REMAINING (`docs/PROOF-OBLIGATIONS.md` §G1):
--- the `kcons` case (dispatch lemma with TWO sub-requests) and the `kifnil` case
--- (dispatch reduces to a conditional on the sub-run), then the `call` case (an
--- induction on the object eval fuel) for the full language.
+-- STATUS: G1 is CLOSED.  `simF` (below) proves it for the FULL language -- var,
+-- knil, khd, ktl, kcons (two sub-requests), kifnil (then/else), AND `call`
+-- (recursion, by induction on the object eval fuel `G`) -- whenever the direct
+-- interpreter terminates.  `sim` is the earlier, weaker HT-fragment variant
+-- against the total `ev0`, kept as a self-contained illustration; `simF`
+-- supersedes it.  (This header previously read "in progress"; that was stale.)
 --
 -- Referenced by docs/AGDA_CORRESPONDENCE.md and docs/PROOF-OBLIGATIONS.md (§G1).
 ------------------------------------------------------------------------

@@ -39,9 +39,9 @@ that said "needs G1" are now unblocked.
   `13/6`, kcons `12/7`, kifnil `16/8`) + `add-fuel`/`mono-≤` to lift the IH to the
   common inner fuel + `trans`/`cong` (kcons: two sub-requests; kifnil: `ifnil-just`
   + a 3-way bump).
-- **Remaining: the `call` case** — re-interpret `⌜p⌝` with `env := ⟦e⟧`; needs an
-  induction on the OBJECT eval fuel (the meaning is then partial / fuel-indexed,
-  no longer the total `ev0`).  This closes G1 for the full language.  **M–L.**
+- **`call` case DONE** (`simF`) — re-interprets `⌜p⌝` with `env := ⟦e⟧` by
+  induction on the OBJECT eval fuel `G` (the meaning is then partial / fuel-indexed,
+  no longer the total `ev0`).  With this, `simF` closes G1 for the FULL language.
 - fuel monotonicity is available (`UniversalInterp.Mono.add-fuel`; `mono-≤` here).
 
 **Everything in §2 below depends on G1** (it is what turns the abstract
