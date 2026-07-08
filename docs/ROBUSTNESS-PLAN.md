@@ -62,11 +62,18 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   `WHILE-LF : Lang V` (Prog = `Σ WCmd LoopFree`, run = `runLF`) `⟶` `I-CF : Lang V`
   (Prog = `Exp`, run = `ev0`), via `compileLF`/`compile-correct`. Note: `Lang.run` is a
   *total* `Prog → D → D`, so the I side necessarily uses the total call-free `ev0`.
-- **Next**: (ii) `ev0 e ≈ eval`/`run` for call-free `e` — an optional *certification*
-  that `I-CF`'s `ev0` agrees with the canonical fuel-indexed I operational semantics
-  (`runLF-sound` already does the WHILE side). Then **B3b `while`** — the L crux
-  (needs `call`/recursion; `MemoFold.run-inv` template) to lift the fragment to full
-  `WHILE ⟶ I`.
+- **Bridge (ii) DONE** (`WhileCompile.CF.eval-callfree`, `--safe`): for a call-free
+  `e`, `Σ n, Interp.eval prog n e x ≡ just (ev0 e x)` (any `prog`; call-free `eval` is
+  prog-independent), via `eval-≤` (from `Mono.add-fuel`) and the `just-ifnil` push-out
+  for `kifnil`. So `I-CF`'s `ev0` IS the canonical fuel-indexed I operational semantics
+  on call-free programs (compiled programs are call-free) — the WHILE side is
+  `runLF-sound`. (Note: importing `Interp`/`Mono` makes a cold `--safe` check of
+  `WhileCompile` slow, ~minutes; the `.agdai` caches it.)
+- **Only B3b `while` remains** — the L crux (needs `call`/recursion; the compiled loop
+  is `prog_loop = kifnil (compileE e) var (call (compileLF c))`, and correctness is an
+  iteration induction relating `run n prog_loop x` to `runW m (wwhile e c) x`, with the
+  guard/body evaluated via `eval-callfree`; `MemoFold.run-inv` template). A single loop
+  with a loop-free body is the first target; nested loops need a dispatcher.
 
 ## Bricks (each ends at a green `--safe` commit)
 

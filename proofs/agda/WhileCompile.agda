@@ -23,15 +23,16 @@
 
 module WhileCompile where
 
-open import Data.Nat using (ℕ; zero; suc; _+_)
-open import Data.Nat.Properties using (m≤m+n; m≤n+m)
+open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _≤_)
+open import Data.Nat.Properties using (m≤m+n; m≤n+m; ≤-trans; m∸n+n≡m)
 open import Data.Product using (Σ; _,_; proj₁; proj₂)
 import Compilation as C
 open import Relation.Binary.PropositionalEquality
-  using (_≡_; refl; sym; trans; cong; cong₂)
+  using (_≡_; refl; sym; trans; cong; cong₂; subst)
 open import UniversalInterp
   using (V; ⟨⟩; _∙_; hd; tl; ifnil; Maybe; just;
-         Exp; var; knil; kcons; khd; ktl; kifnil; call)
+         Exp; var; knil; kcons; khd; ktl; kifnil; call;
+         module Interp; module Mono)
 open import OneVarTuring using (getR; setR)
 open import WhileLang using (WExp; wvar; wnil; wcons; whd; wtl;
                             WCmd; wskip; wasgn; wseq; wif; wwhile; evalE;
@@ -202,6 +203,60 @@ WHILE⟶I = record
   { comp    = λ p → compileLF (proj₁ p)
   ; correct = λ p s → compile-correct (proj₁ p) (proj₂ p) s
   }
+
+------------------------------------------------------------------------
+-- Bridge (ii): the call-free evaluator `ev0` agrees with the canonical
+-- fuel-indexed operational evaluator `Interp.eval` (for some fuel).  This
+-- certifies that `I-CF`'s `run = ev0` IS the real I semantics on call-free
+-- programs (compiled programs are call-free), and is the substrate the while-loop
+-- compilation (B3b) will evaluate its guard and body against.
+
+data CallFree : Exp → Set where
+  cf-var    : CallFree var
+  cf-knil   : CallFree knil
+  cf-kcons  : ∀ {a b}   → CallFree a → CallFree b → CallFree (kcons a b)
+  cf-khd    : ∀ {e}     → CallFree e → CallFree (khd e)
+  cf-ktl    : ∀ {e}     → CallFree e → CallFree (ktl e)
+  cf-kifnil : ∀ {c t e} → CallFree c → CallFree t → CallFree e → CallFree (kifnil c t e)
+
+module CF (prog : Exp) where
+  open Interp prog using (eval)
+  open Mono prog using (add-fuel)
+
+  eval-≤ : ∀ {n m} e x {v} → n ≤ m → eval n e x ≡ just v → eval m e x ≡ just v
+  eval-≤ {n} {m} e x {v} le h =
+    subst (λ k → eval k e x ≡ just v) (m∸n+n≡m le) (add-fuel (m ∸ n) n e x h)
+
+  eval-callfree : ∀ e → CallFree e → ∀ x → Σ ℕ (λ n → eval n e x ≡ just (ev0 e x))
+  eval-callfree var  cf-var  x = 1 , refl
+  eval-callfree knil cf-knil x = 1 , refl
+  eval-callfree (kcons a b) (cf-kcons ca cb) x
+    with eval-callfree a ca x | eval-callfree b cb x
+  ... | na , ha | nb , hb = suc (na + nb) , goal
+    where
+      goal : eval (suc (na + nb)) (kcons a b) x ≡ just (ev0 (kcons a b) x)
+      goal rewrite eval-≤ a x (m≤m+n na nb) ha | eval-≤ b x (m≤n+m nb na) hb = refl
+  eval-callfree (khd e) (cf-khd ce) x with eval-callfree e ce x
+  ... | ne , he = suc ne , goal
+    where
+      goal : eval (suc ne) (khd e) x ≡ just (ev0 (khd e) x)
+      goal rewrite he = refl
+  eval-callfree (ktl e) (cf-ktl ce) x with eval-callfree e ce x
+  ... | ne , he = suc ne , goal
+    where
+      goal : eval (suc ne) (ktl e) x ≡ just (ev0 (ktl e) x)
+      goal rewrite he = refl
+  eval-callfree (kifnil c t e) (cf-kifnil cc ct ce) x
+    with eval-callfree c cc x | eval-callfree t ct x | eval-callfree e ce x
+  ... | nc , hc | nt , ht | ne , he = suc ((nc + nt) + ne) , goal
+    where
+      hc′ = eval-≤ c x (≤-trans (m≤m+n nc nt) (m≤m+n (nc + nt) ne)) hc
+      ht′ = eval-≤ t x (≤-trans (m≤n+m nt nc) (m≤m+n (nc + nt) ne)) ht
+      he′ = eval-≤ e x (m≤n+m ne (nc + nt)) he
+      goal : eval (suc ((nc + nt) + ne)) (kifnil c t e) x ≡ just (ev0 (kifnil c t e) x)
+      goal rewrite hc′ =
+        trans (ifnil-cong (ev0 c x) ht′ he′)
+              (sym (just-ifnil (ev0 c x) (ev0 t x) (ev0 e x)))
 
 ------------------------------------------------------------------------
 -- Test-first: a concrete loop-free program, compiled and run under `ev0`,
