@@ -237,6 +237,38 @@ count: ≥ log |fibre| bits). Predicts the observed trade-off:
 
 Complements rwhile's `RWhileRevProjGen.agda` (`proj1-needs-trivial`).
 
+### `WhileLang.agda` — multi-variable WHILE over the one-variable store
+
+The first robustness brick for a concrete `WHILE ⟶ I` compiler. Defines a minimal
+multi-variable WHILE (`WExp`, `WCmd`) whose store is the packed value `V`: register
+`i` is read by `OneVarTuring.getR i` and written by `setR i`, so the many-variable
+to one-variable state encoding is already in the semantics. `runW` is fuel-indexed
+and partial as `Maybe V`, with `runW-mono` / `runW-mono-≤` proving that more fuel
+does not change a terminating result. Refl examples cover assignment, sequencing,
+conditionals, and a draining loop.
+
+### `WhileCompile.agda` — loop-free WHILE compiles to call-free I
+
+The loop-free compiler for the robustness track. `substVar` realises I-expression
+composition, `getRE` / `setRE'` compile register reads and writes, `compileE` maps
+WHILE expressions to `Exp`, and `compileLF` maps loop-free commands to call-free I
+programs. The main result `compile-correct` proves the compiled `Exp` computes the
+same store transformer as `runLF`. `runLF-sound` connects that total loop-free
+semantics back to operational `runW`, and `WHILE⟶I` is the first concrete inhabitant
+of `Compilation._⟶_` (loop-free WHILE to call-free I). The `CF` submodule proves
+call-free `ev0` agrees with the canonical fuel-indexed I evaluator.
+
+### `WhileLoop.agda` — one WHILE loop compiled to recursive I
+
+The single-loop compiler brick. For a loop `while we do wc` with loop-free body,
+`Loop.progLoop = kifnil (compileE we) var (call (compileLF wc))` uses I recursion:
+if the guard is nil it returns the current store; otherwise it runs the compiled
+body and calls itself on the result. `loop-correct` proves every terminating
+`runW m (wwhile we wc) x ≡ just r` is reproduced by some fuel for the recursive I
+program. The module also proves call-freeness of compiled guards/bodies and
+`runW-runLF`, the bridge that any loop-free operational body result is the
+denotational `runLF` result.
+
 ## Relation to the implementation
 
 | proven result | `mix.while` decision |
