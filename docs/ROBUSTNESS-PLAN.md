@@ -88,6 +88,15 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   gives full OPERATIONAL EQUIVALENCE of a single loop and its I image on the
   defined domain -- the `run_I (comp p) ≡ run_WHILE p` equality itself, for the
   single-loop case.
+- **B3b+ (loop with loop-free suffix) DONE** (`WhileLoopThen.LoopThen`, `--safe`,
+  axiom-free): `(while g do c) ; S` for loop-free `c, S` compiles to the single
+  program `prog = kifnil (compileE g) (compileLF S) (call (compileLF c))` — the
+  recursive program's BASE CASE runs the suffix instead of returning the store.
+  Both directions proven (`loopThen-correct` / `loopThen-sound`, the latter reusing
+  `WhileLoopSound.cf-inv`), so this shape is operationally equivalent to its I
+  image; `loop-correct`/`loop-sound` are the `S = skip` case. The non-trivial
+  base-case technique is a building block the dispatcher reuses. (Prefix `P ; loop`
+  and sequences/nesting of loops still need a program counter — see below.)
 - **Remaining for FULL `WHILE ⟶ I`**: a whole-program compiler that composes the
   loop-free fragment (B3a) with loops (B3b) and dispatches NESTED/multiple loops (each
   needs its own `call` target — a program-counter / dispatcher in the single global

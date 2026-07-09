@@ -282,6 +282,17 @@ gives full OPERATIONAL EQUIVALENCE of the single loop and its I image on the
 defined domain — the `run_I (comp p) ≡ run_WHILE p` equality the robustness
 theorem targets, for the single-loop case.
 
+### `WhileLoopThen.agda` — a loop with a loop-free suffix
+
+Generalises the single loop to `(while g do c) ; S` for loop-free `c`, `S`. The
+compiled program keeps ONE `call` but runs the suffix in its base case:
+`prog = kifnil (compileE g) (compileLF S) (call (compileLF c))` — guard nil ⇒ run
+`S` once; guard cons ⇒ run the body and recurse. `loopThen-correct` (forward) and
+`loopThen-sound` (reverse, reusing `WhileLoopSound.cf-inv`) establish operational
+equivalence for this shape; `seq-inv` factors a `wseq` run through its
+intermediate store. `loop-correct`/`loop-sound` are the `S = skip` special case.
+The non-trivial-base-case technique is what a full dispatcher will reuse.
+
 ## Relation to the implementation
 
 | proven result | `mix.while` decision |
