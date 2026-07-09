@@ -97,6 +97,21 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   image; `loop-correct`/`loop-sound` are the `S = skip` case. The non-trivial
   base-case technique is a building block the dispatcher reuses. (Prefix `P ; loop`
   and sequences/nesting of loops still need a program counter — see below.)
+- **B4-core (single-loop NORMAL FORM) DONE** (`WhileMachine`, `--safe`, axiom-free):
+  a control-stack small-step machine `runM : ℕ → List WCmd → V → Maybe V` that
+  linearises ARBITRARY nesting/sequencing of loops into ONE stack-driven loop
+  ("while the stack is non-empty, do one step").  `runW⇒runM` is the forward
+  simulation (every terminating `runW` reproduced), proved in continuation-passing
+  style so no fuel alignment is needed; the seq/while cases compose two recursive
+  calls.  A NESTED-loop example is refl-checked.  This is the normal form the
+  dispatcher targets: with the program as one stack-driven loop, the I compilation
+  is a single `call`-recursion.
+  **Next dispatcher steps**: (a) encode `List WCmd` (the stack) and each `WCmd` as a
+  value `V`; (b) compile one `runM` step to a LOOP-FREE `Exp` decoding+dispatching
+  the head command; (c) `prog = kifnil (stack-empty?) (extract store) (call step)`
+  reproduces `runM` via the `WhileLoopThen` base-case technique; (d) compose into a
+  total `WHILE ⟶ I` `Compilation._⟶_` instance.  (The reverse `runM⇒runW` gives the
+  full equivalence.)
 - **Remaining for FULL `WHILE ⟶ I`**: a whole-program compiler that composes the
   loop-free fragment (B3a) with loops (B3b) and dispatches NESTED/multiple loops (each
   needs its own `call` target — a program-counter / dispatcher in the single global

@@ -293,6 +293,24 @@ equivalence for this shape; `seq-inv` factors a `wseq` run through its
 intermediate store. `loop-correct`/`loop-sound` are the `S = skip` special case.
 The non-trivial-base-case technique is what a full dispatcher will reuse.
 
+### `WhileMachine.agda` — control-stack machine (single-loop normal form)
+
+The dispatcher's semantic core. `runM : ℕ → List WCmd → V → Maybe V` is a
+small-step machine whose state is a control stack (list of pending commands) plus
+the store: it pops the head command and dispatches (`skip`→pop, `x:=e`→update,
+`c;d`→push `c ∷ d ∷ rest`, `if`→push the taken branch, `while`→guard nil pop /
+guard cons push `c ∷ while e c ∷ rest`). This linearises ARBITRARY nesting and
+sequencing of loops into ONE loop "while the stack is non-empty, do one step" —
+the single-loop normal form. `runW⇒runM` is the forward simulation, in
+continuation-passing style (if `c` maps `s` to `s′` and the machine on the rest
+`K` from `s′` reaches `r`, then the machine on `c ∷ K` from `s` reaches `r`),
+proved by induction on the `runW` fuel with the seq/while cases composing two
+recursive calls — so no fuel alignment is needed. `runW⇒runM-top` is the
+whole-command corollary (empty continuation); a nested-loop example is checked.
+The remaining dispatcher step encodes `runM`'s one step as a loop-free I `Exp`
+over an encoded stack, then `kifnil (stack-empty?) result (call step)` reproduces
+`runM` by the `WhileLoopThen` base-case technique.
+
 ## Relation to the implementation
 
 | proven result | `mix.while` decision |
