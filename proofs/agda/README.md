@@ -269,6 +269,19 @@ program. The module also proves call-freeness of compiled guards/bodies and
 `runW-runLF`, the bridge that any loop-free operational body result is the
 denotational `runLF` result.
 
+### `WhileLoopSound.agda` — the converse: I run ⟹ WHILE run
+
+The reverse direction of the single-loop compilation. `cf-inv` inverts the I
+evaluator on call-free `Exp` (any defined `eval n e x` equals the total call-free
+value `ev0 e x`), which pins the compiled guard and loop-free body to their WHILE
+meanings. `Loop.loop-sound` then proves that whenever the compiled recursive I
+program returns a value, the WHILE loop returns the *same* value
+(`run n x ≡ just r → Σ m, runW m (wwhile we wc) x ≡ just r`), by fuel induction
+mirroring `loop-correct` in reverse. Together with `WhileLoop.loop-correct` this
+gives full OPERATIONAL EQUIVALENCE of the single loop and its I image on the
+defined domain — the `run_I (comp p) ≡ run_WHILE p` equality the robustness
+theorem targets, for the single-loop case.
+
 ## Relation to the implementation
 
 | proven result | `mix.while` decision |

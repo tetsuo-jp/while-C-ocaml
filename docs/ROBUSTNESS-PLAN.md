@@ -78,6 +78,16 @@ inhabitant of the compilation preorder. Everything `--safe`, axiom-free.
   module: `runW-runLF` (loop-free `runW` result = `runLF`) + call-freeness of the
   compiler output. Concrete drain-loop example checked. `just`-injectivity + fuel
   monotonicity + `runLF-sound` do the fuel bookkeeping (no `MemoFold` needed).
+- **B3b REVERSE (single-loop soundness) DONE** (`WhileLoopSound.Loop.loop-sound`,
+  `--safe`, axiom-free): the converse of `loop-correct` -- whenever the compiled
+  recursive I program returns a value, the WHILE loop returns the SAME value
+  (`run n x ≡ just r → Σ m, runW m (wwhile we wc) x ≡ just r`).  Crux is `cf-inv`,
+  inversion for the I evaluator on call-free `Exp` (a defined `eval n e x` equals
+  `ev0 e x`), which pins the compiled guard/body to their WHILE meanings; the
+  proof is a fuel induction mirroring `loop-correct`.  With `loop-correct` this
+  gives full OPERATIONAL EQUIVALENCE of a single loop and its I image on the
+  defined domain -- the `run_I (comp p) ≡ run_WHILE p` equality itself, for the
+  single-loop case.
 - **Remaining for FULL `WHILE ⟶ I`**: a whole-program compiler that composes the
   loop-free fragment (B3a) with loops (B3b) and dispatches NESTED/multiple loops (each
   needs its own `call` target — a program-counter / dispatcher in the single global
