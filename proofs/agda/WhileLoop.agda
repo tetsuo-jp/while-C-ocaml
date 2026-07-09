@@ -146,3 +146,26 @@ module Examples where
   -- reproduces it at some fuel.
   ex : Σ ℕ (λ n → run n s1 ≡ just (⟨⟩ ∙ ⟨⟩))
   ex = loop-correct 6 s1 refl
+
+------------------------------------------------------------------------
+-- A richer demonstrator: LIST REVERSAL, whose loop body is a SEQUENCE with
+-- cons/hd/tl (not a single assignment).  The compiled recursive I program
+-- reproduces the WHILE reversal.  This exercises `compileLF`'s seq/cons/hd/tl
+-- cases through `loop-correct`, closing the gap the drain-loop example leaves.
+
+module ExamplesRev where
+  -- while r0 is non-nil do  r1 := cons (hd r0) r1 ; r0 := tl r0.
+  revBody : WCmd
+  revBody = wseq (wasgn 1 (wcons (whd (wvar 0)) (wvar 1)))
+                 (wasgn 0 (wtl (wvar 0)))
+
+  open Loop (wvar 0) revBody (lf-seq lf-asgn lf-asgn)
+
+  -- input: register 0 = [⟨⟩, ⟨⟩∙⟨⟩], register 1 = ⟨⟩ (empty accumulator).
+  sRev : V
+  sRev = (⟨⟩ ∙ ((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩)) ∙ (⟨⟩ ∙ ⟨⟩)
+
+  -- the compiled recursive I program reverses r0 into r1: register 0 = ⟨⟩,
+  -- register 1 = [⟨⟩∙⟨⟩, ⟨⟩] (the reversal), matching WhileLang's `ex-rev`.
+  ex-rev : Σ ℕ (λ n → run n sRev ≡ just (⟨⟩ ∙ (((⟨⟩ ∙ ⟨⟩) ∙ (⟨⟩ ∙ ⟨⟩)) ∙ ⟨⟩)))
+  ex-rev = loop-correct 12 sRev refl

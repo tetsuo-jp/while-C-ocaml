@@ -126,3 +126,20 @@ module Examples where
 
   ex-while : runW 6 (wwhile (wvar 0) (wasgn 0 (wtl (wvar 0)))) s1 ≡ just (⟨⟩ ∙ ⟨⟩)
   ex-while = refl
+
+  -- list reversal (a multi-statement loop body): register 0 = input list, register
+  -- 1 = accumulator; while r0 is non-nil do  r1 := cons (hd r0) r1 ; r0 := tl r0.
+  -- The loop reverses r0 into r1.  Exercises the compiler (via WhileLoop) on a
+  -- body with sequencing + hd/tl/cons, not just a single assignment.
+  revBody : WCmd
+  revBody = wseq (wasgn 1 (wcons (whd (wvar 0)) (wvar 1)))
+                 (wasgn 0 (wtl (wvar 0)))
+
+  -- input: register 0 = [⟨⟩, ⟨⟩∙⟨⟩], register 1 = ⟨⟩ (empty accumulator).
+  sRev : V
+  sRev = (⟨⟩ ∙ ((⟨⟩ ∙ ⟨⟩) ∙ ⟨⟩)) ∙ (⟨⟩ ∙ ⟨⟩)
+
+  -- after the loop: register 0 = ⟨⟩, register 1 = [⟨⟩∙⟨⟩, ⟨⟩] (reversed).
+  ex-rev : runW 12 (wwhile (wvar 0) revBody) sRev
+           ≡ just (⟨⟩ ∙ (((⟨⟩ ∙ ⟨⟩) ∙ (⟨⟩ ∙ ⟨⟩)) ∙ ⟨⟩))
+  ex-rev = refl
