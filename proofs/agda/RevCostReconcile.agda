@@ -20,7 +20,14 @@
 --   tag-match on the code tree (L=0)    a-rev = 4       RevSintCost.int-efficient-rev
 --   dispatch + one length-L cell        base + 2mL      RevStoreOverhead.AffineInL
 --   one agenda pop+dispatch             a-revL ≤ 2      RevAgenda.asteps-agenda
+--   object node + its Vl walk           a-revW = 1+L    RCmdVWalkCost.wcostV-affine
+--   sint dispatch + numeral + walk      a-revS = 2+2L   RevStoreSintCost.usintVC-affine
 --   one ri.rwhile command (L≈75)        ≈364 (228–466)  measure_ri_overhead.sh
+--
+-- The two walk-charged rows (tasks 1 and 4 of the traversal-charge plan) are
+-- THEOREMS over the multi-variable language RCmdV, not assumed envelopes; the
+-- interpreter-level a-revS is literally the affine family at base = 2
+-- (`sintV≡affine`), so the assumed AffineInL row is now grounded.
 --
 -- CANONICAL choice (resolves the skeleton's "which count is canonical" caveat):
 -- the node-summed law `base + 2·m·L · ocost`.  a-rev = 4 is its L = 0 floor (the
@@ -40,15 +47,24 @@ module RevCostReconcile where
 
 open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _≤_; _<_; z≤n; s≤s)
 open import Data.Nat.Properties
-  using (≤-refl; ≤-trans; +-monoʳ-≤; m≤m+n; *-zeroʳ; +-identityʳ)
+  using (≤-refl; ≤-trans; +-monoʳ-≤; m≤m+n; *-zeroʳ; +-identityʳ; +-suc)
+open import Data.List using (length)
 open import Data.Product using (_×_; _,_)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; subst)
+open import Relation.Binary.PropositionalEquality
+  using (_≡_; refl; sym; trans; cong; subst)
 open import UniversalInterp using (V)
 open import RevSelfInterp using (size)
 import RevSintCost as SC
 open SC using (ocost; usintC; int-efficient-rev)
 open import RevStoreOverhead using (module AffineInL; double-≡)
 open import RevAgenda using (Agenda; agenda-correct; asteps; asteps-agenda)
+open import RevStore using (Store)
+open import RCmdV using (RCmdV; ocostV)
+open import RCmdVEnc using (⌜_⌝V)
+open import RCmdVWalkCost using (wcostV; a-revW; wcostV-affine)
+open import RevStoreInterp using (sizeV)
+open import RevStoreSintCost
+  using (usintVC; varsBelow; a-revS; usintVC-affine)
 import RevInst as R
 open R using (⌜_⌝)
 
@@ -114,6 +130,39 @@ agenda-bound c s rewrite asteps-agenda c s =
         (+-monoʳ-≤ (ocost c s) (ocost-pos c s))
 
 ------------------------------------------------------------------------
+-- (3b)(3c) the walk-charged rows (traversal-charge plan tasks 1 + 4):
+-- theorems over the multi-variable language RCmdV, with the constant a
+-- FUNCTION of the store length -- the family the assumed AffineInL
+-- envelope targeted, now grounded.
+
+-- object level: each executed node pays its actual Vl walk.
+OverheadBoundW : (RCmdV → Store → ℕ) → (ℕ → ℕ) → Set
+OverheadBoundW icost a =
+  (c : RCmdV) (s : Store) → icost c s ≤ a (length s) * ocostV c s
+
+walkV-bound : OverheadBoundW wcostV a-revW
+walkV-bound = wcostV-affine
+
+-- interpreter level: usintV's own dispatch + numeral decode + store walk,
+-- under the index-decode side condition (k < L).
+sintV-bound : (c : RCmdV) (s : Store) (n : ℕ)
+  → sizeV c ≤ n → varsBelow c (length s)
+  → usintVC n ⌜ c ⌝V s ≤ a-revS (length s) * ocostV c s
+sintV-bound = usintVC-affine
+
+-- a-revS is literally the affine family at base = 2: the AffineInL shape
+-- arrives as a theorem (base 2, one numeral walk + one store walk).
+sintV≡affine : ∀ L → a-revS L ≡ AffineInL.a-rev 2 L
+sintV≡affine L =
+  trans (cong suc (+-suc L L))
+        (cong (λ t → suc (suc t)) (sym (double-≡ L)))
+
+-- ordering within the family: object walk ≤ interpreter walk ≤ the m = 1
+-- store model at the same L (1+L ≤ 2+2L ≤ 4+2L, instance L = 75).
+chainW : (a-revW 75 ≤ a-revS 75) × (a-revS 75 ≤ AffineInL.a-rev 4 75)
+chainW = m≤m+n 76 76 , m≤m+n 152 2
+
+------------------------------------------------------------------------
 -- (4) the numeric bridge to the MEASURED band 228–466 (all `refl` / `m≤m+n`;
 -- no decidability needed -- `m≤m+n a b : a ≤ a + b` and `a + b` normalises).
 
@@ -165,3 +214,14 @@ module Examples where
 
   store-m3 : a-rev-model 4 3 75 ≡ 454
   store-m3 = refl
+
+  -- the walk-charged rows at L = 75.
+  walkV-75 : a-revW 75 ≡ 76
+  walkV-75 = refl
+
+  sintV-75 : a-revS 75 ≡ 152
+  sintV-75 = refl
+
+  -- base-2 affine identity on an instance (also by computation).
+  sintV-affine-75 : a-revS 75 ≡ AffineInL.a-rev 2 75
+  sintV-affine-75 = refl
