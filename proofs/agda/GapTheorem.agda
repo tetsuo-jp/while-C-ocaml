@@ -17,23 +17,35 @@
 -- `(rung j , g (rung j)]` in which no program halts.
 --
 -- This module proves the GEOMETRIC CORE (ladder monotonicity, interval
--- disjointness, at-most-one) which is the reusable heart, plus the ONE-program
--- and TWO-interval base facts.  The finite pigeonhole over `k+1` intervals, and
--- the instantiation of "halting time" to `StepCount.evalT` (via
--- `KleeneNF.T-dec`), are the named remaining steps (see `docs/BOOK-WAVE1-AND-
--- NEXT.md`).  --safe, axiom-free.
+-- disjointness, `at-most-one`) AND the finite GAP THEOREM itself (`gap`): for
+-- any list `hs` of halting times, some rung `j ≤ length hs` has an empty gap
+-- interval, proved by the standard-library `pigeonhole` over the `length hs + 1`
+-- rungs.  The one remaining step to Jones's exact statement is instantiating
+-- "halting time" to `StepCount.evalT` (via `KleeneNF.T-dec`): collect the
+-- (bounded, decidable) halting times of the first `k` programs on an input into
+-- `hs`, then `gap` yields the time bound `t = rung j` with `TIME(t) = TIME(g∘t)`
+-- for those programs (see `docs/BOOK-WAVE1-AND-NEXT.md`).  --safe, axiom-free.
 ------------------------------------------------------------------------
 
 module GapTheorem where
 
 open import Data.Nat using (ℕ; zero; suc; _<_; _≤_; s≤s; z≤n; _≤′_; ≤′-refl; ≤′-step)
 open import Data.Nat.Properties
-  using (<-cmp; <-trans; <-≤-trans; ≤-<-trans; <⇒≤; ≤-trans; ≤-refl; <-irrefl; n<1+n; ≤⇒≤′)
+  using (<-cmp; <-trans; <-≤-trans; ≤-<-trans; <⇒≤; ≤-trans; ≤-refl; <-irrefl
+        ; n<1+n; ≤⇒≤′; _<?_; _≤?_)
+open import Data.Fin using (Fin; toℕ)
+open import Data.Fin.Properties using (pigeonhole; ¬∀⇒∃¬)
+open import Data.List using (List; length; lookup)
+open import Data.List.Relation.Unary.Any using (Any; any?; index)
+open import Data.List.Relation.Unary.Any.Properties using (lookup-index)
+open import Data.List.Relation.Unary.All using (All)
+open import Data.List.Relation.Unary.All.Properties using (¬Any⇒All¬)
 open import Relation.Binary.Definitions using (tri<; tri≈; tri>)
-open import Relation.Nullary using (¬_)
+open import Relation.Nullary using (¬_; Dec)
+open import Relation.Nullary.Decidable.Core using (_×?_)
 open import Data.Empty using (⊥-elim)
-open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Data.Product using (Σ; ∃; _×_; _,_; proj₁; proj₂)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym; subst)
 
 module _ (g : ℕ → ℕ) (g-exp : ∀ t → t ≤ g t) where
 
@@ -83,3 +95,40 @@ module _ (g : ℕ → ℕ) (g-exp : ∀ t → t ≤ g t) where
   -- interval 0 = (0 , g 0]; nothing below or at 0 is in it, e.g. 0 ∉ I₀.
   zero∉I0 : ¬ inGap 0 0
   zero∉I0 (l0 , _) = <-irrefl refl l0
+
+  ----------------------------------------------------------------------
+  -- THE GAP THEOREM (finite form), by pigeonhole.
+  --
+  -- Given the halting times `hs` of the first `length hs` programs on an input,
+  -- some rung `j ≤ length hs` has an EMPTY gap interval: no halting time in `hs`
+  -- lies in `(rung j , g (rung j)]`.  Proof: if every one of the `length hs + 1`
+  -- rungs 0 … (length hs) were hit, mapping each rung to the list POSITION of a
+  -- halting time in its interval gives `f : Fin (suc n) → Fin n`; by `pigeonhole`
+  -- two distinct rungs share a position, i.e. one halting time lies in two
+  -- intervals -- impossible by `at-most-one`.  So (decidability + `¬∀⇒∃¬`) some
+  -- rung is unhit; `¬Any⇒All¬` turns "unhit" into "avoids every element".
+
+  inGap? : ∀ c h → Dec (inGap c h)
+  inGap? c h = (rung c <? h) ×? (h ≤? g (rung c))
+
+  gap : (hs : List ℕ)
+      → Σ (Fin (suc (length hs))) (λ j → All (λ h → ¬ inGap (toℕ j) h) hs)
+  gap hs with ¬∀⇒∃¬ (suc (length hs))
+                    (λ j → Any (λ h → inGap (toℕ j) h) hs)
+                    (λ j → any? (λ h → inGap? (toℕ j) h) hs)
+                    absurd
+    where
+      n : ℕ
+      n = length hs
+
+      absurd : ¬ ((j : Fin (suc n)) → Any (λ h → inGap (toℕ j) h) hs)
+      absurd allhit with pigeonhole (n<1+n n) (λ j → index (allhit j))
+      ... | i , j , i<j , fi≡fj = <-irrefl (at-most-one gi gj') i<j
+        where
+          gi : inGap (toℕ i) (lookup hs (index (allhit i)))
+          gi = lookup-index (allhit i)
+          gj : inGap (toℕ j) (lookup hs (index (allhit j)))
+          gj = lookup-index (allhit j)
+          gj' : inGap (toℕ j) (lookup hs (index (allhit i)))
+          gj' = subst (λ p → inGap (toℕ j) (lookup hs p)) (sym fi≡fj) gj
+  ... | j , ¬hit = j , ¬Any⇒All¬ hs ¬hit
