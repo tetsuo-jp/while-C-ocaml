@@ -69,3 +69,18 @@ hand). See `BOOK-ROADMAP.md` for the full map.
 Larger/research-scale (Blum speedup 20.3.1, constant hierarchy 19.3.1, 2CM 8.7.2):
 partials only; see the fleet prompt in
 `.../workflows/scripts/comp2book-prove-fleet-*.js` for per-target decompositions.
+
+## Update (session 2026-07-18/19): Gap done + more
+
+New verified modules this session (all `--safe`, axiom-free):
+- `GapPrograms.agda` — **Borodin Gap theorem 20.4.1 DONE for programs** (`gap-prog`).
+- `EvalTFuelTime.agda`, `BoundedTime.agda` — the fuel/decidability layer.
+- `REChar.agda` — Thm 5.7.2 r.e. characterizations, dovetail-free directions
+  (`char-dom` (2)⇔(4), `char-range` (2)⇒(3)).
+
+**The dovetail combinator is now the single highest-leverage next target.** It
+blocks: `SemiDecClosure.sdec-∪` (union closure), a concrete `SemiDecidable.Post`
+(Post's theorem), and Thm 5.7.2's (1)⇒(2)/(3)⇒(1). Design: a `call`-recursion in
+the I language that, on a fuel-encoding input, runs `e₁` and `e₂` at increasing
+fuel until one halts; correctness against `evalT` is the hard part (a search-loop
+invariant). Building it once closes several theorems at their "full" strength.
