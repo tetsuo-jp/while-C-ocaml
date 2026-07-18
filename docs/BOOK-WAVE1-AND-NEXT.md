@@ -17,8 +17,18 @@ hand). See `BOOK-ROADMAP.md` for the full map.
 
 ## Next targets, in tractability order
 
-1. **Thm 20.4.1 (Borodin Gap theorem)** — constructive per-input core. Proof plan
-   (the piece to mechanize):
+1. **Thm 20.4.1 (Borodin Gap theorem)** — **finite form DONE** (`GapTheorem.agda`:
+   ladder, disjointness, `at-most-one`, and `gap` via stdlib `pigeonhole`).
+   REMAINING: instantiate "halting time" to `evalT`. Key subtlety discovered —
+   in `evalT`, fuel = recursion DEPTH but the reported count `t` = total nodes
+   (tree SIZE), and depth ≤ size, so the true time `t` satisfies
+   `evalT n e d = just (v,t) ⇒ evalT t e d = just (v,t)` (fuel = reported time
+   suffices; prove `fuel-time` by induction like `KleeneNF.eval⇒evalT`). Hence
+   "e halts on d with time ≤ B" ⟺ `evalT B e d = just (v,t') ∧ t' ≤ B`
+   (DECIDABLE). Then: `hs = mapMaybe (halting time ≤ B) ps` with
+   `B = maxGap (length ps)` (max of `g (rung j)`, `j ≤ length ps`; needs no
+   monotonicity of g); a program with time > B can't be in any interval below B;
+   `gap hs` finishes. Original plan retained below for reference:
    - Ladder `rung g 0 = 0`, `rung g (suc j) = suc (g (rung g j))`; with `g t ≥ t`
      the rungs strictly increase and the intervals `Iⱼ = (rung j , g (rung j)]` are
      pairwise DISJOINT (`rung (suc j) = suc (g (rung j)) > g (rung j) = top of Iⱼ`).
