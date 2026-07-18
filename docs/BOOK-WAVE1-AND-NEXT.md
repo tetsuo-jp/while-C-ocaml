@@ -24,9 +24,10 @@ hand). See `BOOK-ROADMAP.md` for the full map.
 
 ## Next targets, in tractability order
 
-1. **Thm 20.4.1 (Borodin Gap theorem)** — **finite form DONE** (`GapTheorem.agda`:
-   ladder, disjointness, `at-most-one`, and `gap` via stdlib `pigeonhole`).
-   REMAINING (only the list assembly): the fuel/decidability layer is DONE
+1. **Thm 20.4.1 (Borodin Gap theorem) — DONE (for programs).** `GapTheorem.agda`
+   (`gap`), `EvalTFuelTime.agda` (`fuel-time`), `BoundedTime.agda` (`TimeLE?`),
+   `GapPrograms.agda` (`gap-prog`). Fully assembled; nothing left for the
+   per-input program form. (Historical notes below.) The fuel/decidability layer
    (`EvalTFuelTime`, `BoundedTime`). Left: `maxGap k = ⊔_{j≤k} g (rung j)` with
    `j ≤ k ⇒ g (rung j) ≤ maxGap k`; collect `hs` = the `TimeLE? · x · B`-halting
    times of `ps` (B = maxGap (length ps)) with a membership lemma; then `gap hs`
