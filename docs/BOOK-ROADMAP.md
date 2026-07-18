@@ -41,7 +41,7 @@ These four form one coherent arc; each builds on the row above.
 | **Thm 14.2.1** `thm-kleenes-2-recursion` | **Kleene's 2nd recursion theorem**: `∃q. ⟦q⟧(d) = ⟦p⟧(⌜q⌝.d)` | **✓ DONE** — `proofs/agda/RecursionTheorem.agda` (fixpoint `q = spec e ⌜e⌝` from our s-m-n) | ✓ |
 | **Thm 5.4.2** `thm-rice` | **Rice's theorem**: every non-trivial extensional property is undecidable | **✓ DONE** — `proofs/agda/RiceTheorem.agda` (constructive recursion-theorem reduction) | ✓ |
 | **Thm 5.6.1 / Cor 5.6.2** `thm-halt-semi` / `cor-halt-not-semidecidable` | HALT is semi-decidable; its complement is not | **✓ DONE** — `proofs/agda/SemiDecidable.agda` (Post's lemma + undecidability ⇒ `∁`self-halting not semi-decidable) | ✓ |
-| **Thm 5.5.1 / 5.5.2** | closure of decidable / semi-decidable sets | **✓ DONE (decidable part)** — `proofs/agda/DecidableClosure.agda` (`∩`/`∪`/complement) | ✓ |
+| **Thm 5.5.1 / 5.5.2** | closure of decidable / semi-decidable sets | **✓ DONE** — decidable part `proofs/agda/DecidableClosure.agda` (`∩`/`∪`/complement); semi-decidable `∩` fully + `∪` modulo a dovetail combinator `proofs/agda/SemiDecClosure.agda` (`sdec-∩` via `kcons`, `sdec-∪` via `Dovetail`) | ✓ |
 | general **Thm 4.2.1** (∀-version) | `⟦sint⟧(⌜p⌝.d) = ⟦p⟧(d)` for *all* `p` | currently concrete-only; the pending "G4 4c general theorem" — a fuel-relative induction over `sint`'s behaviour on arbitrary ⌜p⌝ | ◎ medium–large |
 
 ---
@@ -53,7 +53,7 @@ These four form one coherent arc; each builds on the row above.
 | Prop 3.7.4 `prop:many-one-var` | **prove** the WHILE → I (`--onevar`) translation correct (currently differential-tested) | ○ medium |
 | Prop 8.2.1 / 8.2.2 `prop-wtog` / `prop-gtow` | **WHILE ≡ GOTO** (Böhm–Jacopini: one while-loop suffices) | ○ medium. **Framework done** — `proofs/agda/Compilation.agda` (the compilation preorder `_⟶_` + equivalence `_≃_`); remaining = the concrete GOTO↔WHILE compilers |
 | **Thm 8.7.2 / Cor 8.7.3** `thm-2CM-universal` / `cor-2CM-universal` | **two-counter-machine universality** + 2CM halting undecidable | ○ medium–large. Cor 8.7.3's logical form = `ReductionUndecidable`; the framework is `Compilation`; remaining = the concrete 2-counter Gödel-coding simulation (the canonical single-theorem Turing-completeness witness) |
-| Thm 13.4.3 `thm-normal-form` | Kleene Normal Form for WHILE | △ medium–large |
+| Thm 13.4.3 `thm-normal-form` | Kleene Normal Form for WHILE | **✓ DONE** — `proofs/agda/KleeneNF.agda` (`T-dec` decidable bounded halting, `U`=value extraction, `eval⇒evalT` converse bridge, and the normal-form equivalence `knf`) |
 
 ---
 
