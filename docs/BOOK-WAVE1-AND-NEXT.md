@@ -11,6 +11,13 @@ hand). See `BOOK-ROADMAP.md` for the full map.
   runs both on the same input and halts iff both halt (`haltsE-kcons`, from `evalT`'s
   `kcons` clause + `StepCountMono`). `sdec-∪` is proved relative to a `Dovetail`
   record (the parallel-or combinator) — same discipline as `SemiDecidable`'s `Post`.
+- **`EvalTFuelTime.agda` (fuel-time bridge).** `fuel-time`: the reported step
+  count is sufficient fuel (`evalT n e x = just (v,t) ⇒ evalT t e x = just (v,t)`,
+  since depth ≤ size); corollary `time≤-fuel`.
+- **`BoundedTime.agda` (bounded-time decidable).** `evalT-det` (reported result is
+  fuel-independent) and `TimeLE?` : "e halts on x with true time ≤ B" is DECIDABLE
+  by one bounded run — the exact ingredient to collect a program list's halting
+  times ≤ B into `GapTheorem.gap`.
 - **Thm 13.4.3 (Kleene Normal Form), `KleeneNF.agda`.** `T-dec` (decidable bounded
   halting via `evalT`), `U = proj₁`, the new converse bridge `eval⇒evalT`, and the
   equivalence `knf`.
@@ -19,7 +26,12 @@ hand). See `BOOK-ROADMAP.md` for the full map.
 
 1. **Thm 20.4.1 (Borodin Gap theorem)** — **finite form DONE** (`GapTheorem.agda`:
    ladder, disjointness, `at-most-one`, and `gap` via stdlib `pigeonhole`).
-   REMAINING: instantiate "halting time" to `evalT`. Key subtlety discovered —
+   REMAINING (only the list assembly): the fuel/decidability layer is DONE
+   (`EvalTFuelTime`, `BoundedTime`). Left: `maxGap k = ⊔_{j≤k} g (rung j)` with
+   `j ≤ k ⇒ g (rung j) ≤ maxGap k`; collect `hs` = the `TimeLE? · x · B`-halting
+   times of `ps` (B = maxGap (length ps)) with a membership lemma; then `gap hs`
+   finishes (a program with time > B is excluded since `g (rung (toℕ j)) ≤ B`).
+   Original subtlety, now resolved in `EvalTFuelTime` —
    in `evalT`, fuel = recursion DEPTH but the reported count `t` = total nodes
    (tree SIZE), and depth ≤ size, so the true time `t` satisfies
    `evalT n e d = just (v,t) ⇒ evalT t e d = just (v,t)` (fuel = reported time
